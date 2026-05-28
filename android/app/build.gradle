@@ -4,6 +4,7 @@ plugins {
 }
 
 android {
+    namespace 'com.jugglingtracker.imu'
     compileSdk 34
 
     defaultConfig {
@@ -25,9 +26,8 @@ android {
 }
 
 dependencies {
+    implementation "com.garmin.connectiq:ciq-companion-app-sdk:2.4.0@aar"
     implementation "androidx.core:core-ktx:1.12.0"
     implementation "androidx.appcompat:appcompat:1.7.0"
     implementation "com.google.android.material:material:1.10.0"
-    // Add Garmin Connect IQ Android SDK dependency here.
-    // implementation "com.garmin.connectiq:connectiq:2.1.0"
 }

@@ -84,18 +84,20 @@ class MainApp extends Application.AppBase {
 
     private function onSensorData(sensorData as Sensor.SensorData) as Void {
         var accelData = sensorData.accelerometerData;
-        if (accelData != null) {
+        if (accelData != null && accelData.x != null) {
             var x = accelData.x;
             var y = accelData.y;
             var z = accelData.z;
-            
-            _sensorSamples.add({
-                :type => "accel",
-                :x => x[0],
-                :y => y[0],
-                :z => z[0],
-                :timestamp => System.getClockTime()
-            });
+            var time = System.getClockTime();
+
+            for (var i = 0; i < x.size(); i++) {
+                _sensorSamples.add({
+                    "x" => x[i],
+                    "y" => y[i],
+                    "z" => z[i],
+                    "time" => time.sec
+                });
+            }
         }
     }
 
@@ -105,12 +107,12 @@ class MainApp extends Application.AppBase {
             return;
         }
 
-        var message = "IMU samples: " + _sensorSamples.size().toString();
+        var samplesToSend = _sensorSamples;
         _sensorSamples = [];
-        _view.setStatus("Sending IMU batch");
+        _view.setStatus("Sending " + samplesToSend.size().toString() + " samples");
 
         var listener = new CommListener(_view);
-        Communications.transmit(message, null, listener);
+        Communications.transmit(samplesToSend, null, listener);
     }
 
     private function onPhoneMessage(msg as Communications.PhoneAppMessage) as Void {

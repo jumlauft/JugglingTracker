@@ -1,0 +1,39 @@
+# Built objects
+bin/
+gen/
+out/
+build/
+
+# Gradle and IntelliJ files
+.gradle/
+.idea/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# Local configuration files
+local.properties
+.DS_Store
+
+# Android Studio files
+captures/
+.externalNativeBuild/
+.cxx/
+.navigation/
+
+# Log files
+*.log
+
+# Output files
+*.apk
+*.aar
+*.ap_
+*.dex
+
+# Proguard/R8
+app/proguard-project.txt
+app/project.properties
+proguard/
