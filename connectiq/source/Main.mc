@@ -1,113 +1,152 @@
-import Toybox.Lang as Lang
-import Toybox.System as System
-import Toybox.Timer as Timer
-import Toybox.WatchUi as WatchUi
-import Toybox.Communications as Communications
-import Toybox.Sensors as Sensors
+import Toybox.Application;
+import Toybox.Communications;
+import Toybox.Graphics;
+import Toybox.Lang;
+import Toybox.Sensor;
+import Toybox.System;
+import Toybox.Timer;
+import Toybox.WatchUi;
 
-const SEND_INTERVAL_MS = 250
-const SAMPLE_RATE_HZ = 20
+const SEND_INTERVAL_MS = 250;
 
-class MainApp extends WatchUi.Application {
-    hidden var sendTimer
-    hidden var accelSamples = []
-    hidden var gyroSamples = []
-    hidden var statusText = "Waiting for phone connection..."
+class MainView extends WatchUi.View {
+    private var _statusText as String;
 
-    function initialize() {
-        WatchUi.Application.initialize()
+    public function initialize() {
+        View.initialize();
+        _statusText = "Waiting for phone connection...";
     }
 
-    function onStart() {
-        WatchUi.Application.onStart()
-        Communications.addAppMessageListener(method(:onPhoneMessage))
-        if (Sensors.isAccelerometerAvailable()) {
-            Sensors.registerAccelerometerListener(method(:onAccelerometer), SAMPLE_RATE_HZ)
+    public function setStatus(status as String) as Void {
+        _statusText = status;
+        WatchUi.requestUpdate();
+    }
+
+    public function onUpdate(dc as Dc) as Void {
+        dc.clear();
+        dc.drawText(dc.getWidth() / 2, dc.getHeight() / 2, Graphics.FONT_MEDIUM, _statusText, Graphics.TEXT_JUSTIFY_CENTER);
+    }
+}
+
+class MainApp extends Application.AppBase {
+    private var _view as MainView;
+    private var _sendTimer as Timer.Timer?;
+    private var _sensorSamples as Array;
+
+    public function initialize() {
+        AppBase.initialize();
+        _sensorSamples = [];
+        _view = new $.MainView();
+        _sendTimer = new Timer.Timer();
+    }
+
+    public function onStart(state as Dictionary?) as Void {
+        AppBase.onStart(state);
+        
+        if (Communications has :registerForPhoneAppMessages) {
+            Communications.registerForPhoneAppMessages(method(:onPhoneMessage));
         }
-        if (Sensors.isGyroscopeAvailable()) {
-            Sensors.registerGyroscopeListener(method(:onGyroscope), SAMPLE_RATE_HZ)
+        
+        var sensorOptions = {
+            :period => 1,
+            :accelerometer => {:enabled => true, :sampleRate => 20}
+        };
+        
+        try {
+            Sensor.registerSensorDataListener(method(:onSensorData), sensorOptions);
+        } catch (e) {
+            System.println("Sensor registration error: " + e.getErrorMessage());
+            _view.setStatus("Sensor error");
+            return;
         }
-        sendTimer = Timer.Timer.create(method(:onSendTimer), SEND_INTERVAL_MS)
-        sendTimer.start()
+        
+        _sendTimer.start(method(:onSendTimer), SEND_INTERVAL_MS, true);
+        _view.setStatus("Streaming, waiting for samples...");
     }
 
-    function onStop() {
-        if (sendTimer != null) {
-            sendTimer.stop()
+    public function onStop(state as Dictionary?) as Void {
+        if (_sendTimer != null) {
+            _sendTimer.stop();
         }
-        Sensors.unregisterAccelerometerListener(method(:onAccelerometer))
-        Sensors.unregisterGyroscopeListener(method(:onGyroscope))
-        Communications.removeAppMessageListener(method(:onPhoneMessage))
-        WatchUi.Application.onStop()
-    }
-
-    function onAccelerometer(sample) {
-        accelSamples += [{
-            "t": sample.timestamp,
-            "x": sample.x,
-            "y": sample.y,
-            "z": sample.z
-        }]
-    }
-
-    function onGyroscope(sample) {
-        gyroSamples += [{
-            "t": sample.timestamp,
-            "x": sample.x,
-            "y": sample.y,
-            "z": sample.z
-        }]
-    }
-
-    function onSendTimer() {
-        if (!Communications.isPhoneConnected()) {
-            statusText = "Phone disconnected"
-            return
+        
+        try {
+            Sensor.unregisterSensorDataListener();
+        } catch (e) {
+            System.println("Sensor unregister error");
         }
-
-        if (accelSamples.size() == 0 && gyroSamples.size() == 0) {
-            statusText = "Streaming, waiting for samples..."
-            return
+        
+        if (Communications has :registerForPhoneAppMessages) {
+            Communications.registerForPhoneAppMessages(null);
         }
+        
+        AppBase.onStop(state);
+    }
 
-        var payload = {
-            "type": "imu",
-            "accel": accelSamples,
-            "gyro": gyroSamples,
-            "timestamp": System.getClockTime()
+    private function onSensorData(sensorData as Sensor.SensorData) as Void {
+        var accelData = sensorData.accelerometerData;
+        if (accelData != null) {
+            var x = accelData.x;
+            var y = accelData.y;
+            var z = accelData.z;
+            
+            _sensorSamples.add({
+                :type => "accel",
+                :x => x[0],
+                :y => y[0],
+                :z => z[0],
+                :timestamp => System.getClockTime()
+            });
+        }
+    }
+
+    private function onSendTimer() as Void {
+        if (_sensorSamples.size() == 0) {
+            _view.setStatus("Waiting for samples...");
+            return;
         }
 
-        accelSamples = []
-        gyroSamples = []
-        statusText = "Sending IMU batch"
+        var message = "IMU samples: " + _sensorSamples.size().toString();
+        _sensorSamples = [];
+        _view.setStatus("Sending IMU batch");
 
-        Communications.sendAppMessage(payload, method(:onAppMessageSent), method(:onAppMessageFailed))
+        var listener = new CommListener(_view);
+        Communications.transmit(message, null, listener);
     }
 
-    function onAppMessageSent() {
-        statusText = "IMU batch sent"
-    }
-
-    function onAppMessageFailed(error) {
-        statusText = "Send failed: " + error
-    }
-
-    function onPhoneMessage(message) {
-        if (message.containsKey("command")) {
-            var command = message.get("command")
-            if (command == "stop") {
-                statusText = "Stop command received"
-                if (sendTimer != null) sendTimer.stop()
-            } else if (command == "start") {
-                statusText = "Start command received"
-                if (sendTimer != null) sendTimer.start()
+    private function onPhoneMessage(msg as Communications.PhoneAppMessage) as Void {
+        var data = msg.data;
+        if (data != null && data instanceof Dictionary) {
+            if (data has :command) {
+                var command = data[:command];
+                if (command == "stop" && _sendTimer != null) {
+                    _view.setStatus("Stop command received");
+                    _sendTimer.stop();
+                } else if (command == "start" && _sendTimer != null) {
+                    _view.setStatus("Start command received");
+                    _sendTimer.start(method(:onSendTimer), SEND_INTERVAL_MS, true);
+                }
             }
         }
     }
 
-    function onUpdate(dc) {
-        var bounds = dc.getBounds()
-        dc.clear()
-        dc.drawText(bounds.getCenter(), statusText, Graphics.TEXT_JUSTIFY_CENTER)
+    public function getInitialView() as [Views] or [Views, InputDelegates] {
+        return [new $.MainView()];
+    }
+}
+
+class CommListener extends Communications.ConnectionListener {
+    private var _view as MainView;
+
+    public function initialize(view as MainView) {
+        Communications.ConnectionListener.initialize();
+        _view = view;
+    }
+
+    public function onComplete() as Void {
+        _view.setStatus("IMU batch sent");
+    }
+
+    public function onError() as Void {
+        _view.setStatus("Send failed");
     }
 }

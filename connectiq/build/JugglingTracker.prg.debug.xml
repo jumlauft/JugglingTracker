@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<debugInfo>
+<manifest filename="/Users/jumlauft/JugglingTracker/connectiq/manifest.xml"/>
+<pcToLineNum>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="1" lineNum="12" parent="globals/MainView" pc="268435460" symbol="&lt;init&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/build/gen/006-B3076-00/source/Rez.mcgen" id="2" lineNum="7" parent="globals/Rez" pc="268435479" symbol="&lt;init&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="3" lineNum="137" parent="globals/CommListener" pc="268435503" symbol="&lt;init&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="4" lineNum="31" parent="globals/MainApp" pc="268435522" symbol="&lt;init&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="5" lineNum="15" parent="globals/MainView" pc="268435541" symbol="initialize"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="5" lineNum="16" parent="globals/MainView" pc="268435543" symbol="initialize"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="5" lineNum="17" parent="globals/MainView" pc="268435561" symbol="initialize"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="6" lineNum="25" parent="globals/MainView" pc="268435575" symbol="onUpdate"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="6" lineNum="26" parent="globals/MainView" pc="268435577" symbol="onUpdate"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="6" lineNum="27" parent="globals/MainView" pc="268435589" symbol="onUpdate"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="7" lineNum="20" parent="globals/MainView" pc="268435654" symbol="setStatus"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="7" lineNum="21" parent="globals/MainView" pc="268435656" symbol="setStatus"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="7" lineNum="22" parent="globals/MainView" pc="268435666" symbol="setStatus"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="8" lineNum="149" parent="globals/CommListener" pc="268435683" symbol="onError"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="8" lineNum="150" parent="globals/CommListener" pc="268435685" symbol="onError"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="9" lineNum="145" parent="globals/CommListener" pc="268435709" symbol="onComplete"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="9" lineNum="146" parent="globals/CommListener" pc="268435711" symbol="onComplete"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="10" lineNum="140" parent="globals/CommListener" pc="268435735" symbol="initialize"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="10" lineNum="141" parent="globals/CommListener" pc="268435737" symbol="initialize"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="10" lineNum="142" parent="globals/CommListener" pc="268435759" symbol="initialize"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="11" lineNum="43" parent="globals/MainApp" pc="268435770" symbol="onStart"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="11" lineNum="44" parent="globals/MainApp" pc="268435774" symbol="onStart"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="11" lineNum="46" parent="globals/MainApp" pc="268435794" symbol="onStart"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="11" lineNum="47" parent="globals/MainApp" pc="268435809" symbol="onStart"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="11" lineNum="50" parent="globals/MainApp" pc="268435844" symbol="onStart"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="11" lineNum="56" parent="globals/MainApp" pc="268435902" symbol="onStart"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="11" lineNum="57" parent="globals/MainApp" pc="268435942" symbol="onStart"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="11" lineNum="58" parent="globals/MainApp" pc="268435946" symbol="onStart"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="11" lineNum="59" parent="globals/MainApp" pc="268435979" symbol="onStart"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="11" lineNum="60" parent="globals/MainApp" pc="268436002" symbol="onStart"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="11" lineNum="63" parent="globals/MainApp" pc="268436019" symbol="onStart"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="11" lineNum="64" parent="globals/MainApp" pc="268436060" symbol="onStart"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="12" lineNum="116" parent="globals/MainApp" pc="268436084" symbol="&lt;globals/MainApp/&lt;&gt;onPhoneMessage&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="12" lineNum="117" parent="globals/MainApp" pc="268436088" symbol="&lt;globals/MainApp/&lt;&gt;onPhoneMessage&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="12" lineNum="118" parent="globals/MainApp" pc="268436098" symbol="&lt;globals/MainApp/&lt;&gt;onPhoneMessage&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="12" lineNum="119" parent="globals/MainApp" pc="268436123" symbol="&lt;globals/MainApp/&lt;&gt;onPhoneMessage&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="12" lineNum="120" parent="globals/MainApp" pc="268436134" symbol="&lt;globals/MainApp/&lt;&gt;onPhoneMessage&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="12" lineNum="121" parent="globals/MainApp" pc="268436144" symbol="&lt;globals/MainApp/&lt;&gt;onPhoneMessage&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="12" lineNum="122" parent="globals/MainApp" pc="268436168" symbol="&lt;globals/MainApp/&lt;&gt;onPhoneMessage&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="12" lineNum="123" parent="globals/MainApp" pc="268436191" symbol="&lt;globals/MainApp/&lt;&gt;onPhoneMessage&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="12" lineNum="124" parent="globals/MainApp" pc="268436212" symbol="&lt;globals/MainApp/&lt;&gt;onPhoneMessage&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="12" lineNum="125" parent="globals/MainApp" pc="268436236" symbol="&lt;globals/MainApp/&lt;&gt;onPhoneMessage&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="12" lineNum="126" parent="globals/MainApp" pc="268436259" symbol="&lt;globals/MainApp/&lt;&gt;onPhoneMessage&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="13" lineNum="132" parent="globals/MainApp" pc="268436310" symbol="getInitialView"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="13" lineNum="133" parent="globals/MainApp" pc="268436312" symbol="getInitialView"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="14" lineNum="85" parent="globals/MainApp" pc="268436353" symbol="&lt;globals/MainApp/&lt;&gt;onSensorData&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="14" lineNum="86" parent="globals/MainApp" pc="268436357" symbol="&lt;globals/MainApp/&lt;&gt;onSensorData&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="14" lineNum="87" parent="globals/MainApp" pc="268436367" symbol="&lt;globals/MainApp/&lt;&gt;onSensorData&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="14" lineNum="88" parent="globals/MainApp" pc="268436374" symbol="&lt;globals/MainApp/&lt;&gt;onSensorData&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="14" lineNum="89" parent="globals/MainApp" pc="268436384" symbol="&lt;globals/MainApp/&lt;&gt;onSensorData&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="14" lineNum="90" parent="globals/MainApp" pc="268436394" symbol="&lt;globals/MainApp/&lt;&gt;onSensorData&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="14" lineNum="92" parent="globals/MainApp" pc="268436404" symbol="&lt;globals/MainApp/&lt;&gt;onSensorData&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="15" lineNum="36" parent="globals/MainApp" pc="268436516" symbol="initialize"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="15" lineNum="37" parent="globals/MainApp" pc="268436518" symbol="initialize"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="15" lineNum="38" parent="globals/MainApp" pc="268436536" symbol="initialize"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="15" lineNum="39" parent="globals/MainApp" pc="268436550" symbol="initialize"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="15" lineNum="40" parent="globals/MainApp" pc="268436584" symbol="initialize"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="16" lineNum="67" parent="globals/MainApp" pc="268436619" symbol="onStop"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="16" lineNum="68" parent="globals/MainApp" pc="268436623" symbol="onStop"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="16" lineNum="69" parent="globals/MainApp" pc="268436636" symbol="onStop"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="16" lineNum="73" parent="globals/MainApp" pc="268436657" symbol="onStop"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="16" lineNum="74" parent="globals/MainApp" pc="268436679" symbol="onStop"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="16" lineNum="75" parent="globals/MainApp" pc="268436683" symbol="onStop"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="16" lineNum="78" parent="globals/MainApp" pc="268436716" symbol="onStop"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="16" lineNum="79" parent="globals/MainApp" pc="268436731" symbol="onStop"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="16" lineNum="82" parent="globals/MainApp" pc="268436751" symbol="onStop"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="17" lineNum="102" parent="globals/MainApp" pc="268436772" symbol="&lt;globals/MainApp/&lt;&gt;onSendTimer&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="17" lineNum="103" parent="globals/MainApp" pc="268436776" symbol="&lt;globals/MainApp/&lt;&gt;onSendTimer&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="17" lineNum="104" parent="globals/MainApp" pc="268436802" symbol="&lt;globals/MainApp/&lt;&gt;onSendTimer&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="17" lineNum="105" parent="globals/MainApp" pc="268436825" symbol="&lt;globals/MainApp/&lt;&gt;onSendTimer&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="17" lineNum="108" parent="globals/MainApp" pc="268436829" symbol="&lt;globals/MainApp/&lt;&gt;onSendTimer&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="17" lineNum="109" parent="globals/MainApp" pc="268436863" symbol="&lt;globals/MainApp/&lt;&gt;onSendTimer&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="17" lineNum="110" parent="globals/MainApp" pc="268436877" symbol="&lt;globals/MainApp/&lt;&gt;onSendTimer&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="17" lineNum="112" parent="globals/MainApp" pc="268436900" symbol="&lt;globals/MainApp/&lt;&gt;onSendTimer&gt;"/>
+<entry filename="/Users/jumlauft/JugglingTracker/connectiq/source/Main.mc" id="17" lineNum="113" parent="globals/MainApp" pc="268436932" symbol="&lt;globals/MainApp/&lt;&gt;onSendTimer&gt;"/>
+</pcToLineNum>
+<symbolTable>
+<entry id="8388639" module="true" symbol="Graphics"/>
+<entry id="8389939" method="true" symbol="registerForPhoneAppMessages"/>
+<entry id="15" method="true" symbol="&lt;globals/MainApp/&lt;&gt;onSendTimer&gt;"/>
+<entry id="8388632" method="true" symbol="&lt;init&gt;"/>
+<entry field="true" id="13" symbol="&lt;globals/MainApp/&lt;&gt;_view&gt;"/>
+<entry field="true" id="8" symbol="&lt;globals/MainView/&lt;&gt;_statusText&gt;"/>
+<entry id="9" method="true" symbol="setStatus"/>
+<entry field="true" id="18" symbol="app_name"/>
+<entry field="true" id="8389250" symbol="timestamp"/>
+<entry id="22" symbol="command"/>
+<entry field="true" id="8388611" module="true" symbol="Toybox"/>
+<entry id="20" symbol="onSensorData"/>
+<entry id="16" method="true" symbol="&lt;globals/MainApp/&lt;&gt;onSensorData&gt;"/>
+<entry id="4" module="true" symbol="globals/Rez/Strings"/>
+<entry field="true" id="11" symbol="&lt;globals/MainApp/&lt;&gt;_sendTimer&gt;"/>
+<entry id="8388648" module="true" symbol="WatchUi"/>
+<entry id="2" module="true" symbol="globals/Rez"/>
+<entry id="7" object="true" symbol="MainView"/>
+<entry id="8389124" method="true" symbol="onUpdate"/>
+<entry id="14" method="true" symbol="&lt;globals/MainApp/&lt;&gt;onPhoneMessage&gt;"/>
+<entry id="8388771" module="true" object="true" symbol="Drawables"/>
+<entry id="21" symbol="onSendTimer"/>
+<entry field="true" id="8390134" symbol="sampleRate"/>
+<entry id="8390648" symbol="accelerometer"/>
+<entry id="8388637" module="true" symbol="Communications"/>
+<entry field="true" id="10" symbol="&lt;globals/CommListener/&lt;&gt;_view&gt;"/>
+<entry id="6" object="true" symbol="MainApp"/>
+<entry id="3" module="true" symbol="globals/Rez/Drawables"/>
+<entry id="8388828" method="true" symbol="onError"/>
+<entry field="true" id="8390438" symbol="enabled"/>
+<entry id="8388644" module="true" symbol="System"/>
+<entry id="8388769" module="true" object="true" symbol="Rez"/>
+<entry id="8388640" module="true" symbol="Lang"/>
+<entry id="19" symbol="onPhoneMessage"/>
+<entry field="true" id="17" symbol="LauncherIcon"/>
+<entry id="5" object="true" symbol="CommListener"/>
+<entry id="8388610" symbol="statics"/>
+<entry id="8388643" module="true" symbol="Sensor"/>
+<entry id="8389350" module="true" symbol="globals"/>
+<entry id="8388770" module="true" object="true" symbol="Strings"/>
+<entry id="8388702" method="true" symbol="initialize"/>
+<entry id="8389279" method="true" symbol="onStart"/>
+<entry id="8389808" symbol="period"/>
+<entry field="true" id="12" symbol="&lt;globals/MainApp/&lt;&gt;_sensorSamples&gt;"/>
+<entry id="8389280" method="true" symbol="getInitialView"/>
+<entry id="8389281" method="true" symbol="onStop"/>
+<entry id="8388829" method="true" symbol="onComplete"/>
+<entry id="8388646" module="true" object="true" symbol="Timer"/>
+<entry field="true" id="8389846" symbol="type"/>
+<entry id="8388635" module="true" symbol="Application"/>
+<entry field="true" id="8390080" symbol="z"/>
+<entry field="true" id="8390079" symbol="y"/>
+<entry field="true" id="8390078" symbol="x"/>
+</symbolTable>
+<localVars>
+<entry arg="true" endPc="268435653" name="dc" stackId="1" startPc="268435575"/>
+<entry arg="true" endPc="268435682" name="status" stackId="1" startPc="268435654"/>
+<entry arg="true" endPc="268435769" name="view" stackId="1" startPc="268435735"/>
+<entry arg="true" endPc="268436083" name="state" stackId="1" startPc="268435770"/>
+<entry endPc="268436082" name="sensorOptions" stackId="2" startPc="268435774"/>
+<entry endPc="268436013" name="e" stackId="3" startPc="268435942"/>
+<entry arg="true" endPc="268436309" name="msg" stackId="1" startPc="268436084"/>
+<entry endPc="268436308" name="data" stackId="2" startPc="268436088"/>
+<entry endPc="268436302" name="command" stackId="3" startPc="268436134"/>
+<entry arg="true" endPc="268436515" name="sensorData" stackId="1" startPc="268436353"/>
+<entry endPc="268436514" name="accelData" stackId="2" startPc="268436357"/>
+<entry endPc="268436511" name="x" stackId="3" startPc="268436374"/>
+<entry endPc="268436511" name="y" stackId="4" startPc="268436374"/>
+<entry endPc="268436511" name="z" stackId="5" startPc="268436374"/>
+<entry arg="true" endPc="268436771" name="state" stackId="1" startPc="268436619"/>
+<entry endPc="268436710" name="e" stackId="2" startPc="268436679"/>
+<entry endPc="268436952" name="message" stackId="1" startPc="268436776"/>
+<entry endPc="268436952" name="listener" stackId="2" startPc="268436776"/>
+</localVars>
+<deviceInfo deviceVersion="45fe3cbb0de8ea0a70e12628d2697915f1272301" partNumber="006-B3076-00"/>
+<annotations>
+<annotationEntry annotation="initialized" class="Drawables" module="globals/Rez" symbol="LauncherIcon"/>
+<annotationEntry annotation="initialized" class="Strings" module="globals/Rez" symbol="app_name"/>
+</annotations>
+<dataEntryOffsetMappings>
+<dataEntry label="globals" offset="55" parentId="" symbolId="globals" type="module"/>
+<dataEntry label="globals/MainView" offset="126" parentId="globals" symbolId="MainView" type="class"/>
+<dataEntry label="globals/Rez" offset="197" parentId="globals" symbolId="Rez" type="module"/>
+<dataEntry label="globals/CommListener" offset="244" parentId="globals" symbolId="CommListener" type="class"/>
+<dataEntry label="globals/MainApp" offset="315" parentId="globals" symbolId="MainApp" type="class"/>
+<dataEntry label="globals/Rez/Drawables" offset="434" parentId="Rez" symbolId="Drawables" type="module"/>
+<dataEntry label="globals/Rez/Strings" offset="473" parentId="Rez" symbolId="Strings" type="module"/>
+</dataEntryOffsetMappings>
+<functions>
+<functionEntry accessMode="public" endPc="268435478" name="&lt;init&gt;" parent="MainView" startPc="268435460">
+<documentation/>
+</functionEntry>
+<functionEntry accessMode="public" endPc="268435502" name="&lt;init&gt;" parent="Rez" startPc="268435479">
+<documentation/>
+</functionEntry>
+<functionEntry accessMode="public" endPc="268435521" name="&lt;init&gt;" parent="CommListener" startPc="268435503">
+<documentation/>
+</functionEntry>
+<functionEntry accessMode="public" endPc="268435540" name="&lt;init&gt;" parent="MainApp" startPc="268435522">
+<documentation/>
+</functionEntry>
+<functionEntry accessMode="public" endPc="268435574" name="initialize" parent="MainView" startPc="268435541">
+<documentation/>
+</functionEntry>
+<functionEntry accessMode="public" endPc="268435653" name="onUpdate" parent="MainView" startPc="268435575">
+<param id="dc"/>
+<documentation/>
+</functionEntry>
+<functionEntry accessMode="public" endPc="268435682" name="setStatus" parent="MainView" startPc="268435654">
+<param id="status"/>
+<documentation/>
+</functionEntry>
+<functionEntry accessMode="public" name="&lt;init&gt;" parent="Drawables">
+<documentation/>
+</functionEntry>
+<functionEntry accessMode="public" name="&lt;init&gt;" parent="Strings">
+<documentation/>
+</functionEntry>
+<functionEntry accessMode="public" endPc="268435708" name="onError" parent="CommListener" startPc="268435683">
+<documentation/>
+</functionEntry>
+<functionEntry accessMode="public" endPc="268435734" name="onComplete" parent="CommListener" startPc="268435709">
+<documentation/>
+</functionEntry>
+<functionEntry accessMode="public" endPc="268435769" name="initialize" parent="CommListener" startPc="268435735">
+<param id="view"/>
+<documentation/>
+</functionEntry>
+<functionEntry accessMode="public" endPc="268436083" name="onStart" parent="MainApp" startPc="268435770">
+<param id="state"/>
+<documentation/>
+</functionEntry>
+<functionEntry accessMode="private" endPc="268436309" name="&lt;globals/MainApp/&lt;&gt;onPhoneMessage&gt;" parent="MainApp" startPc="268436084">
+<param id="msg"/>
+<documentation/>
+</functionEntry>
+<functionEntry accessMode="public" endPc="268436352" name="getInitialView" parent="MainApp" startPc="268436310">
+<documentation/>
+</functionEntry>
+<functionEntry accessMode="private" endPc="268436515" name="&lt;globals/MainApp/&lt;&gt;onSensorData&gt;" parent="MainApp" startPc="268436353">
+<param id="sensorData"/>
+<documentation/>
+</functionEntry>
+<functionEntry accessMode="public" endPc="268436618" name="initialize" parent="MainApp" startPc="268436516">
+<documentation/>
+</functionEntry>
+<functionEntry accessMode="public" endPc="268436771" name="onStop" parent="MainApp" startPc="268436619">
+<param id="state"/>
+<documentation/>
+</functionEntry>
+<functionEntry accessMode="private" endPc="268436953" name="&lt;globals/MainApp/&lt;&gt;onSendTimer&gt;" parent="MainApp" startPc="268436772">
+<documentation/>
+</functionEntry>
+</functions>
+</debugInfo>
