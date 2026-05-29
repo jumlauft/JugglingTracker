@@ -5,7 +5,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -33,28 +32,16 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var statusView: TextView
     private lateinit var throwCountView: TextView
-    private lateinit var barX: ProgressBar
-    private lateinit var barY: ProgressBar
-    private lateinit var barZ: ProgressBar
-    private lateinit var valX: TextView
-    private lateinit var valY: TextView
-    private lateinit var valZ: TextView
-
-    private val detector = JugglingDetector { count ->
-        runOnUiThread { throwCountView.text = count.toString() }
-    }
+    private lateinit var sessionAverageView: TextView
+    private lateinit var sessionMaxView: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         statusView = findViewById(R.id.statusText)
         throwCountView = findViewById(R.id.throwCount)
-        barX = findViewById(R.id.barX)
-        barY = findViewById(R.id.barY)
-        barZ = findViewById(R.id.barZ)
-        valX = findViewById(R.id.valX)
-        valY = findViewById(R.id.valY)
-        valZ = findViewById(R.id.valZ)
+        sessionAverageView = findViewById(R.id.sessionAverage)
+        sessionMaxView = findViewById(R.id.sessionMax)
 
         statusView.text = "Waiting for Garmin Forerunner 245 connection..."
 
@@ -163,50 +150,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onImuMessageReceived(message: List<Any>) {
-        // The watch sends a structured payload: a map with numeric arrays for
-        // each axis, e.g. {"rate": 25, "x": [..], "y": [..], "z": [..]}.
+        // After each run the watch sends a summary payload with the number of
+        // throws in the just-finished run plus the running session statistics,
+        // e.g. {"throws": 42, "average": 31.5, "max": 60}.
         val payload = message.firstOrNull() as? Map<*, *> ?: return
 
-        val xs = payload["x"] as? List<*> ?: return
-        val ys = payload["y"] as? List<*> ?: return
-        val zs = payload["z"] as? List<*> ?: return
-        if (xs.isEmpty()) return
+        val throws = (payload["throws"] as? Number)?.toInt() ?: return
+        val average = (payload["average"] as? Number)?.toFloat() ?: 0f
+        val max = (payload["max"] as? Number)?.toInt() ?: 0
 
         try {
-            // Feed every sample in the batch through the juggling detector so no
-            // throw is missed between batches.
-            val count = minOf(xs.size, ys.size, zs.size)
-            val now = System.currentTimeMillis()
-            for (i in 0 until count) {
-                val gx = (xs[i] as Number).toFloat()
-                val gy = (ys[i] as Number).toFloat()
-                val gz = (zs[i] as Number).toFloat()
-                detector.processSample(gx, gy, gz, now)
-            }
-
-            // Auto-finish the run after a pause, then reset the counter.
-            if (detector.shouldAutoFinish(now)) {
-                detector.reset()
-            }
-
-            // Display the most recent sample from the batch.
-            val x = (xs.last() as Number).toFloat()
-            val y = (ys.last() as Number).toFloat()
-            val z = (zs.last() as Number).toFloat()
-
             runOnUiThread {
-                statusView.text = "Received ${xs.size} samples — x=$x y=$y z=$z"
-
-                barX.progress = (x + 1000f).toInt().coerceIn(0, 2000)
-                barY.progress = (y + 1000f).toInt().coerceIn(0, 2000)
-                barZ.progress = (z + 1000f).toInt().coerceIn(0, 2000)
-
-                valX.text = x.toString()
-                valY.text = y.toString()
-                valZ.text = z.toString()
+                statusView.text = "Run finished: $throws throws"
+                throwCountView.text = throws.toString()
+                sessionAverageView.text = String.format("%.1f", average)
+                sessionMaxView.text = max.toString()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error parsing IMU data", e)
+            Log.e(TAG, "Error parsing run summary", e)
         }
     }
 }

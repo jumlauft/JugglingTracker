@@ -83,8 +83,9 @@ class JugglingDetector {
         }
     }
 
-    // Finishes the current run if it has been idle long enough.
-    public function checkAutoFinish(nowMs as Number) as Void {
+    // Finishes the current run if it has been idle long enough. Returns the
+    // number of throws in the just-finished run, or -1 if no run finished.
+    public function checkAutoFinish(nowMs as Number) as Number {
         if (currentCount > 0 && _lastThrowTime > 0 && (nowMs - _lastThrowTime > AUTO_FINISH_DELAY_MS)) {
             previousCount = currentCount;
 
@@ -95,9 +96,12 @@ class JugglingDetector {
                 sessionMax = currentCount;
             }
 
+            var finished = currentCount;
             currentCount = 0;
             _lastThrowTime = 0;
+            return finished;
         }
+        return -1;
     }
 }
 
@@ -105,14 +109,12 @@ class MainView extends WatchUi.View {
     private const SAMPLE_RATE = 25; // Hz, supported by the FR245 accelerometer
     private const PERIOD_SECONDS = 1; // seconds of buffering per callback
 
-    private var _status as String;
     private var _listener as CommListener;
     private var _sending as Boolean;
     private var _detector as JugglingDetector;
 
     public function initialize() {
         WatchUi.View.initialize();
-        _status = "No data";
         _listener = new CommListener(self);
         _sending = false;
         _detector = new JugglingDetector();
@@ -127,7 +129,6 @@ class MainView extends WatchUi.View {
             };
             Sensor.registerSensorDataListener(self.method(:onSensor), options);
         } catch (ex) {
-            _status = "Sensor Error";
         }
     }
 
@@ -184,23 +185,27 @@ class MainView extends WatchUi.View {
         for (var i = 0; i < n; i++) {
             _detector.processSample(xs[i], ys[i], zs[i], now);
         }
-        _detector.checkAutoFinish(now);
+        var finishedRun = _detector.checkAutoFinish(now);
         WatchUi.requestUpdate();
 
-        // Only one message may be in flight at a time. Skip this batch if the
-        // previous transmit has not completed yet to avoid overflowing the
-        // Connect IQ messaging channel.
+        // When a run just finished, send its throw count plus the session
+        // statistics to the phone. Raw accelerometer samples are no longer
+        // transmitted.
+        if (finishedRun < 0) {
+            return;
+        }
+
+        // Only one message may be in flight at a time. Skip if the previous
+        // transmit has not completed yet to avoid overflowing the Connect IQ
+        // messaging channel.
         if (_sending) {
             return;
         }
 
-        // Still forward the raw samples to the phone so the companion app can
-        // visualize the stream if connected.
         var payload = {
-            "rate" => SAMPLE_RATE,
-            "x" => xs,
-            "y" => ys,
-            "z" => zs
+            "throws" => finishedRun,
+            "average" => _detector.sessionAverage(),
+            "max" => _detector.sessionMax
         };
 
         try {
