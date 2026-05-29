@@ -1,0 +1,78 @@
+# ──────────────────────────────────────────────
+# macOS
+# ──────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# ──────────────────────────────────────────────
+# IDE / editors
+# ──────────────────────────────────────────────
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.project
+.classpath
+.settings/
+
+# ──────────────────────────────────────────────
+# Connect IQ (Garmin watch app)
+# ──────────────────────────────────────────────
+# Build outputs
+connectiq/bin/
+connectiq/build/
+*.prg
+*.prg.debug.xml
+*.iq
+
+# Signing key — NEVER commit this (private developer key)
+*.der
+*.pem
+connectiq/developer_key.der
+connectiq/developer_key.pem
+
+# Local SDK path config
+connectiq/local.properties
+
+# ──────────────────────────────────────────────
+# Android (Gradle)
+# ──────────────────────────────────────────────
+# Build outputs
+android/build/
+android/app/build/
+android/**/build/
+android/captures/
+
+# Gradle
+android/.gradle/
+.gradle/
+
+# Local SDK config (machine-specific)
+android/local.properties
+
+# Generated / intermediate
+android/**/gen/
+android/**/out/
+
+# Native build
+android/.cxx/
+android/.externalNativeBuild/
+
+# APK / package outputs
+*.apk
+*.aab
+*.aar
+*.ap_
+*.dex
+
+# Keystores — never commit signing secrets
+*.jks
+*.keystore
+
+# ──────────────────────────────────────────────
+# Logs & misc
+# ──────────────────────────────────────────────
+*.log
