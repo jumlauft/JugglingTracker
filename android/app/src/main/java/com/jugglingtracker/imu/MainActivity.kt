@@ -32,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     private var iqApp: IQApp? = null
 
     private lateinit var statusView: TextView
+    private lateinit var throwCountView: TextView
     private lateinit var barX: ProgressBar
     private lateinit var barY: ProgressBar
     private lateinit var barZ: ProgressBar
@@ -39,10 +40,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var valY: TextView
     private lateinit var valZ: TextView
 
+    private val detector = JugglingDetector { count ->
+        runOnUiThread { throwCountView.text = count.toString() }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         statusView = findViewById(R.id.statusText)
+        throwCountView = findViewById(R.id.throwCount)
         barX = findViewById(R.id.barX)
         barY = findViewById(R.id.barY)
         barZ = findViewById(R.id.barZ)
@@ -167,6 +173,22 @@ class MainActivity : AppCompatActivity() {
         if (xs.isEmpty()) return
 
         try {
+            // Feed every sample in the batch through the juggling detector so no
+            // throw is missed between batches.
+            val count = minOf(xs.size, ys.size, zs.size)
+            val now = System.currentTimeMillis()
+            for (i in 0 until count) {
+                val gx = (xs[i] as Number).toFloat()
+                val gy = (ys[i] as Number).toFloat()
+                val gz = (zs[i] as Number).toFloat()
+                detector.processSample(gx, gy, gz, now)
+            }
+
+            // Auto-finish the run after a pause, then reset the counter.
+            if (detector.shouldAutoFinish(now)) {
+                detector.reset()
+            }
+
             // Display the most recent sample from the batch.
             val x = (xs.last() as Number).toFloat()
             val y = (ys.last() as Number).toFloat()
