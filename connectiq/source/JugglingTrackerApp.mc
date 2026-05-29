@@ -73,6 +73,11 @@ class JugglingDetector {
         return _sessionTotal.toFloat() / _sessionRuns;
     }
 
+    // Number of completed runs in the current session.
+    public function sessionRuns() as Number {
+        return _sessionRuns;
+    }
+
     // Feed one raw accelerometer sample (milli-g) at time nowMs.
     public function processSample(gxMilliG as Number, gyMilliG as Number, gzMilliG as Number, nowMs as Number) as Void {
         var ax = gxMilliG * MILLI_G_TO_MS2;
@@ -294,6 +299,9 @@ class MainView extends WatchUi.View {
         var prevStr = _detector.previousCount == 0 ? "-" : _detector.previousCount.toString();
         dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Prev: $1$", [prevStr]), Graphics.TEXT_JUSTIFY_CENTER);
         y += statsH;
+        var runsStr = _detector.sessionRuns() == 0 ? "-" : _detector.sessionRuns().toString();
+        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Runs: $1$", [runsStr]), Graphics.TEXT_JUSTIFY_CENTER);
+        y += statsH;
         var avgStr = _detector.sessionAverage() == 0.0f ? "-" : _detector.sessionAverage().format("%.1f");
         dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Avg: $1$", [avgStr]), Graphics.TEXT_JUSTIFY_CENTER);
         y += statsH;
@@ -342,6 +350,7 @@ class MainView extends WatchUi.View {
         var payload = {
             "balls" => _detector.ballCount,
             "throws" => finishedRun,
+            "runs" => _detector.sessionRuns(),
             "average" => _detector.sessionAverage(),
             "max" => _detector.sessionMax
         };
