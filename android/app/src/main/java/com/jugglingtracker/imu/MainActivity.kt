@@ -15,10 +15,6 @@ import com.garmin.android.connectiq.IQDevice
 import com.garmin.android.connectiq.exception.InvalidStateException
 import com.garmin.android.connectiq.exception.ServiceUnavailableException
 
-// NOTE: The Garmin Connect IQ Android SDK must be added to your Gradle build.
-// The sample below uses the ConnectIQ types conceptually. Replace with the
-// specific SDK package names and dependency coordinates provided by Garmin.
-
 class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "MainActivity"
@@ -45,7 +41,7 @@ class MainActivity : AppCompatActivity() {
         sessionMaxView = findViewById(R.id.sessionMax)
         ballCountView = findViewById(R.id.ballCount)
 
-        statusView.text = "Waiting for Garmin Forerunner 245 connection..."
+        statusView.setText(R.string.status_waiting_garmin)
 
         ensurePermissionsThenInitialize()
     }
@@ -55,9 +51,10 @@ class MainActivity : AppCompatActivity() {
             // Android 12+ uses the new runtime Bluetooth permissions.
             arrayOf(
                 Manifest.permission.BLUETOOTH_CONNECT,
-                Manifest.permission.BLUETOOTH_SCAN
+                Manifest.permission.BLUETOOTH_SCAN,
             )
         } else {
+            @Suppress("DEPRECATION")
             arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
@@ -73,7 +70,7 @@ class MainActivity : AppCompatActivity() {
             ActivityCompat.requestPermissions(
                 this,
                 missing.toTypedArray(),
-                PERMISSION_REQUEST_CODE
+                PERMISSION_REQUEST_CODE,
             )
         }
     }
@@ -81,7 +78,7 @@ class MainActivity : AppCompatActivity() {
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
-        grantResults: IntArray
+        grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PERMISSION_REQUEST_CODE) {
@@ -90,7 +87,7 @@ class MainActivity : AppCompatActivity() {
             if (allGranted) {
                 initializeGarminConnectIQ()
             } else {
-                statusView.text = "Bluetooth permissions are required to connect to the watch."
+                statusView.setText(R.string.error_bluetooth_required)
             }
         }
     }
@@ -98,56 +95,62 @@ class MainActivity : AppCompatActivity() {
     private fun initializeGarminConnectIQ() {
         connectIQ = ConnectIQ.getInstance(this, ConnectIQ.IQConnectType.WIRELESS)
 
-        connectIQ.initialize(this, true, object : ConnectIQ.ConnectIQListener {
+        connectIQ.initialize(
+            this,
+            true,
+            object : ConnectIQ.ConnectIQListener {
             override fun onSdkReady() {
-                statusView.text = "SDK initialized. Looking for devices..."
+                statusView.setText(R.string.status_sdk_initialized)
                 findAndRegisterDevice()
             }
 
             override fun onInitializeError(status: ConnectIQ.IQSdkErrorStatus) {
-                statusView.text = "SDK initialization failed: $status"
+                statusView.text = getString(R.string.status_sdk_init_failed, status.name)
             }
 
             override fun onSdkShutDown() {
                 // Handle SDK shutdown
             }
-        })
+        },
+        )
     }
 
     private fun findAndRegisterDevice() {
         try {
             val devices = connectIQ.knownDevices
-            if (devices != null && devices.isNotEmpty()) {
+            if (!devices.isNullOrEmpty()) {
                 // For simplicity, we use the first known device
-                iqDevice = devices[0]
-                statusView.text = "Found device: ${iqDevice?.friendlyName}. Registering app..."
+                val device = devices[0]
+                iqDevice = device
+                statusView.text = getString(R.string.status_found_device, device.friendlyName)
                 registerImuAppListener()
             } else {
-                statusView.text = "No paired Garmin devices found."
+                statusView.setText(R.string.status_no_devices)
             }
         } catch (e: InvalidStateException) {
-            statusView.text = "SDK in invalid state."
+            Log.e(TAG, "SDK in invalid state", e)
+            statusView.setText(R.string.status_invalid_state)
         } catch (e: ServiceUnavailableException) {
-            statusView.text = "ConnectIQ service unavailable."
+            Log.e(TAG, "ConnectIQ service unavailable", e)
+            statusView.setText(R.string.status_service_unavailable)
         }
     }
 
     private fun registerImuAppListener() {
         val device = iqDevice ?: return
-        iqApp = IQApp(WATCH_APP_ID)
+        val app = IQApp(WATCH_APP_ID)
+        iqApp = app
 
         try {
-            connectIQ.registerForAppEvents(device, iqApp, object : ConnectIQ.IQApplicationEventListener {
-                override fun onMessageReceived(device: IQDevice, app: IQApp, message: List<Any>, status: ConnectIQ.IQMessageStatus) {
-                    if (status == ConnectIQ.IQMessageStatus.SUCCESS && message.isNotEmpty()) {
-                        onImuMessageReceived(message)
-                    }
+            connectIQ.registerForAppEvents(device, app) { _, _, message, status ->
+                if ((status == ConnectIQ.IQMessageStatus.SUCCESS) && message.isNotEmpty()) {
+                    onImuMessageReceived(message)
                 }
-            })
-            statusView.text = "Listening for data from ${device.friendlyName}..."
+            }
+            statusView.text = getString(R.string.status_listening, device.friendlyName)
         } catch (e: Exception) {
             Log.e(TAG, "Error registering app listener", e)
-            statusView.text = "Failed to register app listener."
+            statusView.setText(R.string.status_register_failed)
         }
     }
 
@@ -156,23 +159,19 @@ class MainActivity : AppCompatActivity() {
         // balls being juggled, the number of throws in the just-finished run,
         // plus the running session statistics,
         // e.g. {"balls": 5, "throws": 42, "average": 31.5, "max": 60}.
-        val payload = message.firstOrNull() as? Map<*, *> ?: return
+        val payload = (message.firstOrNull() as? Map<*, *>) ?: return
 
         val throws = (payload["throws"] as? Number)?.toInt() ?: return
         val average = (payload["average"] as? Number)?.toFloat() ?: 0f
         val max = (payload["max"] as? Number)?.toInt() ?: 0
         val balls = (payload["balls"] as? Number)?.toInt() ?: 0
 
-        try {
-            runOnUiThread {
-                statusView.text = "Run finished: $throws throws"
-                throwCountView.text = throws.toString()
-                sessionAverageView.text = String.format("%.1f", average)
-                sessionMaxView.text = max.toString()
-                ballCountView.text = balls.toString()
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error parsing run summary", e)
+        runOnUiThread {
+            statusView.text = getString(R.string.status_run_finished, throws)
+            throwCountView.text = throws.toString()
+            sessionAverageView.text = String.format(java.util.Locale.US, "%.1f", average)
+            sessionMaxView.text = max.toString()
+            ballCountView.text = balls.toString()
         }
     }
 }

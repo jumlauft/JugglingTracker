@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">JugglingTracker IMU</string>
+    <string name="status_initializing">Initializing&#8230;</string>
+    <string name="status_waiting_garmin">Waiting for Garmin Forerunner 245 connection&#8230;</string>
+    <string name="status_sdk_initialized">SDK initialized. Looking for devices&#8230;</string>
+    <string name="status_sdk_init_failed">SDK initialization failed: %1$s</string>
+    <string name="status_found_device">Found device: %1$s. Registering app&#8230;</string>
+    <string name="status_no_devices">No paired Garmin devices found.</string>
+    <string name="status_invalid_state">SDK in invalid state.</string>
+    <string name="status_service_unavailable">ConnectIQ service unavailable.</string>
+    <string name="status_listening">Listening for data from %1$s&#8230;</string>
+    <string name="status_register_failed">Failed to register app listener.</string>
+    <string name="status_run_finished">Run finished: %1$d throws</string>
+    <string name="error_bluetooth_required">Bluetooth permissions are required to connect to the watch.</string>
+    <string name="label_last_run_throws">Last run throws</string>
+    <string name="label_balls">Balls:</string>
+    <string name="label_session_average">Session average:</string>
+    <string name="label_session_maximum">Session maximum:</string>
+</resources>

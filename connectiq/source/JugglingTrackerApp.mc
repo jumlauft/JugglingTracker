@@ -289,13 +289,16 @@ class MainView extends WatchUi.View {
         y += numberH;
 
         // Previous run and session stats, each on its own line so they fit
-        // within the round display.
+        // within the round display. Show "-" if no run has completed yet.
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Prev: $1$", [_detector.previousCount]), Graphics.TEXT_JUSTIFY_CENTER);
+        var prevStr = _detector.previousCount == 0 ? "-" : _detector.previousCount.toString();
+        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Prev: $1$", [prevStr]), Graphics.TEXT_JUSTIFY_CENTER);
         y += statsH;
-        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Avg: $1$", [_detector.sessionAverage().format("%.1f")]), Graphics.TEXT_JUSTIFY_CENTER);
+        var avgStr = _detector.sessionAverage() == 0.0f ? "-" : _detector.sessionAverage().format("%.1f");
+        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Avg: $1$", [avgStr]), Graphics.TEXT_JUSTIFY_CENTER);
         y += statsH;
-        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Max: $1$", [_detector.sessionMax]), Graphics.TEXT_JUSTIFY_CENTER);
+        var maxStr = _detector.sessionMax == 0 ? "-" : _detector.sessionMax.toString();
+        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Max: $1$", [maxStr]), Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     public function onSensor(sensorData as Sensor.SensorData) as Void {
