@@ -34,6 +34,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var throwCountView: TextView
     private lateinit var sessionAverageView: TextView
     private lateinit var sessionMaxView: TextView
+    private lateinit var ballCountView: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,6 +43,7 @@ class MainActivity : AppCompatActivity() {
         throwCountView = findViewById(R.id.throwCount)
         sessionAverageView = findViewById(R.id.sessionAverage)
         sessionMaxView = findViewById(R.id.sessionMax)
+        ballCountView = findViewById(R.id.ballCount)
 
         statusView.text = "Waiting for Garmin Forerunner 245 connection..."
 
@@ -151,13 +153,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun onImuMessageReceived(message: List<Any>) {
         // After each run the watch sends a summary payload with the number of
-        // throws in the just-finished run plus the running session statistics,
-        // e.g. {"throws": 42, "average": 31.5, "max": 60}.
+        // balls being juggled, the number of throws in the just-finished run,
+        // plus the running session statistics,
+        // e.g. {"balls": 5, "throws": 42, "average": 31.5, "max": 60}.
         val payload = message.firstOrNull() as? Map<*, *> ?: return
 
         val throws = (payload["throws"] as? Number)?.toInt() ?: return
         val average = (payload["average"] as? Number)?.toFloat() ?: 0f
         val max = (payload["max"] as? Number)?.toInt() ?: 0
+        val balls = (payload["balls"] as? Number)?.toInt() ?: 0
 
         try {
             runOnUiThread {
@@ -165,6 +169,7 @@ class MainActivity : AppCompatActivity() {
                 throwCountView.text = throws.toString()
                 sessionAverageView.text = String.format("%.1f", average)
                 sessionMaxView.text = max.toString()
+                ballCountView.text = balls.toString()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing run summary", e)

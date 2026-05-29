@@ -20,12 +20,21 @@ class JugglingDetector {
     private const GRAVITY_ALPHA = 0.9f;
     private const REFRACTORY_PERIOD_MS = 500;
     private const AUTO_FINISH_DELAY_MS = 2000;
-    private const THRESHOLD = 14.0f; // m/s^2, tuned for 3-ball juggling
+
+    // Number of balls being juggled (3-9), selected at startup. Higher ball
+    // counts throw faster/higher, so the detection threshold scales with it.
+    public var ballCount as Number;
 
     private var _gravityX as Float;
     private var _gravityY as Float;
     private var _gravityZ as Float;
     private var _lastThrowTime as Number;
+
+    // Number of samples to wait before detecting throws, giving the gravity
+    // estimate time to settle. Prevents a spurious run at startup.
+    private const WARMUP_SAMPLES = 25;
+    private var _samplesSeen as Number;
+    private var _gravityInitialized as Boolean;
 
     public var currentCount as Number;
     public var previousCount as Number;
@@ -35,16 +44,25 @@ class JugglingDetector {
     private var _sessionTotal as Number;
     public var sessionMax as Number;
 
-    public function initialize() {
+    public function initialize(balls as Number) {
+        ballCount = balls;
         _gravityX = 0.0f;
         _gravityY = 0.0f;
         _gravityZ = 9.80665f;
         _lastThrowTime = 0;
+        _samplesSeen = 0;
+        _gravityInitialized = false;
         currentCount = 0;
         previousCount = 0;
         _sessionRuns = 0;
         _sessionTotal = 0;
         sessionMax = 0;
+    }
+
+    // Detection threshold (m/s^2) for the current ball count. Higher ball
+    // counts are thrown harder, so the threshold rises with the ball count.
+    private function threshold() as Float {
+        return 9.0f + ballCount;
     }
 
     // Average throws per completed run this session (0.0 if no runs yet).
@@ -61,10 +79,20 @@ class JugglingDetector {
         var ay = gyMilliG * MILLI_G_TO_MS2;
         var az = gzMilliG * MILLI_G_TO_MS2;
 
-        // Low-pass filter to estimate gravity.
-        _gravityX = GRAVITY_ALPHA * _gravityX + (1.0f - GRAVITY_ALPHA) * ax;
-        _gravityY = GRAVITY_ALPHA * _gravityY + (1.0f - GRAVITY_ALPHA) * ay;
-        _gravityZ = GRAVITY_ALPHA * _gravityZ + (1.0f - GRAVITY_ALPHA) * az;
+        // Seed the gravity estimate from the first real sample so it matches the
+        // watch's actual orientation instead of an assumed "down" direction.
+        // Otherwise the initial mismatch produces a fake throw at startup.
+        if (!_gravityInitialized) {
+            _gravityX = ax;
+            _gravityY = ay;
+            _gravityZ = az;
+            _gravityInitialized = true;
+        } else {
+            // Low-pass filter to estimate gravity.
+            _gravityX = GRAVITY_ALPHA * _gravityX + (1.0f - GRAVITY_ALPHA) * ax;
+            _gravityY = GRAVITY_ALPHA * _gravityY + (1.0f - GRAVITY_ALPHA) * ay;
+            _gravityZ = GRAVITY_ALPHA * _gravityZ + (1.0f - GRAVITY_ALPHA) * az;
+        }
 
         // Linear acceleration = total - gravity.
         var lx = ax - _gravityX;
@@ -77,7 +105,14 @@ class JugglingDetector {
             verticalAccel = -((lx * _gravityX) + (ly * _gravityY) + (lz * _gravityZ)) / gMag;
         }
 
-        if ((verticalAccel > THRESHOLD) && (nowMs - _lastThrowTime > REFRACTORY_PERIOD_MS)) {
+        // Ignore the first few samples while the gravity estimate settles so a
+        // stationary watch never registers a startup run.
+        _samplesSeen += 1;
+        if (_samplesSeen <= WARMUP_SAMPLES) {
+            return;
+        }
+
+        if ((verticalAccel > threshold()) && (nowMs - _lastThrowTime > REFRACTORY_PERIOD_MS)) {
             currentCount += 2;
             _lastThrowTime = nowMs;
         }
@@ -105,6 +140,97 @@ class JugglingDetector {
     }
 }
 
+// Startup screen letting the user pick how many balls (3-9) they are juggling.
+// Up/down adjust the count; select/enter confirms and opens the main tracker.
+class BallSelectView extends WatchUi.View {
+    public static const MIN_BALLS = 3;
+    public static const MAX_BALLS = 9;
+
+    public var ballCount as Number;
+
+    public function initialize() {
+        WatchUi.View.initialize();
+        ballCount = MIN_BALLS;
+    }
+
+    public function increment() as Void {
+        if (ballCount < MAX_BALLS) {
+            ballCount += 1;
+            WatchUi.requestUpdate();
+        }
+    }
+
+    public function decrement() as Void {
+        if (ballCount > MIN_BALLS) {
+            ballCount -= 1;
+            WatchUi.requestUpdate();
+        }
+    }
+
+    public function onUpdate(dc as Dc) as Void {
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_BLACK);
+        dc.clear();
+
+        var cx = dc.getWidth() / 2;
+        var cy = dc.getHeight() / 2;
+
+        var numberH = dc.getFontHeight(Graphics.FONT_NUMBER_THAI_HOT);
+        var labelH = dc.getFontHeight(Graphics.FONT_TINY);
+        var hintH = dc.getFontHeight(Graphics.FONT_XTINY);
+
+        var blockH = labelH + numberH + hintH;
+        var y = cy - blockH / 2;
+
+        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_TINY, "Balls", Graphics.TEXT_JUSTIFY_CENTER);
+        y += labelH;
+
+        dc.drawText(cx, y, Graphics.FONT_NUMBER_THAI_HOT, ballCount.toString(), Graphics.TEXT_JUSTIFY_CENTER);
+        y += numberH;
+
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_XTINY, "Up/Down then Start", Graphics.TEXT_JUSTIFY_CENTER);
+    }
+}
+
+class BallSelectDelegate extends WatchUi.BehaviorDelegate {
+    private var _view as BallSelectView;
+
+    public function initialize(view as BallSelectView) {
+        WatchUi.BehaviorDelegate.initialize();
+        _view = view;
+    }
+
+    public function onNextPage() as Boolean {
+        _view.decrement();
+        return true;
+    }
+
+    public function onPreviousPage() as Boolean {
+        _view.increment();
+        return true;
+    }
+
+    public function onKey(evt as WatchUi.KeyEvent) as Boolean {
+        var key = evt.getKey();
+        if (key == WatchUi.KEY_UP) {
+            _view.increment();
+            return true;
+        } else if (key == WatchUi.KEY_DOWN) {
+            _view.decrement();
+            return true;
+        }
+        return false;
+    }
+
+    // Confirm the selection and switch to the main tracking screen.
+    public function onSelect() as Boolean {
+        var balls = _view.ballCount;
+        WatchUi.switchToView(new MainView(balls), new MainDelegate(), WatchUi.SLIDE_LEFT);
+        return true;
+    }
+}
+
 class MainView extends WatchUi.View {
     private const SAMPLE_RATE = 25; // Hz, supported by the FR245 accelerometer
     private const PERIOD_SECONDS = 1; // seconds of buffering per callback
@@ -113,11 +239,11 @@ class MainView extends WatchUi.View {
     private var _sending as Boolean;
     private var _detector as JugglingDetector;
 
-    public function initialize() {
+    public function initialize(ballCount as Number) {
         WatchUi.View.initialize();
         _listener = new CommListener(self);
         _sending = false;
-        _detector = new JugglingDetector();
+        _detector = new JugglingDetector(ballCount);
 
         try {
             var options = {
@@ -139,29 +265,37 @@ class MainView extends WatchUi.View {
         var cx = dc.getWidth() / 2;
         var cy = dc.getHeight() / 2;
 
-        // Current run count, large and centered.
-        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy - dc.getFontHeight(Graphics.FONT_NUMBER_THAI_HOT), Graphics.FONT_TINY, "Throws", Graphics.TEXT_JUSTIFY_CENTER);
-        dc.drawText(cx, cy, Graphics.FONT_NUMBER_THAI_HOT, _detector.currentCount.toString(), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        var numberH = dc.getFontHeight(Graphics.FONT_NUMBER_THAI_HOT);
+        var labelH = dc.getFontHeight(Graphics.FONT_TINY);
+        var statsH = dc.getFontHeight(Graphics.FONT_XTINY);
 
-        // Previous run count plus session stats, smaller below.
+        // Lay the rows out as one vertical block centred on the display:
+        //   ball count / "Throws" label / big number / Prev / Avg / Max
+        var blockH = statsH + labelH + numberH + statsH * 3;
+        var y = cy - blockH / 2;
+
+        // Selected ball count at the top.
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        var lineH = dc.getFontHeight(Graphics.FONT_TINY);
-        var statsY = cy + dc.getFontHeight(Graphics.FONT_NUMBER_THAI_HOT) / 2;
-        dc.drawText(
-            cx,
-            statsY,
-            Graphics.FONT_TINY,
-            Lang.format("Prev: $1$", [_detector.previousCount]),
-            Graphics.TEXT_JUSTIFY_CENTER
-        );
-        dc.drawText(
-            cx,
-            statsY + lineH,
-            Graphics.FONT_TINY,
-            Lang.format("Avg: $1$  Max: $2$", [_detector.sessionAverage().format("%.1f"), _detector.sessionMax]),
-            Graphics.TEXT_JUSTIFY_CENTER
-        );
+        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("$1$ balls", [_detector.ballCount]), Graphics.TEXT_JUSTIFY_CENTER);
+        y += statsH;
+
+        // "Throws" label, just above the big number (no large gap).
+        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_TINY, "Throws", Graphics.TEXT_JUSTIFY_CENTER);
+        y += labelH;
+
+        // Current run count, large.
+        dc.drawText(cx, y, Graphics.FONT_NUMBER_THAI_HOT, _detector.currentCount.toString(), Graphics.TEXT_JUSTIFY_CENTER);
+        y += numberH;
+
+        // Previous run and session stats, each on its own line so they fit
+        // within the round display.
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Prev: $1$", [_detector.previousCount]), Graphics.TEXT_JUSTIFY_CENTER);
+        y += statsH;
+        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Avg: $1$", [_detector.sessionAverage().format("%.1f")]), Graphics.TEXT_JUSTIFY_CENTER);
+        y += statsH;
+        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Max: $1$", [_detector.sessionMax]), Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     public function onSensor(sensorData as Sensor.SensorData) as Void {
@@ -203,6 +337,7 @@ class MainView extends WatchUi.View {
         }
 
         var payload = {
+            "balls" => _detector.ballCount,
             "throws" => finishedRun,
             "average" => _detector.sessionAverage(),
             "max" => _detector.sessionMax
@@ -260,6 +395,7 @@ class JugglingTrackerApp extends Application.AppBase {
     }
 
     function getInitialView() as [Views] or [Views, InputDelegates] {
-        return [new MainView(), new MainDelegate()];
+        var selectView = new BallSelectView();
+        return [selectView, new BallSelectDelegate(selectView)];
     }
 }
