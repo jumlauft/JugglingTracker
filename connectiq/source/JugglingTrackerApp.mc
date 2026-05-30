@@ -6,6 +6,38 @@ import Toybox.Sensor;
 import Toybox.Communications;
 import Toybox.Math;
 import Toybox.System;
+import Toybox.Time;
+
+// Manages persistent storage of juggling sessions on the watch.
+class SessionStorage {
+    private static var _sessions as Array<Dictionary> = [];
+
+    // Load all unsynced sessions from memory (persisted during app lifetime).
+    public static function loadSessions() as Array<Dictionary> {
+        return _sessions;
+    }
+
+    // Save sessions to memory.
+    public static function saveSessions(sessions as Array<Dictionary>) as Void {
+        _sessions = sessions;
+    }
+
+    // Add a new session.
+    public static function addSession(balls as Number, throws as Number, timestamp as Number) as Void {
+        var sessions = loadSessions();
+        sessions.add({
+            "balls" => balls,
+            "throws" => throws,
+            "timestamp" => timestamp
+        });
+        saveSessions(sessions);
+    }
+
+    // Clear all synced sessions.
+    public static function clearSessions() as Void {
+        saveSessions([]);
+    }
+}
 
 // Detects juggling throws from the watch's raw accelerometer stream.
 //
@@ -139,6 +171,10 @@ class JugglingDetector {
             var finished = currentCount;
             currentCount = 0;
             _lastThrowTime = 0;
+
+            // Store the completed run to persistent storage.
+            SessionStorage.addSession(ballCount, finished, System.getTimer());
+
             return finished;
         }
         return -1;
@@ -231,7 +267,8 @@ class BallSelectDelegate extends WatchUi.BehaviorDelegate {
     // Confirm the selection and switch to the main tracking screen.
     public function onSelect() as Boolean {
         var balls = _view.ballCount;
-        WatchUi.switchToView(new MainView(balls), new MainDelegate(), WatchUi.SLIDE_LEFT);
+        var mainView = new MainView(balls);
+        WatchUi.switchToView(mainView, new MainDelegate(mainView), WatchUi.SLIDE_LEFT);
         return true;
     }
 }
@@ -260,53 +297,55 @@ class MainView extends WatchUi.View {
             };
             Sensor.registerSensorDataListener(self.method(:onSensor), options);
         } catch (ex) {
+            System.println("Sensor registration error: " + ex.getErrorMessage());
         }
     }
 
     public function onUpdate(dc as Dc) as Void {
+        if (dc == null || _detector == null) {
+            return;
+        }
+
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_BLACK);
         dc.clear();
 
         var cx = dc.getWidth() / 2;
         var cy = dc.getHeight() / 2;
+        var leftX = cx / 2;   // Left column
+        var rightX = cx + cx / 2;  // Right column
 
         var numberH = dc.getFontHeight(Graphics.FONT_NUMBER_THAI_HOT);
         var labelH = dc.getFontHeight(Graphics.FONT_TINY);
         var statsH = dc.getFontHeight(Graphics.FONT_XTINY);
 
-        // Lay the rows out as one vertical block centred on the display:
-        //   ball count / "Throws" label / big number / Prev / Avg / Max
-        var blockH = statsH + labelH + numberH + statsH * 3;
+        // Layout: top section (label + big number), then 2 columns of stats below
+        var blockH = labelH + numberH + statsH * 2;
         var y = cy - blockH / 2;
-
-        // Selected ball count at the top.
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("$1$ balls", [_detector.ballCount]), Graphics.TEXT_JUSTIFY_CENTER);
-        y += statsH;
 
         // "Throws" label, just above the big number (no large gap).
         dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, y, Graphics.FONT_TINY, "Throws", Graphics.TEXT_JUSTIFY_CENTER);
         y += labelH;
 
-        // Current run count, large.
+        // Current run count, large, centered.
         dc.drawText(cx, y, Graphics.FONT_NUMBER_THAI_HOT, _detector.currentCount.toString(), Graphics.TEXT_JUSTIFY_CENTER);
         y += numberH;
 
-        // Previous run and session stats, each on its own line so they fit
-        // within the round display. Show "-" if no run has completed yet.
+        // Two columns of stats below the big number.
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        
+        // Row 1: Prev (left) | Runs (right)
         var prevStr = _detector.previousCount == 0 ? "-" : _detector.previousCount.toString();
-        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Prev: $1$", [prevStr]), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(leftX, y, Graphics.FONT_XTINY, Lang.format("Prev: $1$", [prevStr]), Graphics.TEXT_JUSTIFY_CENTER);
+        var runsStr = _detector.sessionRuns().toString();
+        dc.drawText(rightX, y, Graphics.FONT_XTINY, Lang.format("Runs: $1$", [runsStr]), Graphics.TEXT_JUSTIFY_CENTER);
         y += statsH;
-        var runsStr = _detector.sessionRuns() == 0 ? "-" : _detector.sessionRuns().toString();
-        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Runs: $1$", [runsStr]), Graphics.TEXT_JUSTIFY_CENTER);
-        y += statsH;
+        
+        // Row 2: Avg (left) | Max (right)
         var avgStr = _detector.sessionAverage() == 0.0f ? "-" : _detector.sessionAverage().format("%.1f");
-        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Avg: $1$", [avgStr]), Graphics.TEXT_JUSTIFY_CENTER);
-        y += statsH;
+        dc.drawText(leftX, y, Graphics.FONT_XTINY, Lang.format("Avg: $1$", [avgStr]), Graphics.TEXT_JUSTIFY_CENTER);
         var maxStr = _detector.sessionMax == 0 ? "-" : _detector.sessionMax.toString();
-        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Max: $1$", [maxStr]), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(rightX, y, Graphics.FONT_XTINY, Lang.format("Max: $1$", [maxStr]), Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     public function onSensor(sensorData as Sensor.SensorData) as Void {
@@ -330,29 +369,27 @@ class MainView extends WatchUi.View {
         for (var i = 0; i < n; i++) {
             _detector.processSample(xs[i], ys[i], zs[i], now);
         }
-        var finishedRun = _detector.checkAutoFinish(now);
+        _detector.checkAutoFinish(now);
         WatchUi.requestUpdate();
+        // Run is now stored locally; no immediate transmission.
+    }
 
-        // When a run just finished, send its throw count plus the session
-        // statistics to the phone. Raw accelerometer samples are no longer
-        // transmitted.
-        if (finishedRun < 0) {
-            return;
+    // Sync all unsynced sessions to the phone. Call this when phone is available.
+    public function syncSessions() as Void {
+        var sessions = SessionStorage.loadSessions();
+        if (sessions.size() == 0) {
+            return;  // Nothing to sync.
         }
 
-        // Only one message may be in flight at a time. Skip if the previous
-        // transmit has not completed yet to avoid overflowing the Connect IQ
-        // messaging channel.
         if (_sending) {
-            return;
+            return;  // Already transmitting.
         }
 
         var payload = {
-            "balls" => _detector.ballCount,
-            "throws" => finishedRun,
-            "runs" => _detector.sessionRuns(),
-            "average" => _detector.sessionAverage(),
-            "max" => _detector.sessionMax
+            "sessions" => sessions,
+            "sessionMax" => _detector.sessionMax,
+            "sessionAverage" => _detector.sessionAverage(),
+            "sessionRuns" => _detector.sessionRuns()
         };
 
         try {
@@ -365,6 +402,8 @@ class MainView extends WatchUi.View {
 
     public function onTransmitDone() as Void {
         _sending = false;
+        // After successful sync, clear the stored sessions.
+        SessionStorage.clearSessions();
     }
 
     public function onHide() as Void {
@@ -373,8 +412,17 @@ class MainView extends WatchUi.View {
 }
 
 class MainDelegate extends WatchUi.InputDelegate {
-    public function initialize() {
+    private var _view as MainView;
+
+    public function initialize(view as MainView) {
         WatchUi.InputDelegate.initialize();
+        _view = view;
+    }
+
+    // Trigger sync when select button is pressed.
+    public function onSelect() as Boolean {
+        _view.syncSessions();
+        return true;
     }
 }
 

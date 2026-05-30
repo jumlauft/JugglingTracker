@@ -24,6 +24,7 @@ import com.garmin.android.connectiq.IQApp
 import com.garmin.android.connectiq.IQDevice
 import com.garmin.android.connectiq.exception.ServiceUnavailableException
 import com.jugglingtracker.imu.logic.JugglingViewModel
+import com.jugglingtracker.imu.data.SessionRepository
 import com.jugglingtracker.imu.ui.JugglingTrackerApp
 import com.jugglingtracker.imu.ui.theme.JugglingTrackerTheme
 
@@ -35,7 +36,16 @@ class MainActivity : ComponentActivity() {
         private const val HEARTBEAT_TIMEOUT_MS = 15000L
     }
 
-    private val viewModel: JugglingViewModel by viewModels()
+    private val repository: SessionRepository by lazy { SessionRepository(this) }
+    
+    private val viewModel: JugglingViewModel by viewModels {
+        object : androidx.lifecycle.ViewModelProvider.Factory {
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                @Suppress("UNCHECKED_CAST")
+                return JugglingViewModel(repository) as T
+            }
+        }
+    }
 
     private lateinit var connectIQ: ConnectIQ
     private var iqDevice: IQDevice? = null
@@ -186,7 +196,19 @@ class MainActivity : ComponentActivity() {
         handler.removeCallbacks(heartbeatRunnable)
         handler.postDelayed(heartbeatRunnable, HEARTBEAT_TIMEOUT_MS)
 
-        // Process throws
+        // Check if this is a batch sync from the watch
+        @Suppress("UNCHECKED_CAST")
+        val sessions = payload["sessions"] as? List<Map<String, Any>>
+        if (sessions != null) {
+            // Batch sync: import all sessions at once
+            runOnUiThread {
+                @Suppress("UNCHECKED_CAST")
+                viewModel.importRunsFromWatch(payload as Map<String, Any>)
+            }
+            return
+        }
+
+        // Legacy: Process individual throws (for backward compatibility)
         val throws = (payload["throws"] as? Number)?.toInt()
         if (throws != null) {
             runOnUiThread {

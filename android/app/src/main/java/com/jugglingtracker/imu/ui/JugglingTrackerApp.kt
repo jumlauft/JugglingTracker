@@ -57,6 +57,11 @@ fun JugglingTrackerApp(
                 is JugglingEvent.Announcement -> {
                     tts?.speak(event.text, TextToSpeech.QUEUE_FLUSH, null, null)
                 }
+                is JugglingEvent.SyncCompleted -> {
+                    // Toast or snackbar notification could be shown here
+                    // For now, the session list will update automatically
+                    tts?.speak("Synced ${event.count} runs", TextToSpeech.QUEUE_FLUSH, null, null)
+                }
             }
         }
     }

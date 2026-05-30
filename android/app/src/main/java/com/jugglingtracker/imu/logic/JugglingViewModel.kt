@@ -4,6 +4,7 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jugglingtracker.imu.model.SessionSummary
+import com.jugglingtracker.imu.data.SessionRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
@@ -11,9 +12,10 @@ import kotlin.math.sqrt
 
 sealed class JugglingEvent {
     data class Announcement(val text: String) : JugglingEvent()
+    data class SyncCompleted(val count: Int) : JugglingEvent()
 }
 
-class JugglingViewModel : ViewModel() {
+class JugglingViewModel(private val repository: SessionRepository? = null) : ViewModel() {
     // Settings
     var isVoiceEnabled by mutableStateOf(value = true)
     var voiceInterval by mutableIntStateOf(10)
@@ -79,25 +81,45 @@ class JugglingViewModel : ViewModel() {
                 sqrt(runHistory.sumOf { (it - avg) * (it - avg) } / runHistory.size)
             } else 0.0
 
-            completedSessions.add(
-                index = 0,
-                element = SessionSummary(
-                    id = completedSessions.size + 1,
-                    timestamp = System.currentTimeMillis(),
-                    ballCount = ballCount,
-                    runCount = runHistory.size,
-                    avgThrows = avg,
-                    stdDevThrows = stdDev,
-                    avgConsistency = 0.0,
-                    bestRun = runHistory.maxOrNull() ?: 0,
-                    totalThrows = runHistory.sum(),
-                    runHistory = runHistory.toList(),
-                ),
+            val session = SessionSummary(
+                id = completedSessions.size + 1,
+                timestamp = System.currentTimeMillis(),
+                ballCount = ballCount,
+                runCount = runHistory.size,
+                avgThrows = avg,
+                stdDevThrows = stdDev,
+                avgConsistency = 0.0,
+                bestRun = runHistory.maxOrNull() ?: 0,
+                totalThrows = runHistory.sum(),
+                runHistory = runHistory.toList(),
             )
+            
+            completedSessions.add(index = 0, element = session)
+            repository?.addSession(session)
         }
         isSessionActive = false
         lastRunThrows = 0
         runHistory.clear()
+    }
+
+    // Import batch of runs from Garmin watch
+    fun importRunsFromWatch(payload: Map<String, Any>) {
+        val runs = (payload["sessions"] as? List<Map<String, Any>>) ?: return
+        val sessionMax = payload["sessionMax"] as? Number
+        val sessionAverage = payload["sessionAverage"] as? Number
+        val sessionRuns = payload["sessionRuns"] as? Number
+        
+        repository?.importRunsBatch(runs, sessionMax, sessionAverage, sessionRuns)
+        
+        // Reload sessions from repository
+        repository?.getSessions()?.let { sessions ->
+            completedSessions.clear()
+            completedSessions.addAll(sessions)
+        }
+        
+        viewModelScope.launch {
+            _events.emit(JugglingEvent.SyncCompleted(runs.size))
+        }
     }
 
     fun clearAllHistory() {
