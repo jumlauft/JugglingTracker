@@ -18,12 +18,11 @@ import Toybox.Time;
 // the count is moved to "previous run".
 class JugglingDetector {
     private const MILLI_G_TO_MS2 = 9.80665f / 1000.0f;
-    private const GRAVITY_ALPHA = 0.9f;
-    private const REFRACTORY_PERIOD_MS = 500;
+    private const GRAVITY_ALPHA = 0.95f;  // Higher alpha = slower gravity adaptation
+    private const REFRACTORY_PERIOD_MS = 200;  // Reduced from 500ms; 3 balls ≈ 300-400ms per throw
     private const AUTO_FINISH_DELAY_MS = 2000;
 
-    // Number of balls being juggled (3-9), selected at startup. Higher ball
-    // counts throw faster/higher, so the detection threshold scales with it.
+    // Number of balls being juggled (3-9), selected at startup.
     public var ballCount as Number;
 
     private var _gravityX as Float;
@@ -48,6 +47,16 @@ class JugglingDetector {
     // Throw counts of each completed run this session, in order.
     private var _runThrows as Array<Number>;
 
+    // Peak detection: track whether vertical acceleration was above threshold last sample
+    private var _lastWasAboveThreshold as Boolean;
+
+    // Adaptive threshold: track acceleration history to compute dynamic thresholds
+    private var _accelHistory as Array<Float>;
+    private const ACCEL_HISTORY_SIZE = 50;  // ~2 seconds at 25 Hz
+    private var _accelHistoryIndex as Number;
+    private var _accelMean as Float;
+    private var _accelStdDev as Float;
+
     public function initialize(balls as Number) {
         ballCount = balls;
         _gravityX = 0.0f;
@@ -62,6 +71,11 @@ class JugglingDetector {
         _sessionTotal = 0;
         sessionMax = 0;
         _runThrows = [];
+        _lastWasAboveThreshold = false;
+        _accelHistory = [];
+        _accelHistoryIndex = 0;
+        _accelMean = 0.0f;
+        _accelStdDev = 0.0f;
     }
 
     // Throw counts of all completed runs this session, in order.
@@ -96,8 +110,47 @@ class JugglingDetector {
 
     // Detection threshold (m/s^2) for the current ball count. Higher ball
     // counts are thrown harder, so the threshold rises with the ball count.
+    // Uses adaptive threshold based on recent acceleration variance.
     private function threshold() as Float {
-        return 9.0f + ballCount;
+        var baseThreshold = 9.0f + ballCount;
+        // If we have enough history, use adaptive threshold: mean + (1.5 * stddev)
+        if (_accelHistory.size() > ACCEL_HISTORY_SIZE / 2) {
+            var adaptiveThreshold = _accelMean + (1.5f * _accelStdDev);
+            // But don't go below the base threshold (safety bounds)
+            if (adaptiveThreshold < baseThreshold) {
+                adaptiveThreshold = baseThreshold;
+            }
+            return adaptiveThreshold;
+        }
+        return baseThreshold;
+    }
+
+    // Update acceleration history and compute mean/stddev for adaptive thresholding
+    private function updateAccelHistory(accel as Float) as Void {
+        // Circular buffer: maintain fixed size with index
+        if (_accelHistory.size() < ACCEL_HISTORY_SIZE) {
+            _accelHistory.add(accel);
+        } else {
+            _accelHistory[_accelHistoryIndex] = accel;
+            _accelHistoryIndex = (_accelHistoryIndex + 1) % ACCEL_HISTORY_SIZE;
+        }
+        
+        // Recompute statistics every few samples (expensive operation)
+        if (_accelHistory.size() > 0 && (_samplesSeen % 5) == 0) {
+            var sum = 0.0f;
+            var i = 0;
+            for (i = 0; i < _accelHistory.size(); i++) {
+                sum += _accelHistory[i];
+            }
+            _accelMean = sum / _accelHistory.size();
+            
+            var sumSqDiff = 0.0f;
+            for (i = 0; i < _accelHistory.size(); i++) {
+                var diff = _accelHistory[i] - _accelMean;
+                sumSqDiff += diff * diff;
+            }
+            _accelStdDev = Math.sqrt(sumSqDiff / _accelHistory.size());
+        }
     }
 
     // Average throws per completed run this session (0.0 if no runs yet).
@@ -121,7 +174,6 @@ class JugglingDetector {
 
         // Seed the gravity estimate from the first real sample so it matches the
         // watch's actual orientation instead of an assumed "down" direction.
-        // Otherwise the initial mismatch produces a fake throw at startup.
         if (!_gravityInitialized) {
             _gravityX = ax;
             _gravityY = ay;
@@ -145,17 +197,35 @@ class JugglingDetector {
             verticalAccel = -((lx * _gravityX) + (ly * _gravityY) + (lz * _gravityZ)) / gMag;
         }
 
+        // Update acceleration history for adaptive thresholding.
+        updateAccelHistory(verticalAccel);
+
         // Ignore the first few samples while the gravity estimate settles so a
         // stationary watch never registers a startup run.
         _samplesSeen += 1;
         if (_samplesSeen <= WARMUP_SAMPLES) {
+            _lastWasAboveThreshold = false;
             return;
         }
 
-        if ((verticalAccel > threshold()) && (nowMs - _lastThrowTime > REFRACTORY_PERIOD_MS)) {
-            currentCount += 2;
+        // Peak detection with hysteresis: detect both upward crossings (throws)
+        // and downward crossings (catches). Count by 2 per event to account for both hands.
+        var thresholdValue = threshold();
+        var aboveThreshold = (verticalAccel > thresholdValue);
+        
+        // Detect transition from below to above threshold (throw peak)
+        if (aboveThreshold && !_lastWasAboveThreshold && (nowMs - _lastThrowTime > REFRACTORY_PERIOD_MS)) {
+            currentCount += 2;  // Count by 2 for both hands on throw
             _lastThrowTime = nowMs;
+        } else if (!aboveThreshold && _lastWasAboveThreshold && (nowMs - _lastThrowTime > REFRACTORY_PERIOD_MS / 2)) {
+            // Crossed threshold downward (catch impact) - use shorter refractory
+            if (currentCount > 0) {
+                currentCount += 2;  // Count by 2 for both hands on catch
+                _lastThrowTime = nowMs;
+            }
         }
+
+        _lastWasAboveThreshold = aboveThreshold;
     }
 
     // Finishes the current run if it has been idle long enough. Returns the
