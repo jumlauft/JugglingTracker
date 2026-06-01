@@ -144,6 +144,12 @@ class SessionRepository(context: Context) {
         sessionsCache.add(0, session)
         saveSessionsToStorage()
     }
+
+    fun deleteSession(session: SessionSummary) {
+        if (sessionsCache.remove(session)) {
+            saveSessionsToStorage()
+        }
+    }
     
     private fun saveSessionsToStorage() {
         try {
@@ -158,9 +164,36 @@ class SessionRepository(context: Context) {
     
     private fun loadSessionsFromStorage() {
         try {
-            val json = sharedPrefs.getString(sessionsKey, "[]") ?: "[]"
-            // For simplicity, just keep the in-memory cache
-            // In production, you'd want proper JSON serialization (Gson, Moshi, etc.)
+            val jsonString = sharedPrefs.getString(sessionsKey, "[]") ?: "[]"
+            val jsonArray = org.json.JSONArray(jsonString)
+            val sessions = mutableListOf<SessionSummary>()
+            
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val runHistoryArray = obj.getJSONArray("runHistory")
+                val runHistory = mutableListOf<Int>()
+                for (j in 0 until runHistoryArray.length()) {
+                    runHistory.add(runHistoryArray.getInt(j))
+                }
+                
+                sessions.add(
+                    SessionSummary(
+                        id = obj.getInt("id"),
+                        timestamp = obj.getLong("timestamp"),
+                        ballCount = obj.getInt("ballCount"),
+                        runCount = obj.getInt("runCount"),
+                        avgThrows = obj.getDouble("avgThrows"),
+                        stdDevThrows = obj.getDouble("stdDevThrows"),
+                        avgConsistency = obj.optDouble("avgConsistency", 0.0),
+                        bestRun = obj.getInt("bestRun"),
+                        totalThrows = obj.getInt("totalThrows"),
+                        runHistory = runHistory
+                    )
+                )
+            }
+            
+            sessionsCache.clear()
+            sessionsCache.addAll(sessions.sortedByDescending { it.timestamp })
         } catch (e: Exception) {
             // Handle error
         }

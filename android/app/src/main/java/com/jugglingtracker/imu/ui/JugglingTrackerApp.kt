@@ -291,6 +291,21 @@ fun TrackerScreen(
 
 @Composable
 fun SettingsScreen(viewModel: JugglingViewModel) {
+    val context = LocalContext.current
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        uri?.let {
+            try {
+                context.contentResolver.openOutputStream(it)?.use { outputStream ->
+                    outputStream.write(viewModel.getSessionsCsv().toByteArray())
+                }
+            } catch (e: Exception) {
+                // Handle error
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -318,6 +333,16 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
                     steps = 18 // Increments of 5
                 )
             }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(text = "Data Management", style = MaterialTheme.typography.titleLarge)
+        
+        Button(
+            onClick = { launcher.launch("juggling_history.csv") },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Export History to CSV")
         }
     }
 }

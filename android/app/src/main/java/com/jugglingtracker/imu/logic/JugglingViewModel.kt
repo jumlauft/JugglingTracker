@@ -86,5 +86,21 @@ class JugglingViewModel(private val repository: SessionRepository? = null) : Vie
 
     fun deleteSession(session: SessionSummary) {
         completedSessions.remove(session)
+        repository?.deleteSession(session)
+    }
+
+    fun getSessionsCsv(): String {
+        val builder = StringBuilder()
+        builder.append("Date,Ball Count,Run Count,Average,Best,Total Throws,Run History\n")
+        
+        val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+        
+        completedSessions.forEach { session ->
+            val date = dateFormat.format(java.util.Date(session.timestamp))
+            val runHistory = session.runHistory.joinToString(";")
+            builder.append("$date,${session.ballCount},${session.runCount},${"%.2f".format(session.avgThrows)},${session.bestRun},${session.totalThrows},\"$runHistory\"\n")
+        }
+        
+        return builder.toString()
     }
 }
