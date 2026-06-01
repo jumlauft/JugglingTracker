@@ -285,20 +285,6 @@ fun TrackerScreen(
                     )
                 }
             }
-
-            OutlinedButton(
-                onClick = { viewModel.clearAllHistory() },
-                modifier = Modifier.padding(top = 8.dp)
-            ) {
-                Text("Clear All History")
-            }
-        } else {
-            Text(
-                text = "Tap 'Start New Session' to begin tracking.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.padding(vertical = 32.dp)
-            )
         }
     }
 }

@@ -7,9 +7,7 @@ import Toybox.Communications;
 import Toybox.Math;
 import Toybox.System;
 import Toybox.Time;
-
-// Detects juggling throws from the watch's raw accelerometer stream.
-//
+import Toybox.Timer;
 // The accelerometer reports samples in milli-g (gravity still included). The
 // detector converts each sample to m/s^2, keeps a low-pass estimate of the
 // gravity vector, projects the gravity-removed acceleration onto the "up" axis,
@@ -341,11 +339,27 @@ class BallSelectDelegate extends WatchUi.BehaviorDelegate {
 class MainView extends WatchUi.View {
     private const SAMPLE_RATE = 25; // Hz, supported by the FR245 accelerometer
     private const PERIOD_SECONDS = 1; // seconds of buffering per callback
+    // Give up waiting for the phone's ack after this long. The full round trip
+    // (watch -> phone transport -> app -> ack -> watch) can take several seconds
+    // over the Garmin link, so keep this generous to avoid false "sync failed".
+    private const SYNC_TIMEOUT_MS = 10000;
 
     private var _listener as CommListener;
     private var _sending as Boolean;
     private var _detector as JugglingDetector;
     private var _errorMsg as String?;
+
+    // Timer that fires if a sync attempt does not complete within SYNC_TIMEOUT_MS.
+    private var _syncTimer as Timer.Timer?;
+    // Payload kept so a sync can be retried after a failure/timeout.
+    private var _pendingPayload as Dictionary?;
+    // True while the retry/force-quit confirmation dialog is on screen.
+    private var _awaitingDecision as Boolean;
+
+    // Repeating 1s timer that animates the "Sync to phone..." status by adding
+    // a dot each second while we wait for the phone's acknowledgement.
+    private var _statusTimer as Timer.Timer?;
+    private var _syncDots as Number;
 
     public function initialize(ballCount as Number) {
         WatchUi.View.initialize();
@@ -353,6 +367,14 @@ class MainView extends WatchUi.View {
         _sending = false;
         _detector = new JugglingDetector(ballCount);
         _errorMsg = null;
+        _syncTimer = null;
+        _pendingPayload = null;
+        _awaitingDecision = false;
+        _statusTimer = null;
+        _syncDots = 0;
+
+        // Listen for the phone's acknowledgement that a session was received.
+        Communications.registerForPhoneAppMessages(method(:onPhoneMessage));
 
         try {
             var options = {
@@ -414,8 +436,17 @@ class MainView extends WatchUi.View {
         var maxStr = _detector.sessionMax == 0 ? "-" : _detector.sessionMax.toString();
         dc.drawText(rightX, y, Graphics.FONT_XTINY, Lang.format("Max: $1$", [maxStr]), Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Error banner at the bottom if a transfer failed.
-        if (_errorMsg != null) {
+        // While waiting for the phone to confirm, show an animated status that
+        // gains a dot every second: "Sync to phone.", "..", "...".
+        if (_sending) {
+            var dots = "";
+            for (var d = 0; d < _syncDots; d++) {
+                dots += ".";
+            }
+            dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, dc.getHeight() - statsH * 2, Graphics.FONT_XTINY, "Sync to phone" + dots, Graphics.TEXT_JUSTIFY_CENTER);
+        } else if (_errorMsg != null) {
+            // Error banner at the bottom if a transfer failed.
             dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
             dc.drawText(cx, dc.getHeight() - statsH * 2, Graphics.FONT_XTINY, _errorMsg, Graphics.TEXT_JUSTIFY_CENTER);
         }
@@ -448,11 +479,12 @@ class MainView extends WatchUi.View {
 
     // End the current session and transmit it to the phone as a single payload
     // containing the throws of every run, the ball count, and a timestamp.
-    // On success the app closes; on failure an error is shown and the app stays
-    // open so no data is lost.
+    // On success the app closes. If the transfer fails or does not complete
+    // within SYNC_TIMEOUT_MS, the user is prompted to retry or force quit
+    // (losing the data); the app is never closed silently on failure.
     public function endSessionAndSync() as Void {
-        if (_sending) {
-            return;  // Already transmitting.
+        if (_sending || _awaitingDecision) {
+            return;  // Already transmitting or waiting for the user's decision.
         }
 
         // Fold any run still in progress into the session.
@@ -464,38 +496,193 @@ class MainView extends WatchUi.View {
             System.exit();
         }
 
-        var payload = {
+        _pendingPayload = {
             "type" => "session",
             "balls" => _detector.ballCount,
             "timestamp" => Time.now().value(),
             "runs" => runs
         };
 
+        attemptSync();
+    }
+
+    // Start (or retry) a transmit attempt and arm the 3s timeout timer.
+    private function attemptSync() as Void {
+        if (_pendingPayload == null) {
+            return;
+        }
+
+        _errorMsg = null;
+        WatchUi.requestUpdate();
+
         try {
             _sending = true;
-            _errorMsg = null;
-            Communications.transmit(payload, null, _listener);
+            startSyncTimer();
+            startStatusTimer();
+            Communications.transmit(_pendingPayload, null, _listener);
         } catch (ex) {
             _sending = false;
-            onTransmitError();
+            cancelSyncTimer();
+            cancelStatusTimer();
+            promptRetryOrQuit();
         }
     }
 
-    // Called on successful transfer: close the app.
-    public function onTransmitDone() as Void {
+    private function startSyncTimer() as Void {
+        cancelSyncTimer();
+        _syncTimer = new Timer.Timer();
+        _syncTimer.start(method(:onSyncTimeout), SYNC_TIMEOUT_MS, false);
+    }
+
+    private function cancelSyncTimer() as Void {
+        if (_syncTimer != null) {
+            _syncTimer.stop();
+            _syncTimer = null;
+        }
+    }
+
+    // Repeating 1s timer that drives the "Sync to phone..." dot animation.
+    private function startStatusTimer() as Void {
+        cancelStatusTimer();
+        _syncDots = 1;
+        WatchUi.requestUpdate();
+        _statusTimer = new Timer.Timer();
+        _statusTimer.start(method(:onStatusTick), 1000, true);
+    }
+
+    private function cancelStatusTimer() as Void {
+        if (_statusTimer != null) {
+            _statusTimer.stop();
+            _statusTimer = null;
+        }
+        _syncDots = 0;
+    }
+
+    // Called once per second while sending: cycle the dots 1 -> 2 -> 3 -> 1.
+    public function onStatusTick() as Void {
+        _syncDots = (_syncDots % 3) + 1;
+        WatchUi.requestUpdate();
+    }
+
+    // Fired 3s after a transmit was started. If the phone has not acknowledged
+    // receipt by now, treat it as a failure and prompt the user.
+    public function onSyncTimeout() as Void {
+        _syncTimer = null;
+        if (_sending) {
+            _sending = false;
+            cancelStatusTimer();
+            promptRetryOrQuit();
+        }
+    }
+
+    // Called when the phone sends a message. We only act on the "ack" confirming
+    // the session was received and stored; that is the only thing that closes
+    // the app, guaranteeing the data reached the phone.
+    public function onPhoneMessage(msg as Communications.PhoneAppMessage) as Void {
+        var data = msg.data;
+        if (!(data instanceof Dictionary)) {
+            return;
+        }
+        var type = data["type"];
+        if (type == null || !type.equals("ack")) {
+            return;
+        }
+
+        // The phone confirmed receipt. If there is still data pending (whether
+        // we are actively waiting or the timeout already prompted the user),
+        // the sync genuinely succeeded, so close the app. Pop the confirmation
+        // dialog first if it happens to be on screen (timeout race).
+        if (_pendingPayload == null) {
+            return;
+        }
         _sending = false;
+        cancelSyncTimer();
+        cancelStatusTimer();
+        _pendingPayload = null;
+        if (_awaitingDecision) {
+            _awaitingDecision = false;
+            WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
+        }
         System.exit();
     }
 
-    // Called on a failed transfer: show an error and keep the app open.
-    public function onTransmitError() as Void {
-        _sending = false;
-        _errorMsg = "Sync failed - retry";
+    // Show a confirmation asking whether to retry the sync or force quit.
+    private function promptRetryOrQuit() as Void {
+        if (_awaitingDecision) {
+            return;
+        }
+        _awaitingDecision = true;
+        _errorMsg = "Sync failed";
         WatchUi.requestUpdate();
+
+        // Use a Menu2 so we control both the labels (English) and their order,
+        // showing "Yes" before "No".
+        var menu = new WatchUi.Menu2({ :title => "Sync failed. Retry?" });
+        menu.addItem(new WatchUi.MenuItem("Yes", null, :retry, null));
+        menu.addItem(new WatchUi.MenuItem("No", null, :quit, null));
+        WatchUi.pushView(
+            menu,
+            new SyncConfirmationDelegate(self),
+            WatchUi.SLIDE_IMMEDIATE
+        );
+    }
+
+    // User chose to retry from the confirmation dialog.
+    public function onRetryConfirmed() as Void {
+        _awaitingDecision = false;
+        attemptSync();
+    }
+
+    // User chose to force quit and discard the data.
+    public function onForceQuitConfirmed() as Void {
+        _awaitingDecision = false;
+        cancelSyncTimer();
+        System.exit();
+    }
+
+    // The message left the watch's transport layer. This does NOT mean the
+    // phone app received it, so we do not exit here. We keep _sending true and
+    // the timer running, and only close once the phone sends back an "ack"
+    // (see onPhoneMessage). If no ack arrives within the timeout, the user is
+    // prompted to retry or force quit.
+    public function onTransmitDone() as Void {
+        // Intentionally left as a no-op; waiting for the phone ACK.
+    }
+
+    // Called on a failed transfer: prompt the user to retry or force quit.
+    public function onTransmitError() as Void {
+        if (!_sending) {
+            return;  // Already handled (e.g. by the timeout).
+        }
+        _sending = false;
+        cancelSyncTimer();
+        cancelStatusTimer();
+        promptRetryOrQuit();
     }
 
     public function onHide() as Void {
         Sensor.unregisterSensorDataListener();
+    }
+}
+
+// Menu shown when a sync attempt fails or times out, with "Yes" listed first.
+// "Yes" retries the sync; "No" force quits the app and discards the data.
+class SyncConfirmationDelegate extends WatchUi.Menu2InputDelegate {
+    private var _view as MainView;
+
+    public function initialize(view as MainView) {
+        WatchUi.Menu2InputDelegate.initialize();
+        _view = view;
+    }
+
+    public function onSelect(item as WatchUi.MenuItem) as Void {
+        // Close the menu first, then act on the choice.
+        WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
+        if (item.getId() == :retry) {
+            _view.onRetryConfirmed();
+        } else {
+            _view.onForceQuitConfirmed();
+        }
     }
 }
 

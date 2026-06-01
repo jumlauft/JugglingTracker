@@ -201,6 +201,29 @@ class MainActivity : ComponentActivity() {
             runOnUiThread {
                 viewModel.importSessionFromWatch(typed)
             }
+            // Acknowledge receipt so the watch knows the data is safely stored
+            // and can close. The timestamp lets the watch match the ACK to its
+            // pending send.
+            val ts = (payload["timestamp"] as? Number)?.toLong()
+            sendAck(ts)
+        }
+    }
+
+    // Send an application-level acknowledgement back to the watch confirming the
+    // session was received and stored.
+    private fun sendAck(timestamp: Long?) {
+        val device = iqDevice ?: return
+        val app = iqApp ?: return
+        val ack = mutableMapOf<String, Any>("type" to "ack")
+        if (timestamp != null) {
+            ack["timestamp"] = timestamp
+        }
+        try {
+            connectIQ.sendMessage(device, app, ack) { _, _, status ->
+                Log.d(TAG, "ACK send status: $status")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending ACK", e)
         }
     }
 
