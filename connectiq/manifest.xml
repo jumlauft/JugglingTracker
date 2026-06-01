@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <iq:manifest xmlns:iq="http://www.garmin.com/xml/connectiq" version="1">
-    <iq:application entry="JugglingTrackerApp" id="A1B2C3D4E5F60718293A4B5C6D7E8F90" name="@Strings.app_name" type="watch-app" launcherIcon="@Drawables.LauncherIcon" minSdkVersion="1.2.0" version="1.0.0">
+    <iq:application entry="JugglingTrackerApp" id="a77c0c66-f421-49f5-889f-0bf4a446dfea" name="@Strings.app_name" type="watch-app" launcherIcon="@Drawables.LauncherIcon" minSdkVersion="1.2.0" version="1.0.0">
         <iq:products>
             <iq:product id="fr245"/>
-            <iq:product id="fr245m"/>
         </iq:products>
         <iq:permissions>
             <iq:uses-permission id="Communications"/>
@@ -12,5 +11,6 @@
         <iq:languages>
             <iq:language>eng</iq:language>
         </iq:languages>
+        <iq:barrels/>
     </iq:application>
 </iq:manifest>
