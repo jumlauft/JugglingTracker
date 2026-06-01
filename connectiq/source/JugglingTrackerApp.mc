@@ -398,6 +398,20 @@ class MainView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_BLACK);
         dc.clear();
 
+        // While syncing, show fullscreen animated sync status with proper centering.
+        if (_sending) {
+            var dots = "";
+            for (var d = 0; d < _syncDots; d++) {
+                dots += ".";
+            }
+            dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+            var syncText = "Sync to phone" + dots;
+            var fontH = dc.getFontHeight(Graphics.FONT_MEDIUM);
+            var y = (dc.getHeight() / 2) - (fontH / 2);
+            dc.drawText(dc.getWidth() / 2, y, Graphics.FONT_MEDIUM, syncText, Graphics.TEXT_JUSTIFY_CENTER);
+            return;
+        }
+
         var cx = dc.getWidth() / 2;
         var cy = dc.getHeight() / 2;
         var leftX = cx / 2;   // Left column
@@ -436,17 +450,8 @@ class MainView extends WatchUi.View {
         var maxStr = _detector.sessionMax == 0 ? "-" : _detector.sessionMax.toString();
         dc.drawText(rightX, y, Graphics.FONT_XTINY, Lang.format("Max: $1$", [maxStr]), Graphics.TEXT_JUSTIFY_CENTER);
 
-        // While waiting for the phone to confirm, show an animated status that
-        // gains a dot every second: "Sync to phone.", "..", "...".
-        if (_sending) {
-            var dots = "";
-            for (var d = 0; d < _syncDots; d++) {
-                dots += ".";
-            }
-            dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, dc.getHeight() - statsH * 2, Graphics.FONT_XTINY, "Sync to phone" + dots, Graphics.TEXT_JUSTIFY_CENTER);
-        } else if (_errorMsg != null) {
-            // Error banner at the bottom if a transfer failed.
+        // Error banner at the bottom if a transfer failed.
+        if (_errorMsg != null) {
             dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
             dc.drawText(cx, dc.getHeight() - statsH * 2, Graphics.FONT_XTINY, _errorMsg, Graphics.TEXT_JUSTIFY_CENTER);
         }
@@ -482,7 +487,34 @@ class MainView extends WatchUi.View {
     // On success the app closes. If the transfer fails or does not complete
     // within SYNC_TIMEOUT_MS, the user is prompted to retry or force quit
     // (losing the data); the app is never closed silently on failure.
-    public function endSessionAndSync() as Void {
+    // Show the session-end menu with three options:
+    // - Sync and quit / Retry sync
+    // - Quit without syncing
+    // - Continue session
+    public function showSessionEndMenu(isRetry as Boolean) as Void {
+        if (_awaitingDecision) {
+            return;  // Already showing a confirmation dialog.
+        }
+        _awaitingDecision = true;
+
+        var menu = new WatchUi.Menu2({ :title => isRetry ? "Sync failed" : "End session?" });
+        if (isRetry) {
+            menu.addItem(new WatchUi.MenuItem("Retry sync", null, :sync_retry, null));
+        } else {
+            menu.addItem(new WatchUi.MenuItem("Sync and quit", null, :sync_quit, null));
+        }
+        menu.addItem(new WatchUi.MenuItem("Quit without sync", null, :nosync_quit, null));
+        menu.addItem(new WatchUi.MenuItem("Continue", null, :continue_session, null));
+
+        WatchUi.pushView(
+            menu,
+            new SessionEndDelegate(self),
+            WatchUi.SLIDE_IMMEDIATE
+        );
+    }
+
+    // Execute sync: fold current run, build payload, and attempt transmission.
+    private function doSync() as Void {
         if (_sending || _awaitingDecision) {
             return;  // Already transmitting or waiting for the user's decision.
         }
@@ -606,38 +638,37 @@ class MainView extends WatchUi.View {
         System.exit();
     }
 
-    // Show a confirmation asking whether to retry the sync or force quit.
+    // Show session end menu with three options on retry.
     private function promptRetryOrQuit() as Void {
-        if (_awaitingDecision) {
-            return;
-        }
-        _awaitingDecision = true;
         _errorMsg = "Sync failed";
         WatchUi.requestUpdate();
-
-        // Use a Menu2 so we control both the labels (English) and their order,
-        // showing "Yes" before "No".
-        var menu = new WatchUi.Menu2({ :title => "Sync failed. Retry?" });
-        menu.addItem(new WatchUi.MenuItem("Yes", null, :retry, null));
-        menu.addItem(new WatchUi.MenuItem("No", null, :quit, null));
-        WatchUi.pushView(
-            menu,
-            new SyncConfirmationDelegate(self),
-            WatchUi.SLIDE_IMMEDIATE
-        );
+        showSessionEndMenu(true);
     }
 
-    // User chose to retry from the confirmation dialog.
-    public function onRetryConfirmed() as Void {
+    // Called from menu: sync and quit option selected.
+    public function onSyncQuit() as Void {
         _awaitingDecision = false;
+        doSync();
+    }
+
+    // Called from menu: retry sync option selected.
+    public function onSyncRetry() as Void {
+        _awaitingDecision = false;
+        _errorMsg = null;
         attemptSync();
     }
 
-    // User chose to force quit and discard the data.
-    public function onForceQuitConfirmed() as Void {
+    // Called from menu: quit without syncing option selected.
+    public function onQuitWithoutSync() as Void {
         _awaitingDecision = false;
         cancelSyncTimer();
         System.exit();
+    }
+
+    // Called from menu: continue session option selected.
+    public function onContinueSession() as Void {
+        _awaitingDecision = false;
+        WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
     }
 
     // The message left the watch's transport layer. This does NOT mean the
@@ -663,11 +694,66 @@ class MainView extends WatchUi.View {
     public function onHide() as Void {
         Sensor.unregisterSensorDataListener();
     }
+
+    // Returns true if the session has no recorded throws yet.
+    public function isSessionEmpty() as Boolean {
+        return _detector.currentCount == 0 && _detector.sessionRuns() == 0;
+    }
+
+    // Prompt the user to confirm quitting without syncing.
+    public function promptQuitWithoutSync() as Void {
+        if (_awaitingDecision) {
+            return;  // Already showing a confirmation dialog.
+        }
+        _awaitingDecision = true;
+        var menu = new WatchUi.Menu2({ :title => "Quit without sync?" });
+        menu.addItem(new WatchUi.MenuItem("Yes", null, :quit_confirm, null));
+        menu.addItem(new WatchUi.MenuItem("No", null, :quit_cancel, null));
+        menu.addItem(new WatchUi.MenuItem("Continue", null, :quit_continue, null));
+        WatchUi.pushView(
+            menu,
+            new QuitConfirmationDelegate(self),
+            WatchUi.SLIDE_IMMEDIATE
+        );
+    }
+
+    // Called when user confirms quit without sync.
+    public function onQuitConfirmed() as Void {
+        _awaitingDecision = false;
+        System.exit();
+    }
+
+    // Called when user cancels quit.
+    public function onQuitCancelled() as Void {
+        _awaitingDecision = false;
+        WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
+    }
 }
 
-// Menu shown when a sync attempt fails or times out, with "Yes" listed first.
-// "Yes" retries the sync; "No" force quits the app and discards the data.
-class SyncConfirmationDelegate extends WatchUi.Menu2InputDelegate {
+// Menu shown when user presses Back during a session.
+// "Yes" quits without syncing; "No" returns to the session.
+class QuitConfirmationDelegate extends WatchUi.Menu2InputDelegate {
+    private var _view as MainView;
+
+    public function initialize(view as MainView) {
+        WatchUi.Menu2InputDelegate.initialize();
+        _view = view;
+    }
+
+    public function onSelect(item as WatchUi.MenuItem) as Void {
+        if (item.getId() == :quit_confirm) {
+            _view.onQuitConfirmed();
+        } else if (item.getId() == :quit_continue) {
+            _view.onQuitCancelled();
+        } else {
+            _view.onQuitCancelled();
+        }
+    }
+}
+
+// Menu shown when user presses START/STOP or when sync fails.
+// Handles sync, quit without sync, and continue session options.
+class SessionEndDelegate extends WatchUi.Menu2InputDelegate {
     private var _view as MainView;
 
     public function initialize(view as MainView) {
@@ -678,10 +764,15 @@ class SyncConfirmationDelegate extends WatchUi.Menu2InputDelegate {
     public function onSelect(item as WatchUi.MenuItem) as Void {
         // Close the menu first, then act on the choice.
         WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
-        if (item.getId() == :retry) {
-            _view.onRetryConfirmed();
-        } else {
-            _view.onForceQuitConfirmed();
+        var itemId = item.getId();
+        if (itemId == :sync_quit) {
+            _view.onSyncQuit();
+        } else if (itemId == :sync_retry) {
+            _view.onSyncRetry();
+        } else if (itemId == :nosync_quit) {
+            _view.onQuitWithoutSync();
+        } else if (itemId == :continue_session) {
+            _view.onContinueSession();
         }
     }
 }
@@ -694,11 +785,10 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
         _view = view;
     }
 
-    // The START/STOP button (top-right, KEY_ENTER) ends the session and
-    // transmits it to the phone.
+    // The START/STOP button (top-right, KEY_ENTER) shows the session-end menu.
     public function onKey(evt as WatchUi.KeyEvent) as Boolean {
         if (evt.getKey() == WatchUi.KEY_ENTER) {
-            _view.endSessionAndSync();
+            _view.showSessionEndMenu(false);
             return true;
         }
         return false;
