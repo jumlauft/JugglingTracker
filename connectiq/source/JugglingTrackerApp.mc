@@ -668,7 +668,7 @@ class MainView extends WatchUi.View {
     // Called from menu: continue session option selected.
     public function onContinueSession() as Void {
         _awaitingDecision = false;
-        WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
+        // Menu is already popped by SessionEndDelegate; just resume tracking.
     }
 
     // The message left the watch's transport layer. This does NOT mean the
