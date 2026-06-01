@@ -24,99 +24,36 @@ class JugglingViewModel(private val repository: SessionRepository? = null) : Vie
     private val _events = MutableSharedFlow<JugglingEvent>()
     val events = _events.asSharedFlow()
 
-    // Session State
-    var isSessionActive by mutableStateOf(value = false)
-        private set
-    
-    var ballCount by mutableIntStateOf(3)
-        private set
-
     val completedSessions = mutableStateListOf<SessionSummary>()
-    
-    // Current Run Data (Last received from watch)
-    var lastRunThrows by mutableIntStateOf(0)
-        private set
-    
-    val runHistory = mutableStateListOf<Int>()
-    
-    // Live Graph Data (Received raw IMU data from watch if available)
-    val history = mutableStateListOf<FloatArray>()
-    private val maxHistorySize = 100
 
-    fun onRunFinished(throws: Int) {
-        if (!isSessionActive) return
-        
-        lastRunThrows = throws
-        runHistory.add(throws)
-        
-        // Announcement Logic
-        if (isVoiceEnabled && throws >= voiceInterval) {
-            viewModelScope.launch {
-                _events.emit(JugglingEvent.Announcement(throws.toString()))
-            }
-        }
-    }
-
-    fun onRawImuData(x: Float, y: Float, z: Float) {
-        // Calculate magnitude or vertical acceleration if possible. 
-        // For now, let's just use magnitude for visualization.
-        val magnitude = sqrt(x * x + y * y + z * z)
-        history.add(floatArrayOf(x, y, z, magnitude))
-        if (history.size > maxHistorySize) {
-            history.removeAt(0)
-        }
-    }
-
-    fun startSession(balls: Int) {
-        ballCount = balls
-        runHistory.clear()
-        lastRunThrows = 0
-        isSessionActive = true
-    }
-
-    fun finishSession() {
-        if (runHistory.isNotEmpty()) {
-            val avg = runHistory.average()
-            val stdDev = if (runHistory.size > 1) {
-                sqrt(runHistory.sumOf { (it - avg) * (it - avg) } / runHistory.size)
-            } else 0.0
-
-            val session = SessionSummary(
-                id = completedSessions.size + 1,
-                timestamp = System.currentTimeMillis(),
-                ballCount = ballCount,
-                runCount = runHistory.size,
-                avgThrows = avg,
-                stdDevThrows = stdDev,
-                avgConsistency = 0.0,
-                bestRun = runHistory.maxOrNull() ?: 0,
-                totalThrows = runHistory.sum(),
-                runHistory = runHistory.toList(),
-            )
-            
-            completedSessions.add(index = 0, element = session)
-            repository?.addSession(session)
-        }
-        isSessionActive = false
-        lastRunThrows = 0
-        runHistory.clear()
-    }
-
-    // Import batch of runs from Garmin watch
-    fun importRunsFromWatch(payload: Map<String, Any>) {
-        val runs = (payload["sessions"] as? List<Map<String, Any>>) ?: return
-        val sessionMax = payload["sessionMax"] as? Number
-        val sessionAverage = payload["sessionAverage"] as? Number
-        val sessionRuns = payload["sessionRuns"] as? Number
-        
-        repository?.importRunsBatch(runs, sessionMax, sessionAverage, sessionRuns)
-        
-        // Reload sessions from repository
+    init {
+        // Load any previously stored sessions on startup.
         repository?.getSessions()?.let { sessions ->
             completedSessions.clear()
             completedSessions.addAll(sessions)
         }
-        
+    }
+
+    // Import a single finished session transferred from the Garmin watch.
+    // Payload shape: { type: "session", balls: Int, timestamp: Long (epoch s),
+    // runs: List<Number> }. The watch is the sole session controller; the phone
+    // only listens and records what it receives.
+    fun importSessionFromWatch(payload: Map<String, Any>) {
+        val balls = (payload["balls"] as? Number)?.toInt() ?: return
+        val timestamp = (payload["timestamp"] as? Number)?.toLong() ?: return
+        @Suppress("UNCHECKED_CAST")
+        val runsRaw = payload["runs"] as? List<Any> ?: return
+        val runs = runsRaw.mapNotNull { (it as? Number)?.toInt() }
+        if (runs.isEmpty()) return
+
+        repository?.importSession(balls, timestamp, runs)
+
+        // Reload sessions from repository so the UI reflects the new data.
+        repository?.getSessions()?.let { sessions ->
+            completedSessions.clear()
+            completedSessions.addAll(sessions)
+        }
+
         viewModelScope.launch {
             _events.emit(JugglingEvent.SyncCompleted(runs.size))
         }

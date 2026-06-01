@@ -8,37 +8,6 @@ import Toybox.Math;
 import Toybox.System;
 import Toybox.Time;
 
-// Manages persistent storage of juggling sessions on the watch.
-class SessionStorage {
-    private static var _sessions as Array<Dictionary> = [];
-
-    // Load all unsynced sessions from memory (persisted during app lifetime).
-    public static function loadSessions() as Array<Dictionary> {
-        return _sessions;
-    }
-
-    // Save sessions to memory.
-    public static function saveSessions(sessions as Array<Dictionary>) as Void {
-        _sessions = sessions;
-    }
-
-    // Add a new session.
-    public static function addSession(balls as Number, throws as Number, timestamp as Number) as Void {
-        var sessions = loadSessions();
-        sessions.add({
-            "balls" => balls,
-            "throws" => throws,
-            "timestamp" => timestamp
-        });
-        saveSessions(sessions);
-    }
-
-    // Clear all synced sessions.
-    public static function clearSessions() as Void {
-        saveSessions([]);
-    }
-}
-
 // Detects juggling throws from the watch's raw accelerometer stream.
 //
 // The accelerometer reports samples in milli-g (gravity still included). The
@@ -76,6 +45,9 @@ class JugglingDetector {
     private var _sessionTotal as Number;
     public var sessionMax as Number;
 
+    // Throw counts of each completed run this session, in order.
+    private var _runThrows as Array<Number>;
+
     public function initialize(balls as Number) {
         ballCount = balls;
         _gravityX = 0.0f;
@@ -89,6 +61,37 @@ class JugglingDetector {
         _sessionRuns = 0;
         _sessionTotal = 0;
         sessionMax = 0;
+        _runThrows = [];
+    }
+
+    // Throw counts of all completed runs this session, in order.
+    public function runThrows() as Array<Number> {
+        return _runThrows;
+    }
+
+    // Fold a finished run's throw count into the session statistics and the
+    // per-run list. Shared by auto-finish and manual session end.
+    private function recordRun(throws as Number) as Void {
+        previousCount = throws;
+        _sessionRuns += 1;
+        _sessionTotal += throws;
+        if (throws > sessionMax) {
+            sessionMax = throws;
+        }
+        _runThrows.add(throws);
+    }
+
+    // Ends a run that is still in progress (e.g. when the user stops the
+    // session manually). Records it if it has any throws. Returns the count.
+    public function finishCurrentRun() as Number {
+        if (currentCount > 0) {
+            var finished = currentCount;
+            recordRun(finished);
+            currentCount = 0;
+            _lastThrowTime = 0;
+            return finished;
+        }
+        return 0;
     }
 
     // Detection threshold (m/s^2) for the current ball count. Higher ball
@@ -159,21 +162,13 @@ class JugglingDetector {
     // number of throws in the just-finished run, or -1 if no run finished.
     public function checkAutoFinish(nowMs as Number) as Number {
         if (currentCount > 0 && _lastThrowTime > 0 && (nowMs - _lastThrowTime > AUTO_FINISH_DELAY_MS)) {
-            previousCount = currentCount;
+            var finished = currentCount;
 
             // Fold the finished run into the session statistics.
-            _sessionRuns += 1;
-            _sessionTotal += currentCount;
-            if (currentCount > sessionMax) {
-                sessionMax = currentCount;
-            }
+            recordRun(finished);
 
-            var finished = currentCount;
             currentCount = 0;
             _lastThrowTime = 0;
-
-            // Store the completed run to persistent storage.
-            SessionStorage.addSession(ballCount, finished, System.getTimer());
 
             return finished;
         }
@@ -280,12 +275,14 @@ class MainView extends WatchUi.View {
     private var _listener as CommListener;
     private var _sending as Boolean;
     private var _detector as JugglingDetector;
+    private var _errorMsg as String?;
 
     public function initialize(ballCount as Number) {
         WatchUi.View.initialize();
         _listener = new CommListener(self);
         _sending = false;
         _detector = new JugglingDetector(ballCount);
+        _errorMsg = null;
 
         try {
             var options = {
@@ -346,6 +343,12 @@ class MainView extends WatchUi.View {
         dc.drawText(leftX, y, Graphics.FONT_XTINY, Lang.format("Avg: $1$", [avgStr]), Graphics.TEXT_JUSTIFY_CENTER);
         var maxStr = _detector.sessionMax == 0 ? "-" : _detector.sessionMax.toString();
         dc.drawText(rightX, y, Graphics.FONT_XTINY, Lang.format("Max: $1$", [maxStr]), Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Error banner at the bottom if a transfer failed.
+        if (_errorMsg != null) {
+            dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, dc.getHeight() - statsH * 2, Graphics.FONT_XTINY, _errorMsg, Graphics.TEXT_JUSTIFY_CENTER);
+        }
     }
 
     public function onSensor(sensorData as Sensor.SensorData) as Void {
@@ -371,39 +374,54 @@ class MainView extends WatchUi.View {
         }
         _detector.checkAutoFinish(now);
         WatchUi.requestUpdate();
-        // Run is now stored locally; no immediate transmission.
     }
 
-    // Sync all unsynced sessions to the phone. Call this when phone is available.
-    public function syncSessions() as Void {
-        var sessions = SessionStorage.loadSessions();
-        if (sessions.size() == 0) {
-            return;  // Nothing to sync.
-        }
-
+    // End the current session and transmit it to the phone as a single payload
+    // containing the throws of every run, the ball count, and a timestamp.
+    // On success the app closes; on failure an error is shown and the app stays
+    // open so no data is lost.
+    public function endSessionAndSync() as Void {
         if (_sending) {
             return;  // Already transmitting.
         }
 
+        // Fold any run still in progress into the session.
+        _detector.finishCurrentRun();
+
+        var runs = _detector.runThrows();
+        if (runs.size() == 0) {
+            // No runs recorded this session; just close the app.
+            System.exit();
+        }
+
         var payload = {
-            "sessions" => sessions,
-            "sessionMax" => _detector.sessionMax,
-            "sessionAverage" => _detector.sessionAverage(),
-            "sessionRuns" => _detector.sessionRuns()
+            "type" => "session",
+            "balls" => _detector.ballCount,
+            "timestamp" => Time.now().value(),
+            "runs" => runs
         };
 
         try {
             _sending = true;
+            _errorMsg = null;
             Communications.transmit(payload, null, _listener);
         } catch (ex) {
             _sending = false;
+            onTransmitError();
         }
     }
 
+    // Called on successful transfer: close the app.
     public function onTransmitDone() as Void {
         _sending = false;
-        // After successful sync, clear the stored sessions.
-        SessionStorage.clearSessions();
+        System.exit();
+    }
+
+    // Called on a failed transfer: show an error and keep the app open.
+    public function onTransmitError() as Void {
+        _sending = false;
+        _errorMsg = "Sync failed - retry";
+        WatchUi.requestUpdate();
     }
 
     public function onHide() as Void {
@@ -411,18 +429,22 @@ class MainView extends WatchUi.View {
     }
 }
 
-class MainDelegate extends WatchUi.InputDelegate {
+class MainDelegate extends WatchUi.BehaviorDelegate {
     private var _view as MainView;
 
     public function initialize(view as MainView) {
-        WatchUi.InputDelegate.initialize();
+        WatchUi.BehaviorDelegate.initialize();
         _view = view;
     }
 
-    // Trigger sync when select button is pressed.
-    public function onSelect() as Boolean {
-        _view.syncSessions();
-        return true;
+    // The START/STOP button (top-right, KEY_ENTER) ends the session and
+    // transmits it to the phone.
+    public function onKey(evt as WatchUi.KeyEvent) as Boolean {
+        if (evt.getKey() == WatchUi.KEY_ENTER) {
+            _view.endSessionAndSync();
+            return true;
+        }
+        return false;
     }
 }
 
@@ -439,7 +461,7 @@ class CommListener extends Communications.ConnectionListener {
     }
 
     function onError() {
-        _view.onTransmitDone();
+        _view.onTransmitError();
     }
 }
 

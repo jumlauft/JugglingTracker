@@ -59,9 +59,6 @@ class MainActivity : ComponentActivity() {
         if (isWatchAppRunning) {
             isWatchAppRunning = false
             garminStatus = "Watch app stopped (timeout)"
-            if (viewModel.isSessionActive) {
-                viewModel.finishSession()
-            }
         }
     }
 
@@ -196,33 +193,13 @@ class MainActivity : ComponentActivity() {
         handler.removeCallbacks(heartbeatRunnable)
         handler.postDelayed(heartbeatRunnable, HEARTBEAT_TIMEOUT_MS)
 
-        // Check if this is a batch sync from the watch
-        @Suppress("UNCHECKED_CAST")
-        val sessions = payload["sessions"] as? List<Map<String, Any>>
-        if (sessions != null) {
-            // Batch sync: import all sessions at once
+        // The watch sends one payload per finished session containing the ball
+        // count, a timestamp, and the throw count of every run in the session.
+        if (payload["type"] == "session") {
+            @Suppress("UNCHECKED_CAST")
+            val typed = payload as Map<String, Any>
             runOnUiThread {
-                @Suppress("UNCHECKED_CAST")
-                viewModel.importRunsFromWatch(payload as Map<String, Any>)
-            }
-            return
-        }
-
-        // Legacy: Process individual throws (for backward compatibility)
-        val throws = (payload["throws"] as? Number)?.toInt()
-        if (throws != null) {
-            runOnUiThread {
-                viewModel.onRunFinished(throws)
-            }
-        }
-
-        // Process raw IMU if available
-        val x = (payload["x"] as? Number)?.toFloat()
-        val y = (payload["y"] as? Number)?.toFloat()
-        val z = (payload["z"] as? Number)?.toFloat()
-        if (x != null && y != null && z != null) {
-            runOnUiThread {
-                viewModel.onRawImuData(x, y, z)
+                viewModel.importSessionFromWatch(typed)
             }
         }
     }

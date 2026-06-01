@@ -18,7 +18,39 @@ class SessionRepository(context: Context) {
     }
     
     fun getSessions(): List<SessionSummary> = sessionsCache.toList()
-    
+
+    // Import a single finished session transferred from the Garmin watch.
+    // The watch sends the ball count, a timestamp, and the throw count of every
+    // run in the session. Each transfer becomes one SessionSummary. Transfers
+    // are de-duplicated by timestamp so a retransmission is not counted twice.
+    fun importSession(ballCount: Int, timestamp: Long, runs: List<Int>) {
+        if (runs.isEmpty()) return
+
+        // Ignore a session we already stored (e.g. a retransmission).
+        if (sessionsCache.any { it.timestamp == timestamp }) return
+
+        val avg = runs.average()
+        val bestRun = runs.maxOrNull() ?: 0
+        val stdDev = if (runs.size > 1) {
+            sqrt(runs.sumOf { (it - avg) * (it - avg) } / runs.size)
+        } else 0.0
+
+        val session = SessionSummary(
+            id = sessionsCache.size + 1,
+            timestamp = timestamp,
+            ballCount = ballCount,
+            runCount = runs.size,
+            avgThrows = avg,
+            stdDevThrows = stdDev,
+            avgConsistency = 0.0,
+            bestRun = bestRun,
+            totalThrows = runs.sum(),
+            runHistory = runs
+        )
+        sessionsCache.add(0, session)
+        saveSessionsToStorage()
+    }
+
     // Import a batch of runs from Garmin watch and create/merge sessions
     fun importRunsBatch(
         runs: List<Map<String, Any>>,

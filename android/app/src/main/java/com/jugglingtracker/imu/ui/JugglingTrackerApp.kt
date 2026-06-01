@@ -66,52 +66,7 @@ fun JugglingTrackerApp(
         }
     }
 
-    val showBallSelection = remember { mutableStateOf(value = false) }
     val selectedSessionForDetails = remember { mutableStateOf<SessionSummary?>(value = null) }
-
-    if (showBallSelection.value) {
-        AlertDialog(
-            onDismissRequest = { showBallSelection.value = false },
-            title = { Text(text = "Select Ball Count") },
-            text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(space = 8.dp),
-                ) {
-                    val ballOptions = (3..9).toList()
-                    ballOptions.chunked(size = 2).forEach { row ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(space = 8.dp),
-                        ) {
-                            row.forEach { count ->
-                                Button(
-                                    onClick = {
-                                        viewModel.startSession(balls = count)
-                                        showBallSelection.value = false
-                                    },
-                                    modifier = Modifier.weight(weight = 1f),
-                                    contentPadding = PaddingValues(all = 0.dp),
-                                ) {
-                                    Text(text = "$count Balls")
-                                }
-                            }
-                            if (row.size < 2) {
-                                Spacer(modifier = Modifier.weight(weight = 1f))
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showBallSelection.value = false }) {
-                    Text(text = "Cancel")
-                }
-            },
-        )
-    }
 
     if (selectedSessionForDetails.value != null) {
         SessionDetailsDialog(
@@ -141,7 +96,7 @@ fun JugglingTrackerApp(
                     }
                 },
                 actions = {
-                    if ((currentScreen == Screen.Tracker) && !viewModel.isSessionActive) {
+                    if (currentScreen == Screen.Tracker) {
                         IconButton(onClick = { currentScreen = Screen.Settings }) {
                             Icon(Icons.Default.Settings, contentDescription = "Settings")
                         }
@@ -156,7 +111,6 @@ fun JugglingTrackerApp(
                     viewModel = viewModel,
                     garminStatus = garminStatus,
                     isWatchAppRunning = isWatchAppRunning,
-                    onStartSession = { showBallSelection.value = true },
                 ) { selectedSessionForDetails.value = it }
             } else {
                 SettingsScreen(viewModel)
@@ -171,7 +125,6 @@ fun TrackerScreen(
     viewModel: JugglingViewModel,
     garminStatus: String,
     isWatchAppRunning: Boolean,
-    onStartSession: () -> Unit,
     onSessionClick: (SessionSummary) -> Unit,
 ) {
     var sessionToDelete by remember { mutableStateOf<SessionSummary?>(null) }
@@ -235,77 +188,26 @@ fun TrackerScreen(
             }
         }
 
-        // Session Control Button
-        Button(
-            onClick = {
-                if (viewModel.isSessionActive) {
-                    viewModel.finishSession()
-                } else {
-                    onStartSession()
-                }
-            },
+        // The watch is the sole session controller; the phone only listens for
+        // finished sessions and records them. No session is started here.
+        Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (viewModel.isSessionActive) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.primary
-                },
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
             )
         ) {
-            Text(if (viewModel.isSessionActive) "Finish Session" else "Start New Session")
+            Text(
+                text = if (isWatchAppRunning) {
+                    "Listening for sessions from your watch…"
+                } else {
+                    "Start a session on your watch. Results appear here automatically."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(12.dp)
+            )
         }
 
-        if (viewModel.isSessionActive) {
-            Text(
-                text = "Tracking ${viewModel.ballCount} balls",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            StatusIndicator(isJuggling = viewModel.lastRunThrows > 0)
-
-            CurrentRunCard(
-                throwCount = viewModel.lastRunThrows,
-                previousRunCount = viewModel.runHistory.lastOrNull()
-            )
-
-            if (viewModel.runHistory.isNotEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = "CURRENT SESSION STATS",
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            StatItem("Runs", viewModel.runHistory.size.toString())
-                            StatItem("Avg", "%.1f".format(viewModel.runHistory.average()))
-                            StatItem("Best", viewModel.runHistory.maxOrNull()?.toString() ?: "0")
-                        }
-                    }
-                }
-            }
-
-            Text(
-                text = "Live IMU Magnitude",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.align(Alignment.Start)
-            )
-
-            ThrowGraph(
-                history = viewModel.history,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp)
-            )
-        } else if (viewModel.completedSessions.isNotEmpty()) {
+        if (viewModel.completedSessions.isNotEmpty()) {
             Text(
                 text = "Session History",
                 style = MaterialTheme.typography.titleMedium,
