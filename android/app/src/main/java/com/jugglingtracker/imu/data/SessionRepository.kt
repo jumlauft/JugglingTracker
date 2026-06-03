@@ -1,12 +1,17 @@
 package com.jugglingtracker.imu.data
 
 import android.content.Context
+import android.util.Log
 import com.jugglingtracker.imu.model.JugglingRun
 import com.jugglingtracker.imu.model.SessionSummary
 import androidx.compose.runtime.mutableStateListOf
 import kotlin.math.sqrt
 
 class SessionRepository(context: Context) {
+    companion object {
+        private const val TAG = "SessionRepository"
+    }
+
     private val sharedPrefs = context.getSharedPreferences("juggling_sessions", Context.MODE_PRIVATE)
     private val sessionsKey = "sessions_json"
     
@@ -69,6 +74,7 @@ class SessionRepository(context: Context) {
                     throws = (runMap["throws"] as? Number)?.toInt() ?: 0
                 )
             } catch (e: Exception) {
+                Log.w(TAG, "Skipping malformed run entry: $runMap", e)
                 null
             }
         }
@@ -158,7 +164,7 @@ class SessionRepository(context: Context) {
             }
             sharedPrefs.edit().putString(sessionsKey, "[$json]").apply()
         } catch (e: Exception) {
-            // Handle serialization error
+            Log.e(TAG, "Failed to save sessions to storage", e)
         }
     }
     
@@ -195,7 +201,7 @@ class SessionRepository(context: Context) {
             sessionsCache.clear()
             sessionsCache.addAll(sessions.sortedByDescending { it.timestamp })
         } catch (e: Exception) {
-            // Handle error
+            Log.e(TAG, "Failed to load sessions from storage", e)
         }
     }
     

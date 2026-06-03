@@ -1,6 +1,8 @@
 package com.jugglingtracker.imu.ui
 
 import android.speech.tts.TextToSpeech
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -301,7 +303,8 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
                     outputStream.write(viewModel.getSessionsCsv().toByteArray())
                 }
             } catch (e: Exception) {
-                // Handle error
+                Log.e("JugglingTrackerApp", "CSV export failed", e)
+                Toast.makeText(context, "Export failed", Toast.LENGTH_SHORT).show()
             }
         }
     }
