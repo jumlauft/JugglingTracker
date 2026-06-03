@@ -22,10 +22,11 @@ applyTo: "connectiq/**/*.mc"
 - Gravity estimated with low-pass filter (α = 0.95 idle, 0.99 during active juggling to prevent drift).
 - Linear acceleration magnitude (`sqrt(lx² + ly² + lz²)`) used for detection — captures throw energy in all directions.
 - 3-point moving average smooths noise before peak detection.
-- True peak detection: local maxima in the smoothed signal above threshold, with hysteresis (signal must drop below `threshold × 0.5` before re-arming).
+- True peak detection: local maxima in the smoothed signal above threshold, with hysteresis (signal must drop below `threshold × hysteresisFactor()` before re-arming).
 - Each detected peak increments `currentCount` by 2 (one wrist sensor sees one arm, doubled for the other hand). The count sent to the phone in `runs` is this already-doubled total.
-- Fixed threshold: `5.0 + 0.5 × ballCount` m/s² (range 6.5–9.5).
-- Ball-count-dependent refractory: `600 / (ballCount - 1)` ms (3 balls → 300ms, 7 balls → 100ms).
+- Ball-count-dependent threshold: `9.0 + ballCount` m/s² (3 balls → 12.0, 5 balls → 14.0, 7 balls → 16.0). Validated against recorded IMU data from 3-ball and 5-ball sessions with accurate gravity-alpha simulation.
+- Ball-count-dependent hysteresis factor: `0.325 + 0.075 * ballCount` capped at 0.8 (3 balls → 0.55, 5 balls → 0.70). Higher ball counts use a higher factor because the signal stays elevated between rapid throws.
+- Ball-count-dependent refractory: `100 / (ballCount - 1)` ms (3 balls → 50ms, 5 balls → 25ms).
 - Auto-finish after 2s idle.
 - 25-sample warmup before detection begins.
 - Debug logging behind `DEBUG_LOG` constant (default false); prints per-sample magnitude, threshold, and detection state.

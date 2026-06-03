@@ -25,24 +25,26 @@ import com.garmin.android.connectiq.IQDevice
 import com.garmin.android.connectiq.exception.ServiceUnavailableException
 import com.jugglingtracker.imu.logic.JugglingViewModel
 import com.jugglingtracker.imu.data.SessionRepository
+import com.jugglingtracker.imu.data.RecordingRepository
 import com.jugglingtracker.imu.ui.JugglingTrackerApp
 import com.jugglingtracker.imu.ui.theme.JugglingTrackerTheme
 
 class MainActivity : ComponentActivity() {
     companion object {
         private const val TAG = "MainActivity"
-        private const val WATCH_APP_ID = "A1B2C3D4E5F60718293A4B5C6D7E8F90"
+        private const val WATCH_APP_ID = "a77c0c66-f421-49f5-889f-0bf4a446dfea"
         private const val PERMISSION_REQUEST_CODE = 1001
         private const val HEARTBEAT_TIMEOUT_MS = 15000L
     }
 
     private val repository: SessionRepository by lazy { SessionRepository(this) }
+    private val recordingRepository: RecordingRepository by lazy { RecordingRepository(this) }
     
     private val viewModel: JugglingViewModel by viewModels {
         object : androidx.lifecycle.ViewModelProvider.Factory {
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
                 @Suppress("UNCHECKED_CAST")
-                return JugglingViewModel(repository) as T
+                return JugglingViewModel(repository, recordingRepository) as T
             }
         }
     }
@@ -204,6 +206,14 @@ class MainActivity : ComponentActivity() {
             // Acknowledge receipt so the watch knows the data is safely stored
             // and can close. The timestamp lets the watch match the ACK to its
             // pending send.
+            val ts = (payload["timestamp"] as? Number)?.toLong()
+            sendAck(ts)
+        } else if (payload["type"] == "recording") {
+            @Suppress("UNCHECKED_CAST")
+            val typed = payload as Map<String, Any>
+            runOnUiThread {
+                viewModel.importRecordingFromWatch(typed)
+            }
             val ts = (payload["timestamp"] as? Number)?.toLong()
             sendAck(ts)
         }

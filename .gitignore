@@ -76,3 +76,7 @@ android/.externalNativeBuild/
 # Logs & misc
 # ──────────────────────────────────────────────
 *.log
+
+# Python
+__pycache__/
+*.pyc

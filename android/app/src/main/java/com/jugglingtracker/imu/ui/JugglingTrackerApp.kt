@@ -308,6 +308,22 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
         }
     }
 
+    val recordingLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        uri?.let {
+            try {
+                context.contentResolver.openOutputStream(it)?.use { outputStream ->
+                    outputStream.write(viewModel.getRecordingsCsv().toByteArray())
+                }
+                Toast.makeText(context, "Recordings exported", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Log.e("JugglingTrackerApp", "Recording export failed", e)
+                Toast.makeText(context, "Export failed", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -341,10 +357,69 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
         Text(text = "Data Management", style = MaterialTheme.typography.titleLarge)
         
         Button(
-            onClick = { launcher.launch("juggling_history.csv") },
+            onClick = {
+                val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
+                launcher.launch("juggling_history_$ts.csv")
+            },
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Export History to CSV")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(text = "IMU Recordings", style = MaterialTheme.typography.titleLarge)
+
+        Text(
+            text = "${viewModel.recordingCount} recording(s) stored",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+
+        Button(
+            onClick = {
+                val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
+                recordingLauncher.launch("juggling_recordings_$ts.csv")
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = viewModel.recordingCount > 0,
+        ) {
+            Text("Export Recordings to CSV")
+        }
+
+        var showClearConfirm by remember { mutableStateOf(false) }
+
+        OutlinedButton(
+            onClick = { showClearConfirm = true },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = viewModel.recordingCount > 0,
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.error,
+            ),
+        ) {
+            Text("Clear All Recordings")
+        }
+
+        if (showClearConfirm) {
+            AlertDialog(
+                onDismissRequest = { showClearConfirm = false },
+                title = { Text("Clear Recordings") },
+                text = { Text("Delete all ${viewModel.recordingCount} stored recordings? This cannot be undone.") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.clearRecordings()
+                            showClearConfirm = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    ) {
+                        Text("Delete All")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearConfirm = false }) {
+                        Text("Cancel")
+                    }
+                },
+            )
         }
     }
 }

@@ -14,7 +14,7 @@ class JugglingTrackerApp extends Application.AppBase {
     }
 
     function getInitialView() as [Views] or [Views, InputDelegates] {
-        var selectView = new BallSelectView();
-        return [selectView, new BallSelectDelegate(selectView)];
+        var modeView = new ModeSelectView();
+        return [modeView, new ModeSelectDelegate(modeView)];
     }
 }

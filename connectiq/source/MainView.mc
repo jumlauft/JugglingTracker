@@ -1,3 +1,4 @@
+import Toybox.Attention;
 import Toybox.Communications;
 import Toybox.Graphics;
 import Toybox.Lang;
@@ -27,6 +28,9 @@ class MainView extends WatchUi.View {
     // True while the retry/force-quit confirmation dialog is on screen.
     private var _awaitingDecision as Boolean;
 
+    // Last catch count at which we vibrated (for every-10-catches feedback).
+    private var _lastVibrateCount as Number;
+
     // Repeating 1s timer that animates the "Sync to phone..." status by adding
     // a dot each second while we wait for the phone's acknowledgement.
     private var _statusTimer as Timer.Timer?;
@@ -43,6 +47,7 @@ class MainView extends WatchUi.View {
         _awaitingDecision = false;
         _statusTimer = null;
         _syncDots = 0;
+        _lastVibrateCount = 0;
 
         // Listen for the phone's acknowledgement that a session was received.
         Communications.registerForPhoneAppMessages(method(:onPhoneMessage));
@@ -154,7 +159,20 @@ class MainView extends WatchUi.View {
             var sampleMs = batchStartMs + i * samplePeriodMs;
             _detector.processSample(xs[i], ys[i], zs[i], sampleMs);
         }
-        _detector.checkAutoFinish(now);
+
+        // Vibrate every 10 catches as tactile feedback.
+        var count = _detector.currentCount;
+        if (count > 0 && count / 10 > _lastVibrateCount / 10) {
+            if (Attention has :vibrate) {
+                Attention.vibrate([new Attention.VibeProfile(50, 200)]);
+            }
+            _lastVibrateCount = count;
+        }
+
+        var finished = _detector.checkAutoFinish(now);
+        if (finished > 0) {
+            _lastVibrateCount = 0;
+        }
         WatchUi.requestUpdate();
     }
 

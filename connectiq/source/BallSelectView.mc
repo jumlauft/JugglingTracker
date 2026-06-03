@@ -9,10 +9,12 @@ class BallSelectView extends WatchUi.View {
     public static const MAX_BALLS = 9;
 
     public var ballCount as Number;
+    public var mode as Symbol;
 
-    public function initialize() {
+    public function initialize(selectedMode as Symbol) {
         WatchUi.View.initialize();
         ballCount = MIN_BALLS;
+        mode = selectedMode;
     }
 
     public function increment() as Void {
@@ -85,11 +87,16 @@ class BallSelectDelegate extends WatchUi.BehaviorDelegate {
         return false;
     }
 
-    // Confirm the selection and switch to the main tracking screen.
+    // Confirm the selection and switch to the appropriate screen.
     public function onSelect() as Boolean {
         var balls = _view.ballCount;
-        var mainView = new MainView(balls);
-        WatchUi.switchToView(mainView, new MainDelegate(mainView), WatchUi.SLIDE_LEFT);
+        if (_view.mode == :record) {
+            var recView = new RecordingView(balls);
+            WatchUi.switchToView(recView, new RecordingDelegate(recView), WatchUi.SLIDE_LEFT);
+        } else {
+            var mainView = new MainView(balls);
+            WatchUi.switchToView(mainView, new MainDelegate(mainView), WatchUi.SLIDE_LEFT);
+        }
         return true;
     }
 }

@@ -19,8 +19,8 @@ class JugglingDetector {
     private const GRAVITY_ALPHA_ACTIVE = 0.99f;
 
     // Ball-count-dependent refractory: REFRACTORY_BASE_MS / (ballCount - 1).
-    // 3 balls → 175ms, 5 balls → 87ms, 7 balls → 58ms.
-    private const REFRACTORY_BASE_MS = 350;
+    // 3 balls → 50ms, 5 balls → 25ms, 7 balls → 17ms.
+    private const REFRACTORY_BASE_MS = 100;
 
     private const AUTO_FINISH_DELAY_MS = 2000;
 
@@ -31,6 +31,11 @@ class JugglingDetector {
     private var _gravityY as Float;
     private var _gravityZ as Float;
     private var _lastThrowTime as Number;
+    // Last time the smoothed signal was above the activity floor (half the
+    // detection threshold). Used for auto-finish: the run ends when the
+    // signal stays below the activity floor for AUTO_FINISH_DELAY_MS,
+    // rather than when no peaks are detected — prevents premature splits.
+    private var _lastActiveTime as Number;
 
     // Number of samples to wait before detecting throws, giving the gravity
     // estimate time to settle. Prevents a spurious run at startup.
@@ -55,8 +60,8 @@ class JugglingDetector {
     private var _prevMag as Float;
     private var _prevPrevMag as Float;
     // Hysteresis: after detecting a peak we require the signal to drop below
-    // threshold * HYSTERESIS_LOW_FACTOR before another peak can fire.
-    private const HYSTERESIS_LOW_FACTOR = 0.7f;
+    // threshold * hysteresisFactor() before another peak can fire.
+    // 3 balls → 0.6, interpolated up to 0.65 for 5 balls, etc.
     private var _armed as Boolean;  // true = ready to detect next peak
 
     // Set to true to print per-sample debug info via System.println().
@@ -68,6 +73,7 @@ class JugglingDetector {
         _gravityY = 0.0f;
         _gravityZ = 9.80665f;
         _lastThrowTime = 0;
+        _lastActiveTime = 0;
         _samplesSeen = 0;
         _gravityInitialized = false;
         currentCount = 0;
@@ -111,10 +117,25 @@ class JugglingDetector {
         return 0;
     }
 
-    // Detection threshold (m/s²) for the current ball count. Lower counts use
-    // gentler thresholds since the balls aren't thrown as hard.
+    // Detection threshold (m/s²). Scales with ball count: higher ball counts
+    // produce higher-energy throws. Formula: 9.0 + ballCount.
+    //   3 balls → 12.0, 5 balls → 14.0, 7 balls → 16.0, 9 balls → 18.0.
+    // Validated against recorded IMU data across 3-ball and 5-ball sessions
+    // with accurate gravity-alpha simulation.
     private function threshold() as Float {
-        return 3.0f + (0.4f * ballCount);
+        return 9.0f + ballCount;
+    }
+
+    // Hysteresis factor: signal must drop below threshold * hysteresisFactor()
+    // before the next peak can fire. Higher ball counts need a higher factor
+    // because the signal stays elevated between rapid throws.
+    //   3 balls → 0.55, 5 balls → 0.70, 7 balls → 0.80 (capped).
+    private function hysteresisFactor() as Float {
+        var f = 0.325f + 0.075f * ballCount;
+        if (f > 0.8f) {
+            return 0.8f;
+        }
+        return f;
     }
 
     // Refractory period (ms) between consecutive throws. Faster patterns
@@ -187,7 +208,8 @@ class JugglingDetector {
         var refractory = refractoryMs();
 
         // Re-arm once signal drops below hysteresis band.
-        if (!_armed && smoothed < thresholdValue * HYSTERESIS_LOW_FACTOR) {
+        var hystFactor = hysteresisFactor();
+        if (!_armed && smoothed < thresholdValue * hystFactor) {
             _armed = true;
         }
 
@@ -204,9 +226,17 @@ class JugglingDetector {
                      _armed &&
                      (nowMs - _lastThrowTime > refractory);
 
+        // Track activity: any sample above half the threshold keeps the
+        // run alive. This prevents auto-finish during brief dips between
+        // peaks that don't quite reach the full detection threshold.
+        if (currentCount > 0 && smoothed > thresholdValue * 0.5f) {
+            _lastActiveTime = nowMs;
+        }
+
         if (isPeak) {
             currentCount += 2;  // Both hands: one detected peak = 2 throws
             _lastThrowTime = nowMs;
+            _lastActiveTime = nowMs;
             _armed = false;  // Require signal to drop before next detection
         }
 
@@ -226,7 +256,7 @@ class JugglingDetector {
     // Finishes the current run if it has been idle long enough. Returns the
     // number of throws in the just-finished run, or -1 if no run finished.
     public function checkAutoFinish(nowMs as Number) as Number {
-        if (currentCount > 0 && _lastThrowTime > 0 && (nowMs - _lastThrowTime > AUTO_FINISH_DELAY_MS)) {
+        if (currentCount > 0 && _lastActiveTime > 0 && (nowMs - _lastActiveTime > AUTO_FINISH_DELAY_MS)) {
             var finished = currentCount;
 
             // Fold the finished run into the session statistics.

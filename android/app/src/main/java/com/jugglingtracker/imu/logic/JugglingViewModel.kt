@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jugglingtracker.imu.model.SessionSummary
 import com.jugglingtracker.imu.data.SessionRepository
+import com.jugglingtracker.imu.data.RecordingRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
@@ -15,7 +16,10 @@ sealed class JugglingEvent {
     data class SyncCompleted(val count: Int) : JugglingEvent()
 }
 
-class JugglingViewModel(private val repository: SessionRepository? = null) : ViewModel() {
+class JugglingViewModel(
+    private val repository: SessionRepository? = null,
+    private val recordingRepository: RecordingRepository? = null,
+) : ViewModel() {
     // Settings
     var isVoiceEnabled by mutableStateOf(value = true)
     var voiceInterval by mutableIntStateOf(10)
@@ -23,6 +27,10 @@ class JugglingViewModel(private val repository: SessionRepository? = null) : Vie
     // Event Flow
     private val _events = MutableSharedFlow<JugglingEvent>()
     val events = _events.asSharedFlow()
+
+    // Recording state
+    var recordingCount by mutableIntStateOf(recordingRepository?.recordingCount() ?: 0)
+        private set
 
     val completedSessions = mutableStateListOf<SessionSummary>()
 
@@ -102,5 +110,50 @@ class JugglingViewModel(private val repository: SessionRepository? = null) : Vie
         }
         
         return builder.toString()
+    }
+
+    // ── Recording support ──────────────────────────────────────────────
+
+    /** Import a recording payload received from the Garmin watch. */
+    fun importRecordingFromWatch(payload: Map<String, Any>) {
+        val balls = (payload["balls"] as? Number)?.toInt() ?: return
+        val catches = (payload["catches"] as? Number)?.toInt() ?: return
+        val detected = (payload["detected"] as? Number)?.toInt() ?: 0
+        val sampleRate = (payload["sampleRate"] as? Number)?.toInt() ?: 25
+        val timestamp = (payload["timestamp"] as? Number)?.toLong() ?: return
+
+        @Suppress("UNCHECKED_CAST")
+        val xRaw = payload["accelX"] as? List<Any> ?: return
+        @Suppress("UNCHECKED_CAST")
+        val yRaw = payload["accelY"] as? List<Any> ?: return
+        @Suppress("UNCHECKED_CAST")
+        val zRaw = payload["accelZ"] as? List<Any> ?: return
+
+        val xs = xRaw.mapNotNull { (it as? Number)?.toInt() }
+        val ys = yRaw.mapNotNull { (it as? Number)?.toInt() }
+        val zs = zRaw.mapNotNull { (it as? Number)?.toInt() }
+
+        recordingRepository?.saveRecording(
+            balls = balls,
+            catches = catches,
+            detected = detected,
+            sampleRate = sampleRate,
+            timestamp = timestamp,
+            accelX = xs,
+            accelY = ys,
+            accelZ = zs,
+        )
+        recordingCount = recordingRepository?.recordingCount() ?: 0
+    }
+
+    /** Merged CSV of all stored recordings for export. */
+    fun getRecordingsCsv(): String {
+        return recordingRepository?.exportAllCsv() ?: ""
+    }
+
+    /** Delete all stored recordings. */
+    fun clearRecordings() {
+        recordingRepository?.clearAll()
+        recordingCount = 0
     }
 }
