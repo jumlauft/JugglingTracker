@@ -1,28 +1,24 @@
 package com.jugglingtracker.imu.logic
 
-import kotlinx.coroutines.Dispatchers
+import com.jugglingtracker.imu.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.*
-import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class JugglingViewModelTest {
 
-    private val testDispatcher = StandardTestDispatcher()
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
     private lateinit var viewModel: JugglingViewModel
 
     @Before
     fun setup() {
-        Dispatchers.setMain(testDispatcher)
         viewModel = JugglingViewModel()
-    }
-
-    @After
-    fun tearDown() {
-        Dispatchers.resetMain()
     }
 
     @Test
