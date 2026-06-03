@@ -1,18 +1,24 @@
 package com.jugglingtracker.imu.data
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
+import androidx.core.content.edit
 import com.jugglingtracker.imu.model.JugglingRun
 import com.jugglingtracker.imu.model.SessionSummary
 import androidx.compose.runtime.mutableStateListOf
 import kotlin.math.sqrt
 
-class SessionRepository(context: Context) {
+class SessionRepository(private val sharedPrefs: SharedPreferences) {
     companion object {
         private const val TAG = "SessionRepository"
+        private const val PREFS_NAME = "juggling_sessions"
     }
 
-    private val sharedPrefs = context.getSharedPreferences("juggling_sessions", Context.MODE_PRIVATE)
+    constructor(context: Context) : this(
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    )
+
     private val sessionsKey = "sessions_json"
     
     // In-memory cache of sessions
@@ -59,9 +65,9 @@ class SessionRepository(context: Context) {
     // Import a batch of runs from Garmin watch and create/merge sessions
     fun importRunsBatch(
         runs: List<Map<String, Any>>,
-        sessionMax: Number?,
-        sessionAverage: Number?,
-        sessionRuns: Number?
+        @Suppress("UNUSED_PARAMETER") sessionMax: Number?,
+        @Suppress("UNUSED_PARAMETER") sessionAverage: Number?,
+        @Suppress("UNUSED_PARAMETER") sessionRuns: Number?
     ) {
         if (runs.isEmpty()) return
         
@@ -162,7 +168,7 @@ class SessionRepository(context: Context) {
             val json = sessionsCache.joinToString(",") { session ->
                 buildSessionJson(session)
             }
-            sharedPrefs.edit().putString(sessionsKey, "[$json]").apply()
+            sharedPrefs.edit { putString(sessionsKey, "[$json]") }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save sessions to storage", e)
         }

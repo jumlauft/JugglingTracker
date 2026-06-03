@@ -10,7 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -57,12 +57,12 @@ fun JugglingTrackerApp(
         viewModel.events.collect { event ->
             when (event) {
                 is JugglingEvent.Announcement -> {
-                    tts?.speak(event.text, TextToSpeech.QUEUE_FLUSH, null, null)
+                    tts.speak(event.text, TextToSpeech.QUEUE_FLUSH, null, null)
                 }
                 is JugglingEvent.SyncCompleted -> {
                     // Toast or snackbar notification could be shown here
                     // For now, the session list will update automatically
-                    tts?.speak("Synced ${event.count} runs", TextToSpeech.QUEUE_FLUSH, null, null)
+                    tts.speak("Synced ${event.count} runs", TextToSpeech.QUEUE_FLUSH, null, null)
                 }
             }
         }
@@ -78,8 +78,8 @@ fun JugglingTrackerApp(
 
     DisposableEffect(Unit) {
         onDispose { 
-            tts?.stop()
-            tts?.shutdown()
+            tts.stop()
+            tts.shutdown()
         }
     }
 
@@ -93,7 +93,7 @@ fun JugglingTrackerApp(
                 navigationIcon = {
                     if (currentScreen == Screen.Settings) {
                         IconButton(onClick = { currentScreen = Screen.Tracker }) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     }
                 },
@@ -255,20 +255,20 @@ fun TrackerScreen(
             
             filteredSessions.forEach { session ->
                 key(session.id) {
-                    val dismissState = rememberDismissState(
+                    val dismissState = rememberSwipeToDismissBoxState(
                         confirmValueChange = {
-                            if (it == DismissValue.DismissedToStart) {
+                            if (it == SwipeToDismissBoxValue.EndToStart) {
                                 sessionToDelete = session
                                 false
                             } else false
                         },
                     )
 
-                    SwipeToDismiss(
+                    SwipeToDismissBox(
                         state = dismissState,
-                        background = {
+                        backgroundContent = {
                             val color = when (dismissState.dismissDirection) {
-                                DismissDirection.EndToStart -> MaterialTheme.colorScheme.error
+                                SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error
                                 else -> Color.Transparent
                             }
                             Box(
@@ -279,12 +279,11 @@ fun TrackerScreen(
                             )
                         },
                         modifier = Modifier.animateContentSize(),
-                        dismissContent = {
-                            SessionHistoryItem(
-                                session = session,
-                            ) { onSessionClick(session) }
-                        }
-                    )
+                    ) {
+                        SessionHistoryItem(
+                            session = session,
+                        ) { onSessionClick(session) }
+                    }
                 }
             }
         }
