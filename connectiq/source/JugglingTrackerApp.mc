@@ -553,6 +553,7 @@ class MainView extends WatchUi.View {
             startStatusTimer();
             Communications.transmit(_pendingPayload, null, _listener);
         } catch (ex) {
+            System.println("Transmission error: " + ex.getErrorMessage());
             _sending = false;
             cancelSyncTimer();
             cancelStatusTimer();

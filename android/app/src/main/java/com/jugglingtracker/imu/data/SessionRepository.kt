@@ -1,13 +1,24 @@
 package com.jugglingtracker.imu.data
 
 import android.content.Context
+import android.content.SharedPreferences
+import android.util.Log
+import androidx.core.content.edit
 import com.jugglingtracker.imu.model.JugglingRun
 import com.jugglingtracker.imu.model.SessionSummary
 import androidx.compose.runtime.mutableStateListOf
 import kotlin.math.sqrt
 
-class SessionRepository(context: Context) {
-    private val sharedPrefs = context.getSharedPreferences("juggling_sessions", Context.MODE_PRIVATE)
+class SessionRepository(private val sharedPrefs: SharedPreferences) {
+    companion object {
+        private const val TAG = "SessionRepository"
+        private const val PREFS_NAME = "juggling_sessions"
+    }
+
+    constructor(context: Context) : this(
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    )
+
     private val sessionsKey = "sessions_json"
     
     // In-memory cache of sessions
@@ -54,9 +65,9 @@ class SessionRepository(context: Context) {
     // Import a batch of runs from Garmin watch and create/merge sessions
     fun importRunsBatch(
         runs: List<Map<String, Any>>,
-        sessionMax: Number?,
-        sessionAverage: Number?,
-        sessionRuns: Number?
+        @Suppress("UNUSED_PARAMETER") sessionMax: Number?,
+        @Suppress("UNUSED_PARAMETER") sessionAverage: Number?,
+        @Suppress("UNUSED_PARAMETER") sessionRuns: Number?
     ) {
         if (runs.isEmpty()) return
         
@@ -69,6 +80,7 @@ class SessionRepository(context: Context) {
                     throws = (runMap["throws"] as? Number)?.toInt() ?: 0
                 )
             } catch (e: Exception) {
+                Log.w(TAG, "Skipping malformed run entry: $runMap", e)
                 null
             }
         }
@@ -156,9 +168,9 @@ class SessionRepository(context: Context) {
             val json = sessionsCache.joinToString(",") { session ->
                 buildSessionJson(session)
             }
-            sharedPrefs.edit().putString(sessionsKey, "[$json]").apply()
+            sharedPrefs.edit { putString(sessionsKey, "[$json]") }
         } catch (e: Exception) {
-            // Handle serialization error
+            Log.e(TAG, "Failed to save sessions to storage", e)
         }
     }
     
@@ -195,7 +207,7 @@ class SessionRepository(context: Context) {
             sessionsCache.clear()
             sessionsCache.addAll(sessions.sortedByDescending { it.timestamp })
         } catch (e: Exception) {
-            // Handle error
+            Log.e(TAG, "Failed to load sessions from storage", e)
         }
     }
     
