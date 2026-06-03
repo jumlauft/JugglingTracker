@@ -9,15 +9,25 @@ import Toybox.System;
 import Toybox.Time;
 import Toybox.Timer;
 // The accelerometer reports samples in milli-g (gravity still included). The
-// detector converts each sample to m/s^2, keeps a low-pass estimate of the
-// gravity vector, projects the gravity-removed acceleration onto the "up" axis,
-// and counts a throw when that vertical acceleration exceeds a threshold (after
-// a refractory period). After a pause with no throws, the run is finished and
-// the count is moved to "previous run".
+// detector converts each sample to m/s², keeps a low-pass estimate of the
+// gravity vector, removes gravity, and computes the magnitude of the remaining
+// linear acceleration. True peak detection (local maxima above threshold with
+// hysteresis) counts throws. Each detected peak adds 2 to the count (one wrist
+// sensor sees one arm; doubled for the other hand). After a pause with no
+// throws the run is finished and the count moves to "previous run".
 class JugglingDetector {
     private const MILLI_G_TO_MS2 = 9.80665f / 1000.0f;
-    private const GRAVITY_ALPHA = 0.95f;  // Higher alpha = slower gravity adaptation
-    private const REFRACTORY_PERIOD_MS = 200;  // Reduced from 500ms; 3 balls ≈ 300-400ms per throw
+
+    // Gravity low-pass filter coefficient.
+    // During active juggling the filter slows down (_ACTIVE) to prevent gravity
+    // drift from absorbing the sustained arm motion and attenuating the signal.
+    private const GRAVITY_ALPHA_IDLE = 0.95f;
+    private const GRAVITY_ALPHA_ACTIVE = 0.99f;
+
+    // Ball-count-dependent refractory: REFRACTORY_BASE_MS / (ballCount - 1).
+    // 3 balls → 300ms, 5 balls → 150ms, 7 balls → 100ms.
+    private const REFRACTORY_BASE_MS = 600;
+
     private const AUTO_FINISH_DELAY_MS = 2000;
 
     // Number of balls being juggled (3-9), selected at startup.
@@ -45,15 +55,18 @@ class JugglingDetector {
     // Throw counts of each completed run this session, in order.
     private var _runThrows as Array<Number>;
 
-    // Peak detection: track whether vertical acceleration was above threshold last sample
-    private var _lastWasAboveThreshold as Boolean;
+    // True peak detection state.
+    // _prevMag / _prevPrevMag: two-sample history for 3-point moving average
+    // and local-maximum detection.
+    private var _prevMag as Float;
+    private var _prevPrevMag as Float;
+    // Hysteresis: after detecting a peak we require the signal to drop below
+    // threshold * HYSTERESIS_LOW_FACTOR before another peak can fire.
+    private const HYSTERESIS_LOW_FACTOR = 0.5f;
+    private var _armed as Boolean;  // true = ready to detect next peak
 
-    // Adaptive threshold: track acceleration history to compute dynamic thresholds
-    private var _accelHistory as Array<Float>;
-    private const ACCEL_HISTORY_SIZE = 50;  // ~2 seconds at 25 Hz
-    private var _accelHistoryIndex as Number;
-    private var _accelMean as Float;
-    private var _accelStdDev as Float;
+    // Set to true to print per-sample debug info via System.println().
+    private const DEBUG_LOG = false;
 
     public function initialize(balls as Number) {
         ballCount = balls;
@@ -69,11 +82,9 @@ class JugglingDetector {
         _sessionTotal = 0;
         sessionMax = 0;
         _runThrows = [];
-        _lastWasAboveThreshold = false;
-        _accelHistory = [];
-        _accelHistoryIndex = 0;
-        _accelMean = 0.0f;
-        _accelStdDev = 0.0f;
+        _prevMag = 0.0f;
+        _prevPrevMag = 0.0f;
+        _armed = true;
     }
 
     // Throw counts of all completed runs this session, in order.
@@ -106,49 +117,16 @@ class JugglingDetector {
         return 0;
     }
 
-    // Detection threshold (m/s^2) for the current ball count. Higher ball
-    // counts are thrown harder, so the threshold rises with the ball count.
-    // Uses adaptive threshold based on recent acceleration variance.
+    // Detection threshold (m/s²) for the current ball count. Lower counts use
+    // gentler thresholds since the balls aren't thrown as hard.
     private function threshold() as Float {
-        var baseThreshold = 9.0f + ballCount;
-        // If we have enough history, use adaptive threshold: mean + (1.5 * stddev)
-        if (_accelHistory.size() > ACCEL_HISTORY_SIZE / 2) {
-            var adaptiveThreshold = _accelMean + (1.5f * _accelStdDev);
-            // But don't go below the base threshold (safety bounds)
-            if (adaptiveThreshold < baseThreshold) {
-                adaptiveThreshold = baseThreshold;
-            }
-            return adaptiveThreshold;
-        }
-        return baseThreshold;
+        return 5.0f + (0.5f * ballCount);
     }
 
-    // Update acceleration history and compute mean/stddev for adaptive thresholding
-    private function updateAccelHistory(accel as Float) as Void {
-        // Circular buffer: maintain fixed size with index
-        if (_accelHistory.size() < ACCEL_HISTORY_SIZE) {
-            _accelHistory.add(accel);
-        } else {
-            _accelHistory[_accelHistoryIndex] = accel;
-            _accelHistoryIndex = (_accelHistoryIndex + 1) % ACCEL_HISTORY_SIZE;
-        }
-        
-        // Recompute statistics every few samples (expensive operation)
-        if (_accelHistory.size() > 0 && (_samplesSeen % 5) == 0) {
-            var sum = 0.0f;
-            var i = 0;
-            for (i = 0; i < _accelHistory.size(); i++) {
-                sum += _accelHistory[i];
-            }
-            _accelMean = sum / _accelHistory.size();
-            
-            var sumSqDiff = 0.0f;
-            for (i = 0; i < _accelHistory.size(); i++) {
-                var diff = _accelHistory[i] - _accelMean;
-                sumSqDiff += diff * diff;
-            }
-            _accelStdDev = Math.sqrt(sumSqDiff / _accelHistory.size());
-        }
+    // Refractory period (ms) between consecutive throws. Faster patterns
+    // (more balls) get a shorter refractory so rapid throws aren't missed.
+    private function refractoryMs() as Number {
+        return REFRACTORY_BASE_MS / (ballCount - 1);
     }
 
     // Average throws per completed run this session (0.0 if no runs yet).
@@ -178,10 +156,12 @@ class JugglingDetector {
             _gravityZ = az;
             _gravityInitialized = true;
         } else {
-            // Low-pass filter to estimate gravity.
-            _gravityX = GRAVITY_ALPHA * _gravityX + (1.0f - GRAVITY_ALPHA) * ax;
-            _gravityY = GRAVITY_ALPHA * _gravityY + (1.0f - GRAVITY_ALPHA) * ay;
-            _gravityZ = GRAVITY_ALPHA * _gravityZ + (1.0f - GRAVITY_ALPHA) * az;
+            // Slow down gravity adaptation during active juggling to prevent
+            // the estimate from drifting toward sustained arm motion.
+            var alpha = (currentCount > 0) ? GRAVITY_ALPHA_ACTIVE : GRAVITY_ALPHA_IDLE;
+            _gravityX = alpha * _gravityX + (1.0f - alpha) * ax;
+            _gravityY = alpha * _gravityY + (1.0f - alpha) * ay;
+            _gravityZ = alpha * _gravityZ + (1.0f - alpha) * az;
         }
 
         // Linear acceleration = total - gravity.
@@ -189,41 +169,64 @@ class JugglingDetector {
         var ly = ay - _gravityY;
         var lz = az - _gravityZ;
 
-        var gMag = Math.sqrt(_gravityX * _gravityX + _gravityY * _gravityY + _gravityZ * _gravityZ);
-        var verticalAccel = 0.0f;
-        if (gMag > 0.0) {
-            verticalAccel = -((lx * _gravityX) + (ly * _gravityY) + (lz * _gravityZ)) / gMag;
-        }
+        // Acceleration magnitude — captures throw energy in all directions
+        // (cascade, shower, columns) rather than only the vertical component.
+        var mag = Math.sqrt(lx * lx + ly * ly + lz * lz).toFloat();
 
-        // Update acceleration history for adaptive thresholding.
-        updateAccelHistory(verticalAccel);
+        // 3-point moving average to smooth single-sample noise spikes.
+        var smoothed = ((_prevPrevMag + _prevMag + mag) / 3.0f).toFloat();
+
+        _samplesSeen += 1;
 
         // Ignore the first few samples while the gravity estimate settles so a
         // stationary watch never registers a startup run.
-        _samplesSeen += 1;
         if (_samplesSeen <= WARMUP_SAMPLES) {
-            _lastWasAboveThreshold = false;
+            _prevPrevMag = _prevMag;
+            _prevMag = mag;
             return;
         }
 
-        // Peak detection with hysteresis: detect both upward crossings (throws)
-        // and downward crossings (catches). Count by 2 per event to account for both hands.
+        // True peak detection: a peak is a local maximum in the smoothed signal
+        // that exceeds the threshold, with hysteresis to avoid multiple
+        // detections from noisy oscillation near the threshold.
         var thresholdValue = threshold();
-        var aboveThreshold = (verticalAccel > thresholdValue);
-        
-        // Detect transition from below to above threshold (throw peak)
-        if (aboveThreshold && !_lastWasAboveThreshold && (nowMs - _lastThrowTime > REFRACTORY_PERIOD_MS)) {
-            currentCount += 2;  // Count by 2 for both hands on throw
-            _lastThrowTime = nowMs;
-        } else if (!aboveThreshold && _lastWasAboveThreshold && (nowMs - _lastThrowTime > REFRACTORY_PERIOD_MS / 2)) {
-            // Crossed threshold downward (catch impact) - use shorter refractory
-            if (currentCount > 0) {
-                currentCount += 2;  // Count by 2 for both hands on catch
-                _lastThrowTime = nowMs;
-            }
+        var refractory = refractoryMs();
+
+        // Re-arm once signal drops below hysteresis band.
+        if (!_armed && smoothed < thresholdValue * HYSTERESIS_LOW_FACTOR) {
+            _armed = true;
         }
 
-        _lastWasAboveThreshold = aboveThreshold;
+        // Detect local maximum: previous smoothed value was higher than both
+        // its neighbors (current and the one before it), exceeded threshold,
+        // detector is armed, and refractory period has elapsed.
+        // We evaluate the *previous* smoothed value so we have a one-sample
+        // look-ahead to confirm the signal is falling.
+        var prevSmoothed = ((_prevPrevMag + _prevMag + _prevMag) / 3.0f).toFloat();
+        // Approximate: we don't have the sample before _prevPrevMag, so use
+        // the two-point average for the "before" neighbor.
+        var isPeak = (_prevMag >= mag) && (_prevMag >= _prevPrevMag) &&
+                     (prevSmoothed > thresholdValue) &&
+                     _armed &&
+                     (nowMs - _lastThrowTime > refractory);
+
+        if (isPeak) {
+            currentCount += 2;  // Both hands: one detected peak = 2 throws
+            _lastThrowTime = nowMs;
+            _armed = false;  // Require signal to drop before next detection
+        }
+
+        if (DEBUG_LOG) {
+            System.println("JDET: mag=" + mag.format("%.1f") +
+                " sm=" + smoothed.format("%.1f") +
+                " thr=" + thresholdValue.format("%.1f") +
+                " arm=" + _armed +
+                " pk=" + isPeak +
+                " cnt=" + currentCount);
+        }
+
+        _prevPrevMag = _prevMag;
+        _prevMag = mag;
     }
 
     // Finishes the current run if it has been idle long enough. Returns the

@@ -19,12 +19,16 @@ applyTo: "connectiq/**/*.mc"
 ## Accelerometer & Detection
 - Sensor registered at 25 Hz, 1-second batches via `Sensor.registerSensorDataListener`.
 - Samples arrive in milli-g. Converted to m/s² via `MILLI_G_TO_MS2 = 9.80665 / 1000`.
-- Gravity estimated with low-pass filter (α = 0.95). Vertical acceleration = linear accel projected onto gravity axis.
-- Throw detected on upward threshold crossing; catch detected on downward crossing. Each event increments `currentCount` by 2 (one wrist sensor sees one arm, so each detected peak is doubled to account for the other hand). The count sent to the phone in `runs` is this already-doubled total.
-- Adaptive threshold: `mean + 1.5 × stddev` of recent history, floored at `9.0 + ballCount`.
-- Refractory period: 200ms for throws, 100ms for catches.
+- Gravity estimated with low-pass filter (α = 0.95 idle, 0.99 during active juggling to prevent drift).
+- Linear acceleration magnitude (`sqrt(lx² + ly² + lz²)`) used for detection — captures throw energy in all directions.
+- 3-point moving average smooths noise before peak detection.
+- True peak detection: local maxima in the smoothed signal above threshold, with hysteresis (signal must drop below `threshold × 0.5` before re-arming).
+- Each detected peak increments `currentCount` by 2 (one wrist sensor sees one arm, doubled for the other hand). The count sent to the phone in `runs` is this already-doubled total.
+- Fixed threshold: `5.0 + 0.5 × ballCount` m/s² (range 6.5–9.5).
+- Ball-count-dependent refractory: `600 / (ballCount - 1)` ms (3 balls → 300ms, 7 balls → 100ms).
 - Auto-finish after 2s idle.
 - 25-sample warmup before detection begins.
+- Debug logging behind `DEBUG_LOG` constant (default false); prints per-sample magnitude, threshold, and detection state.
 
 ## Communication Protocol
 - Session payload sent via `Communications.transmit()`: `{ "type": "session", "balls": N, "timestamp": epochSeconds, "runs": [throwCounts...] }`.
