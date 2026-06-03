@@ -18,11 +18,27 @@ class JugglingDetector {
     private const GRAVITY_ALPHA_IDLE = 0.95f;
     private const GRAVITY_ALPHA_ACTIVE = 0.99f;
 
-    // Ball-count-dependent refractory: REFRACTORY_BASE_MS / (ballCount - 1).
-    // 3 balls → 50ms, 5 balls → 25ms, 7 balls → 17ms.
-    private const REFRACTORY_BASE_MS = 100;
+    // Refractory period between consecutive peaks. With the highpass
+    // filter removing drift, a fixed 200ms works across all ball counts.
+    private const REFRACTORY_MS = 200;
 
     private const AUTO_FINISH_DELAY_MS = 2000;
+
+    // ── 2nd-order Butterworth IIR highpass filter (0.7 Hz, fs=25 Hz) ──
+    // Removes slow gravity-estimation drift from the magnitude signal,
+    // giving cleaner peaks that don't depend on ball-count-specific thresholds.
+    // Coefficients from: butter(2, 0.7, btype='highpass', fs=25, output='sos')
+    private const HP_B0 =  0.883002f;
+    private const HP_B1 = -1.766004f;
+    private const HP_B2 =  0.883002f;
+    private const HP_A1 = -1.752268f;  // negated in difference equation
+    private const HP_A2 =  0.779739f;  // negated in difference equation
+
+    // Detection thresholds for the highpass-filtered signal.
+    // Universal — no per-ball-count scaling needed because the filter
+    // normalises the signal by removing the DC component.
+    private const HP_THRESHOLD = 1.0f;
+    private const HP_HYSTERESIS = 0.3f;  // signal must drop below threshold * 0.3
 
     // Number of balls being juggled (3-9), selected at startup.
     public var ballCount as Number;
@@ -54,15 +70,19 @@ class JugglingDetector {
     // Throw counts of each completed run this session, in order.
     private var _runThrows as Array<Number>;
 
-    // True peak detection state.
-    // _prevMag / _prevPrevMag: two-sample history for 3-point moving average
-    // and local-maximum detection.
-    private var _prevMag as Float;
-    private var _prevPrevMag as Float;
-    // Hysteresis: after detecting a peak we require the signal to drop below
-    // threshold * hysteresisFactor() before another peak can fire.
-    // 3 balls → 0.6, interpolated up to 0.65 for 5 balls, etc.
-    private var _armed as Boolean;  // true = ready to detect next peak
+    // IIR highpass filter state.
+    private var _hpX1 as Float;  // x[n-1]
+    private var _hpX2 as Float;  // x[n-2]
+    private var _hpY1 as Float;  // y[n-1]
+    private var _hpY2 as Float;  // y[n-2]
+
+    // Threshold-crossing peak detection state.
+    // When the filtered signal rises above HP_THRESHOLD we enter the "above"
+    // state and track the peak value and time.  The peak is only registered
+    // when the signal drops back below HP_THRESHOLD * HP_HYSTERESIS, giving
+    // exactly one detection per above→below cycle (matches Python simulation).
+    private var _above as Boolean;   // true while filtered signal > threshold
+    private var _peakTime as Number; // timestamp of highest sample in current crossing
 
     // Set to true to print per-sample debug info via System.println().
     private const DEBUG_LOG = false;
@@ -82,9 +102,12 @@ class JugglingDetector {
         _sessionTotal = 0;
         sessionMax = 0;
         _runThrows = [];
-        _prevMag = 0.0f;
-        _prevPrevMag = 0.0f;
-        _armed = true;
+        _hpX1 = 0.0f;
+        _hpX2 = 0.0f;
+        _hpY1 = 0.0f;
+        _hpY2 = 0.0f;
+        _above = false;
+        _peakTime = 0;
     }
 
     // Throw counts of all completed runs this session, in order.
@@ -117,31 +140,16 @@ class JugglingDetector {
         return 0;
     }
 
-    // Detection threshold (m/s²). Scales with ball count: higher ball counts
-    // produce higher-energy throws. Formula: 9.0 + ballCount.
-    //   3 balls → 12.0, 5 balls → 14.0, 7 balls → 16.0, 9 balls → 18.0.
-    // Validated against recorded IMU data across 3-ball and 5-ball sessions
-    // with accurate gravity-alpha simulation.
-    private function threshold() as Float {
-        return 9.0f + ballCount;
-    }
-
-    // Hysteresis factor: signal must drop below threshold * hysteresisFactor()
-    // before the next peak can fire. Higher ball counts need a higher factor
-    // because the signal stays elevated between rapid throws.
-    //   3 balls → 0.55, 5 balls → 0.70, 7 balls → 0.80 (capped).
-    private function hysteresisFactor() as Float {
-        var f = 0.325f + 0.075f * ballCount;
-        if (f > 0.8f) {
-            return 0.8f;
-        }
-        return f;
-    }
-
-    // Refractory period (ms) between consecutive throws. Faster patterns
-    // (more balls) get a shorter refractory so rapid throws aren't missed.
-    private function refractoryMs() as Number {
-        return REFRACTORY_BASE_MS / (ballCount - 1);
+    // Apply the IIR highpass filter to one sample of the magnitude signal.
+    // Returns the filtered value. Updates internal filter state.
+    private function applyHighpass(x as Float) as Float {
+        var y = HP_B0 * x + HP_B1 * _hpX1 + HP_B2 * _hpX2
+                           - HP_A1 * _hpY1 - HP_A2 * _hpY2;
+        _hpX2 = _hpX1;
+        _hpX1 = x;
+        _hpY2 = _hpY1;
+        _hpY1 = y;
+        return y;
     }
 
     // Average throws per completed run this session (0.0 if no runs yet).
@@ -188,69 +196,63 @@ class JugglingDetector {
         // (cascade, shower, columns) rather than only the vertical component.
         var mag = Math.sqrt(lx * lx + ly * ly + lz * lz).toFloat();
 
-        // 3-point moving average to smooth single-sample noise spikes.
-        var smoothed = ((_prevPrevMag + _prevMag + mag) / 3.0f).toFloat();
-
         _samplesSeen += 1;
+
+        // Feed every sample into the highpass filter (including warmup) so
+        // the filter state tracks the signal from the start. This avoids a
+        // transient burst when detection begins.
+        var filtered = applyHighpass(mag);
 
         // Ignore the first few samples while the gravity estimate settles so a
         // stationary watch never registers a startup run.
         if (_samplesSeen <= WARMUP_SAMPLES) {
-            _prevPrevMag = _prevMag;
-            _prevMag = mag;
             return;
         }
 
-        // True peak detection: a peak is a local maximum in the smoothed signal
-        // that exceeds the threshold, with hysteresis to avoid multiple
-        // detections from noisy oscillation near the threshold.
-        var thresholdValue = threshold();
-        var refractory = refractoryMs();
+        // Threshold-crossing peak detection on the highpass-filtered signal.
+        // One peak per complete above→below cycle: signal must rise above
+        // HP_THRESHOLD and then fall below HP_THRESHOLD * HP_HYSTERESIS.
+        // The peak is registered on the down-crossing, not at the local max.
+        var isPeak = false;
 
-        // Re-arm once signal drops below hysteresis band.
-        var hystFactor = hysteresisFactor();
-        if (!_armed && smoothed < thresholdValue * hystFactor) {
-            _armed = true;
+        if (!_above) {
+            // Waiting for signal to rise above threshold.
+            if (filtered > HP_THRESHOLD) {
+                _above = true;
+                _peakTime = nowMs;
+            }
+        } else {
+            // Signal is above threshold — track when we entered.
+            // Wait for it to drop below hysteresis level.
+            if (filtered < HP_THRESHOLD * HP_HYSTERESIS) {
+                _above = false;
+                // Register the peak if refractory period has elapsed.
+                if (_peakTime - _lastThrowTime > REFRACTORY_MS) {
+                    isPeak = true;
+                }
+            }
         }
 
-        // Detect local maximum: previous smoothed value was higher than both
-        // its neighbors (current and the one before it), exceeded threshold,
-        // detector is armed, and refractory period has elapsed.
-        // We evaluate the *previous* smoothed value so we have a one-sample
-        // look-ahead to confirm the signal is falling.
-        // Peak is a local maximum in the raw magnitude: previous sample is
-        // higher than both its neighbors, the smoothed value exceeds the
-        // threshold, detector is armed, and the refractory period has elapsed.
-        var isPeak = (_prevMag >= mag) && (_prevMag >= _prevPrevMag) &&
-                     (smoothed > thresholdValue) &&
-                     _armed &&
-                     (nowMs - _lastThrowTime > refractory);
-
-        // Track activity: any sample above half the threshold keeps the
-        // run alive. This prevents auto-finish during brief dips between
-        // peaks that don't quite reach the full detection threshold.
-        if (currentCount > 0 && smoothed > thresholdValue * 0.5f) {
+        // Track activity: any sample with filtered value above half the
+        // threshold keeps the run alive. Prevents premature auto-finish
+        // during brief dips between peaks.
+        if (currentCount > 0 && filtered > HP_THRESHOLD * 0.5f) {
             _lastActiveTime = nowMs;
         }
 
         if (isPeak) {
             currentCount += 2;  // Both hands: one detected peak = 2 throws
-            _lastThrowTime = nowMs;
+            _lastThrowTime = _peakTime;
             _lastActiveTime = nowMs;
-            _armed = false;  // Require signal to drop before next detection
         }
 
         if (DEBUG_LOG) {
             System.println("JDET: mag=" + mag.format("%.1f") +
-                " sm=" + smoothed.format("%.1f") +
-                " thr=" + thresholdValue.format("%.1f") +
-                " arm=" + _armed +
+                " hp=" + filtered.format("%.2f") +
+                " above=" + _above +
                 " pk=" + isPeak +
                 " cnt=" + currentCount);
         }
-
-        _prevPrevMag = _prevMag;
-        _prevMag = mag;
     }
 
     // Finishes the current run if it has been idle long enough. Returns the
