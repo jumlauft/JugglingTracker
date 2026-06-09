@@ -30,10 +30,16 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
     fun getSessions(): List<SessionSummary> = sessionsCache.toList()
 
     // Import a single finished session transferred from the Garmin watch.
-    // The watch sends the ball count, a timestamp, and the watch-hand catch
-    // count of every run in the session. Each transfer becomes one SessionSummary. Transfers
-    // are de-duplicated by timestamp so a retransmission is not counted twice.
-    fun importSession(ballCount: Int, timestamp: Long, runs: List<Int>) {
+    // The watch sends the ball count, a timestamp, the watch-hand catch count and
+    // first-to-last-catch duration of every run, plus total session duration.
+    // Each transfer becomes one SessionSummary. Transfers are de-duplicated by timestamp.
+    fun importSession(
+        ballCount: Int,
+        timestamp: Long,
+        runs: List<Int>,
+        durationSeconds: Long = 0L,
+        runDurationsMillis: List<Long> = emptyList(),
+    ) {
         if (runs.isEmpty()) return
 
         // Ignore a session we already stored (e.g. a retransmission).
@@ -55,7 +61,9 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
             avgConsistency = 0.0,
             bestRun = bestRun,
             totalThrows = runs.sum(),
-            runHistory = runs
+            runHistory = runs,
+            durationSeconds = durationSeconds,
+            runDurationsMillis = normalizeRunDurations(runs.size, runDurationsMillis),
         )
         sessionsCache.add(0, session)
         saveSessionsToStorage()
@@ -96,6 +104,7 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
                 for (j in 0 until runHistoryArray.length()) {
                     runHistory.add(runHistoryArray.getInt(j))
                 }
+                val runDurationsMillis = readLongArray(obj, "runDurationsMillis")
                 
                 sessions.add(
                     SessionSummary(
@@ -108,7 +117,9 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
                         avgConsistency = obj.optDouble("avgConsistency", 0.0),
                         bestRun = obj.getInt("bestRun"),
                         totalThrows = obj.getInt("totalThrows"),
-                        runHistory = runHistory
+                        runHistory = runHistory,
+                        durationSeconds = obj.optLong("durationSeconds", 0L),
+                        runDurationsMillis = runDurationsMillis,
                     )
                 )
             }
@@ -131,7 +142,20 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
             put("bestRun", session.bestRun)
             put("totalThrows", session.totalThrows)
             put("runHistory", org.json.JSONArray(session.runHistory))
+            put("durationSeconds", session.durationSeconds)
+            put("runDurationsMillis", org.json.JSONArray(session.runDurationsMillis))
         }
         return obj.toString()
+    }
+
+    private fun readLongArray(obj: org.json.JSONObject, key: String): List<Long> {
+        val array = obj.optJSONArray(key) ?: return emptyList()
+        return List(array.length()) { index -> array.getLong(index).coerceAtLeast(0L) }
+    }
+
+    private fun normalizeRunDurations(runCount: Int, runDurationsMillis: List<Long>): List<Long> {
+        val sanitized = runDurationsMillis.take(runCount).map { it.coerceAtLeast(0L) }
+        if (sanitized.size == runCount) return sanitized
+        return sanitized + List(runCount - sanitized.size) { 0L }
     }
 }

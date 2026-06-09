@@ -24,7 +24,7 @@ applyTo: "android/**/*.kt"
 - `ConnectIQ.getInstance()` with `IQConnectType.WIRELESS`.
 - Register for app events with the watch app ID `A1B2C3D4E5F60718293A4B5C6D7E8F90`.
 - The phone never starts or controls sessions — it only receives finished session payloads and sends back an `ack`.
-- Incoming message shape: `{ "type": "session", "countMode": "watch_hand", "balls": Int, "timestamp": Long (epoch seconds), "runs": List<Number> }`. `runs` contains watch-hand catch counts.
+- Incoming message shape: `{ "type": "session", "countMode": "watch_hand", "balls": Int, "timestamp": Long (epoch seconds), "durationSeconds": Long, "runDurationsMillis": List<Number>, "runs": List<Number> }`. `runs` contains watch-hand catch counts. `runDurationsMillis` is one first-to-last-watch-hand-catch duration per run and is used for session-detail frequency/spacing display; `durationSeconds` is stored/exported but not displayed in the Android UI.
 - Recording message shape: `{ "type": "recording", "countMode": "watch_hand", "balls": Int, "catches": Int, "detected": Int, "sampleRate": Int, "accelX": List<Number>, "accelY": List<Number>, "accelZ": List<Number>, "timestamp": Long }`. `catches` and `detected` are watch-hand counts.
 - ACK shape: `{ "type": "ack", "timestamp": Long? }`. The timestamp is included when available so the watch can match it to the pending send.
 

@@ -30,6 +30,8 @@ class JugglingViewModelTest {
             "type" to "session",
             "balls" to 3,
             "timestamp" to 1716931200L,
+            "durationSeconds" to 123L,
+            "runDurationsMillis" to listOf(9000L, 10000L, 8000L),
             "runs" to listOf(10, 20, 15)
         )
 
@@ -43,6 +45,8 @@ class JugglingViewModelTest {
         assertEquals(45, summary.totalThrows)
         assertEquals(20, summary.bestRun)
         assertEquals(15.0, summary.avgThrows, 0.001)
+        assertEquals(123L, summary.durationSeconds)
+        assertEquals(listOf(9000L, 10000L, 8000L), summary.runDurationsMillis)
     }
 
     @Test
@@ -59,6 +63,34 @@ class JugglingViewModelTest {
         advanceUntilIdle()
 
         assertEquals(epochSeconds * 1000L, viewModel.completedSessions[0].timestamp)
+    }
+
+    @Test
+    fun `import session defaults missing duration to zero`() = runTest {
+        viewModel.importSessionFromWatch(mapOf(
+            "type" to "session",
+            "balls" to 3,
+            "timestamp" to 1000L,
+            "runs" to listOf(10)
+        ))
+        advanceUntilIdle()
+
+        assertEquals(0L, viewModel.completedSessions[0].durationSeconds)
+        assertEquals(listOf(0L), viewModel.completedSessions[0].runDurationsMillis)
+    }
+
+    @Test
+    fun `import session pads missing run durations with zero`() = runTest {
+        viewModel.importSessionFromWatch(mapOf(
+            "type" to "session",
+            "balls" to 3,
+            "timestamp" to 1000L,
+            "runDurationsMillis" to listOf(9000L),
+            "runs" to listOf(10, 20)
+        ))
+        advanceUntilIdle()
+
+        assertEquals(listOf(9000L, 0L), viewModel.completedSessions[0].runDurationsMillis)
     }
 
     @Test
@@ -263,7 +295,11 @@ class JugglingViewModelTest {
     @Test
     fun `csv export includes session data`() = runTest {
         viewModel.importSessionFromWatch(mapOf(
-            "balls" to 3, "timestamp" to 1716931200L, "runs" to listOf(10, 20)
+            "balls" to 3,
+            "timestamp" to 1716931200L,
+            "durationSeconds" to 123L,
+            "runDurationsMillis" to listOf(9000L, 10000L),
+            "runs" to listOf(10, 20)
         ))
         advanceUntilIdle()
 
@@ -273,7 +309,9 @@ class JugglingViewModelTest {
         assertEquals(2, lines.size)
         val dataLine = lines[1]
         assertTrue(dataLine.contains(",3,"))       // ball count
+        assertTrue(dataLine.contains(",123,"))     // session duration seconds
         assertTrue(dataLine.contains(",30,"))       // watch-hand catch total
+        assertTrue(dataLine.contains("\"9000;10000\""))  // run durations
         assertTrue(dataLine.contains("\"10;20\""))  // run history
     }
 

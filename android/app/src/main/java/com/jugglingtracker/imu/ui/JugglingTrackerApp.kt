@@ -60,11 +60,10 @@ fun JugglingTrackerApp(
                     tts.speak(event.text, TextToSpeech.QUEUE_FLUSH, null, null)
                 }
                 is JugglingEvent.SyncStarted -> {
-                    // Show brief feedback when sync starts
-                    Toast.makeText(context, "Receiving data...", Toast.LENGTH_SHORT).show()
+                    // No toast when sync starts as per user request
                 }
                 is JugglingEvent.SyncCompleted -> {
-                    Toast.makeText(context, "Sync complete: ${event.count} runs received", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Received ${event.count} runs for ${event.ballCount} balls", Toast.LENGTH_LONG).show()
                     tts.speak("Synced ${event.count} runs", TextToSpeech.QUEUE_FLUSH, null, null)
                 }
             }
@@ -247,6 +246,29 @@ fun TrackerScreen(
                     }
                 }
             }
+        } else {
+            // Empty State
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 64.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "No sessions yet",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Start juggling on your watch and\nresults will appear here automatically.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.outline,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
         }
     }
 }
@@ -332,22 +354,6 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
         }
     }
 
-    val recordingLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv")
-    ) { uri ->
-        uri?.let {
-            try {
-                context.contentResolver.openOutputStream(it)?.use { outputStream ->
-                    outputStream.write(viewModel.getRecordingsCsv().toByteArray())
-                }
-                Toast.makeText(context, "Recordings exported", Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                Log.e("JugglingTrackerApp", "Recording export failed", e)
-                Toast.makeText(context, "Export failed", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -355,29 +361,6 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             .verticalScroll(state = rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(space = 16.dp),
     ) {
-        Text(text = "Feedback Settings", style = MaterialTheme.typography.titleLarge)
-
-        SettingToggle(
-            label = "Voice Announcements",
-            checked = viewModel.isVoiceEnabled,
-        ) { viewModel.isVoiceEnabled = it }
-        
-        if (viewModel.isVoiceEnabled) {
-            Column(modifier = Modifier.padding(horizontal = 8.dp)) {
-                Text(
-                    text = "Announce every ${viewModel.voiceInterval} watch-hand catches",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Slider(
-                    value = viewModel.voiceInterval.toFloat(),
-                    onValueChange = { viewModel.voiceInterval = it.roundToInt() },
-                    valueRange = 5f..100f,
-                    steps = 18 // Increments of 5
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
         Text(text = "Data Management", style = MaterialTheme.typography.titleLarge)
         
         Button(
@@ -388,62 +371,6 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Export History to CSV")
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = "IMU Recordings", style = MaterialTheme.typography.titleLarge)
-
-        Text(
-            text = "${viewModel.recordingCount} recording(s) stored",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-
-        Button(
-            onClick = {
-                val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
-                recordingLauncher.launch("juggling_recordings_$ts.csv")
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = viewModel.recordingCount > 0,
-        ) {
-            Text("Export Recordings to CSV")
-        }
-
-        var showClearConfirm by remember { mutableStateOf(false) }
-
-        OutlinedButton(
-            onClick = { showClearConfirm = true },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = viewModel.recordingCount > 0,
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.error,
-            ),
-        ) {
-            Text("Clear All Recordings")
-        }
-
-        if (showClearConfirm) {
-            AlertDialog(
-                onDismissRequest = { showClearConfirm = false },
-                title = { Text("Clear Recordings") },
-                text = { Text("Delete all ${viewModel.recordingCount} stored recordings? This cannot be undone.") },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            viewModel.clearRecordings()
-                            showClearConfirm = false
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    ) {
-                        Text("Delete All")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showClearConfirm = false }) {
-                        Text("Cancel")
-                    }
-                },
-            )
         }
     }
 }

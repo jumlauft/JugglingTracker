@@ -293,6 +293,46 @@ def test_main_view_displays_run_state():
     assert "WAITING" in main_view_source
 
 
+def test_main_view_displays_and_transfers_session_duration():
+    """The watch should show and transfer total session duration."""
+    main_view_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..", "connectiq", "source", "MainView.mc",
+    )
+    if not os.path.exists(main_view_path):
+        pytest.skip("MainView.mc not found")
+
+    with open(main_view_path, "r") as f:
+        source = f.read()
+
+    assert "_sessionStartMs = System.getTimer();" in source
+    assert "_sessionEndMs = System.getTimer();" in source
+    assert "_sessionEndMs = null;" in source
+    assert "Time: $1$" in source
+    assert "private function sessionDurationSeconds() as Number" in source
+    assert '"durationSeconds" => sessionDurationSeconds()' in source
+
+
+def test_watch_transfers_run_durations():
+    """The watch should transfer one first-to-last catch duration per run."""
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    detector_path = os.path.join(repo_root, "connectiq", "source", "JugglingDetector.mc")
+    main_view_path = os.path.join(repo_root, "connectiq", "source", "MainView.mc")
+    if not os.path.exists(detector_path) or not os.path.exists(main_view_path):
+        pytest.skip("watch sources not found")
+
+    with open(detector_path, "r") as f:
+        detector_source = f.read()
+    with open(main_view_path, "r") as f:
+        main_view_source = f.read()
+
+    assert "public function runDurationsMillis() as Array<Number>" in detector_source
+    assert "_firstCatchTime = _pendingPeakTime;" in detector_source
+    assert "_lastCatchTime = _pendingPeakTime;" in detector_source
+    assert "_runDurationsMillis.add(currentRunDurationMillis());" in detector_source
+    assert '"runDurationsMillis" => _detector.runDurationsMillis()' in main_view_source
+
+
 def test_customer_watch_startup_hides_recording_mode():
     """Customer builds should start directly in normal tracking setup."""
     app_path = os.path.join(

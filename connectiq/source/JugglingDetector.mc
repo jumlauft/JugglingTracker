@@ -8,8 +8,9 @@ import Toybox.System;
 // linear acceleration. Threshold crossings on a highpass-filtered signal create
 // candidates; nearby candidates are delayed and merged into catch bursts. The
 // displayed count is every other committed burst, representing catches made by
-// the hand wearing the watch. After a pause the run is finished and the count
-// moves to "previous run".
+// the hand wearing the watch. The detector also tracks each completed run's
+// elapsed time from first to last counted watch-hand catch. After a pause the
+// run is finished and the count moves to "previous run".
 class JugglingDetector {
     private const MILLI_G_TO_MS2 = 9.80665f / 1000.0f;
 
@@ -86,11 +87,16 @@ class JugglingDetector {
 
     // Watch-hand catch counts of each completed run this session, in order.
     private var _runCatches as Array<Number>;
+    // Milliseconds from first to last counted watch-hand catch for each run.
+    private var _runDurationsMillis as Array<Number>;
 
     // Number of committed candidate bursts in the current run. The detector
     // counts odd-numbered bursts as the watch-hand catches and skips the
     // alternating bursts from the other hand.
     private var _committedBurstCount as Number;
+    private var _hasFirstCatchTime as Boolean;
+    private var _firstCatchTime as Number;
+    private var _lastCatchTime as Number;
 
     // IIR highpass filter state.
     private var _hpX1 as Float;  // x[n-1]
@@ -135,7 +141,11 @@ class JugglingDetector {
         _sessionTotal = 0;
         sessionMax = 0;
         _runCatches = [];
+        _runDurationsMillis = [];
         _committedBurstCount = 0;
+        _hasFirstCatchTime = false;
+        _firstCatchTime = 0;
+        _lastCatchTime = 0;
         _hpX1 = 0.0f;
         _hpX2 = 0.0f;
         _hpY1 = 0.0f;
@@ -173,6 +183,10 @@ class JugglingDetector {
         return _runCatches;
     }
 
+    public function runDurationsMillis() as Array<Number> {
+        return _runDurationsMillis;
+    }
+
     // Fold a finished run's watch-hand catch count into the session stats and
     // per-run list. Shared by auto-finish and manual session end.
     private function recordRun(catches as Number) as Void {
@@ -183,6 +197,14 @@ class JugglingDetector {
             sessionMax = catches;
         }
         _runCatches.add(catches);
+        _runDurationsMillis.add(currentRunDurationMillis());
+    }
+
+    private function currentRunDurationMillis() as Number {
+        if (!_hasFirstCatchTime || _lastCatchTime < _firstCatchTime) {
+            return 0;
+        }
+        return _lastCatchTime - _firstCatchTime;
     }
 
     private function hasActiveRun() as Boolean {
@@ -205,6 +227,9 @@ class JugglingDetector {
         _pendingPeakScore = 0.0f;
         _clusterLastCandidateTime = 0;
         _committedBurstCount = 0;
+        _hasFirstCatchTime = false;
+        _firstCatchTime = 0;
+        _lastCatchTime = 0;
     }
 
     private function commitPendingPeak(nowMs as Number) as Void {
@@ -214,6 +239,11 @@ class JugglingDetector {
         _committedBurstCount += 1;
         if ((_committedBurstCount % 2) == 1) {
             currentCount += 1;
+            if (!_hasFirstCatchTime) {
+                _firstCatchTime = _pendingPeakTime;
+                _hasFirstCatchTime = true;
+            }
+            _lastCatchTime = _pendingPeakTime;
         }
         _lastActiveTime = nowMs;
         _hasPendingPeak = false;

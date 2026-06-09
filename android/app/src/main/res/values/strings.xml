@@ -11,9 +11,9 @@
     <string name="status_service_unavailable">ConnectIQ service unavailable.</string>
     <string name="status_listening">Listening for data from %1$s&#8230;</string>
     <string name="status_register_failed">Failed to register app listener.</string>
-    <string name="status_run_finished">Run finished: %1$d watch-hand catches</string>
+    <string name="status_run_finished">Run finished: %1$d catches</string>
     <string name="error_bluetooth_required">Bluetooth permissions are required to connect to the watch.</string>
-    <string name="label_last_run_throws">Last run watch-hand catches</string>
+    <string name="label_last_run_throws">Last run catches</string>
     <string name="label_balls">Balls:</string>
     <string name="label_session_average">Session average:</string>
     <string name="label_session_maximum">Session maximum:</string>

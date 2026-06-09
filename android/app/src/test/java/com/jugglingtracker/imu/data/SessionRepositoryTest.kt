@@ -20,7 +20,13 @@ class SessionRepositoryTest {
 
     @Test
     fun `import session adds to sessions list`() {
-        repository.importSession(3, 1000L, listOf(10, 20, 15))
+        repository.importSession(
+            3,
+            1000L,
+            listOf(10, 20, 15),
+            durationSeconds = 123L,
+            runDurationsMillis = listOf(9000L, 10000L, 8000L),
+        )
 
         val sessions = repository.getSessions()
         assertEquals(1, sessions.size)
@@ -28,6 +34,8 @@ class SessionRepositoryTest {
         assertEquals(1000L, sessions[0].timestamp)
         assertEquals(3, sessions[0].runCount)
         assertEquals(45, sessions[0].totalThrows)
+        assertEquals(123L, sessions[0].durationSeconds)
+        assertEquals(listOf(9000L, 10000L, 8000L), sessions[0].runDurationsMillis)
     }
 
     @Test
@@ -75,11 +83,24 @@ class SessionRepositoryTest {
         assertEquals(2, repository.getSessions().size)
     }
 
+    @Test
+    fun `import pads missing run durations with zero`() {
+        repository.importSession(3, 1000L, listOf(10, 20, 30), runDurationsMillis = listOf(9000L))
+
+        assertEquals(listOf(9000L, 0L, 0L), repository.getSessions()[0].runDurationsMillis)
+    }
+
     // ── Persistence round-trip ──────────────────────────────────────────
 
     @Test
     fun `sessions survive save and reload`() {
-        repository.importSession(3, 1000L, listOf(10, 20, 15))
+        repository.importSession(
+            3,
+            1000L,
+            listOf(10, 20, 15),
+            durationSeconds = 123L,
+            runDurationsMillis = listOf(9000L, 10000L, 8000L),
+        )
         repository.importSession(5, 2000L, listOf(30))
 
         // Create a new repository instance that loads from the same SharedPreferences
@@ -90,6 +111,8 @@ class SessionRepositoryTest {
         // Sorted by timestamp descending
         assertEquals(2000L, sessions[0].timestamp)
         assertEquals(1000L, sessions[1].timestamp)
+        assertEquals(123L, sessions[1].durationSeconds)
+        assertEquals(listOf(9000L, 10000L, 8000L), sessions[1].runDurationsMillis)
     }
 
     @Test
@@ -112,6 +135,31 @@ class SessionRepositoryTest {
         val freshPrefs = FakeSharedPreferences()
         val fresh = SessionRepository(freshPrefs)
         assertTrue(fresh.getSessions().isEmpty())
+    }
+
+    @Test
+    fun `legacy sessions without duration load with zero duration`() {
+        prefs.edit().putString(
+            "sessions_json",
+            """
+            [{
+                "id":1,
+                "timestamp":1000,
+                "ballCount":3,
+                "runCount":2,
+                "avgThrows":15.0,
+                "stdDevThrows":5.0,
+                "bestRun":20,
+                "totalThrows":30,
+                "runHistory":[10,20]
+            }]
+            """.trimIndent()
+        ).commit()
+
+        val reloaded = SessionRepository(prefs)
+
+        assertEquals(0L, reloaded.getSessions()[0].durationSeconds)
+        assertTrue(reloaded.getSessions()[0].runDurationsMillis.isEmpty())
     }
 
     @Test

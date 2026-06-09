@@ -5,7 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,6 +17,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,123 +61,160 @@ fun SessionHistoryGraph(sessions: List<SessionSummary>, modifier: Modifier = Mod
                     Text(" Best ", fontSize = 10.sp, style = MaterialTheme.typography.labelSmall)
                     Spacer(Modifier.width(8.dp))
                     Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF2196F3)))
-                    Text(" Hand avg", fontSize = 10.sp, style = MaterialTheme.typography.labelSmall)
+                    Text(" Average", fontSize = 10.sp, style = MaterialTheme.typography.labelSmall)
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Canvas(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(displaySessions) {
-                        detectTapGestures(
-                            onPress = { 
-                                selectedIndex = null 
-                            },
-                        ) { offset ->
-                            if (displaySessions.isNotEmpty()) {
-                                val count = displaySessions.size
-                                val stepX = if (count > 1) size.width / (count - 1) else size.width
-                                selectedIndex = (offset.x / stepX).toInt().coerceIn(0, count - 1)
-                            }
-                        }
-                    }
-                    .pointerInput(displaySessions) {
-                        detectDragGestures(
-                            onDragStart = { offset ->
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val leftPadding = 45.dp
+                val bottomPadding = 4.dp
+                
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = leftPadding, bottom = bottomPadding)
+                        .pointerInput(displaySessions) {
+                            detectTapGestures(
+                                onPress = { 
+                                    selectedIndex = null 
+                                },
+                            ) { offset ->
                                 if (displaySessions.isNotEmpty()) {
                                     val count = displaySessions.size
                                     val stepX = if (count > 1) size.width / (count - 1) else size.width
                                     selectedIndex = (offset.x / stepX).toInt().coerceIn(0, count - 1)
                                 }
-                            },
-                            onDragEnd = { selectedIndex = null },
-                            onDragCancel = { selectedIndex = null },
-                        ) { change, _ ->
-                            if (displaySessions.isNotEmpty()) {
-                                val count = displaySessions.size
-                                val stepX = if (count > 1) size.width / (count - 1) else size.width
-                                selectedIndex = (change.position.x / stepX).toInt().coerceIn(0, count - 1)
                             }
                         }
-                    }
-            ) {
-                if (displaySessions.isEmpty()) return@Canvas
-
-                val count = displaySessions.size
-                val width = size.width
-                val height = size.height
-                
-                val globalMax = (sessions.maxOfOrNull { it.bestRun } ?: 10).toFloat().coerceAtLeast(10f)
-                val scaleY = height / (globalMax * 1.2f)
-                val stepX = if (count > 1) width / (count - 1) else width / 2f
-                val startX = if (count > 1) 0f else width / 2f
-
-                // Draw shaded area for standard deviation
-                if (count > 1) {
-                    val stdDevPath = Path().apply {
-                        for (i in 0 until count) {
-                            val x = startX + (i * stepX)
-                            val y = height - ((displaySessions[i].avgThrows + displaySessions[i].stdDevThrows).toFloat() * scaleY)
-                            if (i == 0) moveTo(x, y) else lineTo(x, y)
+                        .pointerInput(displaySessions) {
+                            detectDragGestures(
+                                onDragStart = { offset ->
+                                    if (displaySessions.isNotEmpty()) {
+                                        val count = displaySessions.size
+                                        val stepX = if (count > 1) size.width / (count - 1) else size.width
+                                        selectedIndex = (offset.x / stepX).toInt().coerceIn(0, count - 1)
+                                    }
+                                },
+                                onDragEnd = { selectedIndex = null },
+                                onDragCancel = { selectedIndex = null },
+                            ) { change, _ ->
+                                if (displaySessions.isNotEmpty()) {
+                                    val count = displaySessions.size
+                                    val stepX = if (count > 1) size.width / (count - 1) else size.width
+                                    selectedIndex = (change.position.x / stepX).toInt().coerceIn(0, count - 1)
+                                }
+                            }
                         }
-                        for (i in count - 1 downTo 0) {
-                            val x = startX + (i * stepX)
-                            val valY = (displaySessions[i].avgThrows - displaySessions[i].stdDevThrows).coerceAtLeast(0.0).toFloat()
-                            val y = height - (valY * scaleY)
-                            lineTo(x, y)
-                        }
-                        close()
+                ) {
+                    if (displaySessions.isEmpty()) return@Canvas
+
+                    val count = displaySessions.size
+                    val width = size.width
+                    val height = size.height
+                    
+                    val globalMax = (sessions.maxOfOrNull { it.bestRun } ?: 10).toFloat().coerceAtLeast(10f)
+                    val scaleY = height / (globalMax * 1.2f)
+                    val stepX = if (count > 1) width / (count - 1) else width / 2f
+                    val startX = if (count > 1) 0f else width / 2f
+
+                    // Draw Y-axis labels and title
+                    val paint = android.graphics.Paint().apply {
+                        color = Color.Gray.toArgb()
+                        textSize = 10.sp.toPx()
+                        textAlign = android.graphics.Paint.Align.RIGHT
                     }
-                    drawPath(
-                        path = stdDevPath,
-                        color = Color(0xFF2196F3).copy(alpha = 0.2f),
-                    )
-                }
-
-                // Draw selection line
-                selectedIndex?.let { idx ->
-                    val x = startX + idx * stepX
-                    drawLine(
-                        color = Color.Gray.copy(alpha = 0.5f),
-                        start = Offset(x, 0f),
-                        end = Offset(x, height),
-                        strokeWidth = 1.dp.toPx()
-                    )
-                }
-
-                for (i in 0 until count) {
-                    val x1 = startX + i * stepX
-                    val best1 = displaySessions[i].bestRun.toFloat()
-                    val avg1 = displaySessions[i].avgThrows.toFloat()
-
-                    drawCircle(
-                        color = if (selectedIndex == i) Color(0xFF4CAF50) else Color(0xFF4CAF50).copy(alpha = 0.5f),
-                        radius = (if (selectedIndex == i) 5.dp else 3.dp).toPx(),
-                        center = Offset(x1, height - best1 * scaleY)
-                    )
-                    drawCircle(
-                        color = if (selectedIndex == i) Color(0xFF2196F3) else Color(0xFF2196F3).copy(alpha = 0.5f),
-                        radius = (if (selectedIndex == i) 5.dp else 3.dp).toPx(),
-                        center = Offset(x1, height - avg1 * scaleY)
-                    )
-
-                    if (i < count - 1) {
-                        val x2 = startX + (i + 1) * stepX
-                        val best2 = displaySessions[i+1].bestRun.toFloat()
-                        val avg2 = displaySessions[i+1].avgThrows.toFloat()
-
-                        drawLine(
-                            color = Color(0xFF4CAF50).copy(alpha = 0.3f),
-                            start = Offset(x1, height - best1 * scaleY),
-                            end = Offset(x2, height - best2 * scaleY),
-                            strokeWidth = 2.dp.toPx()
+                    
+                    val numLabels = 5
+                    for (i in 0 until numLabels) {
+                        val value = (globalMax / (numLabels - 1) * i).toInt()
+                        val labelY = height - (value * scaleY)
+                        drawContext.canvas.nativeCanvas.drawText(
+                            value.toString(),
+                            -8.dp.toPx(),
+                            labelY + 4.dp.toPx(),
+                            paint
                         )
-                        drawLine(
-                            color = Color(0xFF2196F3).copy(alpha = 0.3f),
-                            start = Offset(x1, height - avg1 * scaleY),
-                            end = Offset(x2, height - avg2 * scaleY),
-                            strokeWidth = 2.dp.toPx()
+                    }
+
+                    // Draw Y-axis title "# of catches"
+                    drawContext.canvas.nativeCanvas.save()
+                    drawContext.canvas.nativeCanvas.rotate(-90f, -32.dp.toPx(), height / 2)
+                    paint.textAlign = android.graphics.Paint.Align.CENTER
+                    drawContext.canvas.nativeCanvas.drawText(
+                        "# of catches",
+                        -32.dp.toPx(),
+                        height / 2,
+                        paint
+                    )
+                    drawContext.canvas.nativeCanvas.restore()
+
+                    // Draw shaded area for standard deviation
+                    if (count > 1) {
+                        val stdDevPath = Path().apply {
+                            for (i in 0 until count) {
+                                val x = startX + (i * stepX)
+                                val y = height - ((displaySessions[i].avgThrows + displaySessions[i].stdDevThrows).toFloat() * scaleY)
+                                if (i == 0) moveTo(x, y) else lineTo(x, y)
+                            }
+                            for (i in count - 1 downTo 0) {
+                                val x = startX + (i * stepX)
+                                val valY = (displaySessions[i].avgThrows - displaySessions[i].stdDevThrows).coerceAtLeast(0.0).toFloat()
+                                val y = height - (valY * scaleY)
+                                lineTo(x, y)
+                            }
+                            close()
+                        }
+                        drawPath(
+                            path = stdDevPath,
+                            color = Color(0xFF2196F3).copy(alpha = 0.2f),
                         )
+                    }
+
+                    // Draw selection line
+                    selectedIndex?.let { idx ->
+                        val x = startX + idx * stepX
+                        drawLine(
+                            color = Color.Gray.copy(alpha = 0.5f),
+                            start = Offset(x, 0f),
+                            end = Offset(x, height),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                    }
+
+                    for (i in 0 until count) {
+                        val x1 = startX + i * stepX
+                        val best1 = displaySessions[i].bestRun.toFloat()
+                        val avg1 = displaySessions[i].avgThrows.toFloat()
+
+                        drawCircle(
+                            color = if (selectedIndex == i) Color(0xFF4CAF50) else Color(0xFF4CAF50).copy(alpha = 0.5f),
+                            radius = (if (selectedIndex == i) 5.dp else 3.dp).toPx(),
+                            center = Offset(x1, height - best1 * scaleY)
+                        )
+                        drawCircle(
+                            color = if (selectedIndex == i) Color(0xFF2196F3) else Color(0xFF2196F3).copy(alpha = 0.5f),
+                            radius = (if (selectedIndex == i) 5.dp else 3.dp).toPx(),
+                            center = Offset(x1, height - avg1 * scaleY)
+                        )
+
+                        if (i < count - 1) {
+                            val x2 = startX + (i + 1) * stepX
+                            val best2 = displaySessions[i+1].bestRun.toFloat()
+                            val avg2 = displaySessions[i+1].avgThrows.toFloat()
+
+                            drawLine(
+                                color = Color(0xFF4CAF50).copy(alpha = 0.3f),
+                                start = Offset(x1, height - best1 * scaleY),
+                                end = Offset(x2, height - best2 * scaleY),
+                                strokeWidth = 2.dp.toPx()
+                            )
+                            drawLine(
+                                color = Color(0xFF2196F3).copy(alpha = 0.3f),
+                                start = Offset(x1, height - avg1 * scaleY),
+                                end = Offset(x2, height - avg2 * scaleY),
+                                strokeWidth = 2.dp.toPx()
+                            )
+                        }
                     }
                 }
             }
@@ -202,7 +243,7 @@ fun SessionHistoryItem(session: SessionSummary, onClick: () -> Unit) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = dateString, fontWeight = FontWeight.Bold)
                 Text(
-                    text = "${session.ballCount} balls • ${session.runCount} runs • ${session.totalThrows} watch-hand catches",
+                    text = "${session.ballCount} balls • ${session.runCount} runs • ${session.totalThrows} catches",
                     fontSize = 12.sp
                 )
             }
@@ -231,7 +272,8 @@ fun SessionDetailsDialog(session: SessionSummary, onDismiss: () -> Unit) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(300.dp),
+                    .heightIn(max = 460.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
@@ -243,7 +285,7 @@ fun SessionDetailsDialog(session: SessionSummary, onDismiss: () -> Unit) {
                     runs = session.runHistory,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f)
+                        .height(140.dp)
                 )
                 
                 Row(
@@ -254,6 +296,11 @@ fun SessionDetailsDialog(session: SessionSummary, onDismiss: () -> Unit) {
                     StatItem("Best", session.bestRun.toString())
                     StatItem("Hand Total", session.totalThrows.toString())
                 }
+
+                RunTimingTable(
+                    runs = session.runHistory,
+                    durationsMillis = session.runDurationsMillis,
+                )
             }
         },
         confirmButton = {
@@ -262,6 +309,52 @@ fun SessionDetailsDialog(session: SessionSummary, onDismiss: () -> Unit) {
             }
         }
     )
+}
+
+@Composable
+private fun RunTimingTable(runs: List<Int>, durationsMillis: List<Long>) {
+    if (runs.isEmpty() || durationsMillis.isEmpty()) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            TimingCell("Run", cellWeight = 1.1f, header = true)
+            TimingCell("Catches", cellWeight = 1.1f, header = true)
+            TimingCell("Freq", cellWeight = 1f, header = true)
+            TimingCell("Avg gap", cellWeight = 1f, header = true)
+        }
+
+        runs.forEachIndexed { index, catches ->
+            val durationMillis = durationsMillis.getOrNull(index) ?: 0L
+            Row(modifier = Modifier.fillMaxWidth()) {
+                TimingCell((index + 1).toString(), cellWeight = 1.1f)
+                TimingCell(catches.toString(), cellWeight = 1.1f)
+                TimingCell(formatCatchFrequency(catches, durationMillis), cellWeight = 1f)
+                TimingCell(formatAverageCatchSpacing(catches, durationMillis), cellWeight = 1f)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RowScope.TimingCell(text: String, cellWeight: Float, header: Boolean = false) {
+    Text(
+        text = text,
+        modifier = Modifier.weight(cellWeight),
+        style = if (header) MaterialTheme.typography.labelSmall else MaterialTheme.typography.bodySmall,
+        fontWeight = if (header) FontWeight.Bold else FontWeight.Normal,
+    )
+}
+
+private fun formatCatchFrequency(catches: Int, durationMillis: Long): String {
+    val durationSeconds = durationMillis / 1000.0
+    if (catches <= 0 || durationSeconds <= 0.0) return "-"
+    return "%.2f/s".format(catches / durationSeconds)
+}
+
+private fun formatAverageCatchSpacing(catches: Int, durationMillis: Long): String {
+    val durationSeconds = durationMillis / 1000.0
+    if (catches <= 0 || durationSeconds <= 0.0) return "-"
+    return "%.2fs".format(durationSeconds / catches)
 }
 
 @Composable

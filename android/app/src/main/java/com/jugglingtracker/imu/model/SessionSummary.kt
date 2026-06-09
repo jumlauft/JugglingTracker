@@ -10,5 +10,7 @@ data class SessionSummary(
     val avgConsistency: Double,
     val bestRun: Int,
     val totalThrows: Int,
-    val runHistory: List<Int>
+    val runHistory: List<Int>,
+    val durationSeconds: Long = 0L,
+    val runDurationsMillis: List<Long> = emptyList(),
 )

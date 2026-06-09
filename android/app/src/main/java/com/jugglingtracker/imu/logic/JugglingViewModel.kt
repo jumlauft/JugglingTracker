@@ -58,19 +58,22 @@ class JugglingViewModel(
 
     // Import a single finished session transferred from the Garmin watch.
     // Payload shape: { type: "session", countMode: "watch_hand", balls: Int,
-    // timestamp: Long (epoch s), runs: List<Number> }. Runs are watch-hand
-    // catch counts; the phone only listens and records what it receives.
+    // timestamp: Long (epoch s), durationSeconds: Long,
+    // runDurationsMillis: List<Number>, runs: List<Number> }.
+    // Runs are watch-hand catch counts; the phone only listens and records what it receives.
     fun importSessionFromWatch(payload: Map<String, Any>) {
         val balls = (payload["balls"] as? Number)?.toInt() ?: return
         // The watch sends epoch seconds; convert to milliseconds for Java Date APIs.
         val timestamp = ((payload["timestamp"] as? Number)?.toLong() ?: return) * 1000L
+        val durationSeconds = ((payload["durationSeconds"] as? Number)?.toLong() ?: 0L).coerceAtLeast(0L)
         @Suppress("UNCHECKED_CAST")
         val runsRaw = payload["runs"] as? List<Any> ?: return
         val runs = runsRaw.mapNotNull { (it as? Number)?.toInt() }
         if (runs.isEmpty()) return
+        val runDurationsMillis = normalizeRunDurations(runs.size, parseLongList(payload["runDurationsMillis"]))
 
         if (repository != null) {
-            repository.importSession(balls, timestamp, runs)
+            repository.importSession(balls, timestamp, runs, durationSeconds, runDurationsMillis)
 
             // Reload sessions from repository so the UI reflects the new data.
             repository.getSessions().let { sessions ->
@@ -95,7 +98,9 @@ class JugglingViewModel(
                 avgConsistency = 0.0,
                 bestRun = bestRun,
                 totalThrows = runs.sum(),
-                runHistory = runs
+                runHistory = runs,
+                durationSeconds = durationSeconds,
+                runDurationsMillis = runDurationsMillis,
             )
             completedSessions.add(0, summary)
         }
@@ -113,17 +118,29 @@ class JugglingViewModel(
 
     fun getSessionsCsv(): String {
         val builder = StringBuilder()
-        builder.append("Date,Ball Count,Run Count,Watch Hand Average,Watch Hand Best,Watch Hand Total,Watch Hand Run History\n")
+        builder.append("Date,Ball Count,Run Count,Session Duration Seconds,Watch Hand Average,Watch Hand Best,Watch Hand Total,Run Durations Millis,Watch Hand Run History\n")
         
         val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
         
         completedSessions.forEach { session ->
             val date = dateFormat.format(java.util.Date(session.timestamp))
             val runHistory = session.runHistory.joinToString(";")
-            builder.append("$date,${session.ballCount},${session.runCount},${"%.2f".format(session.avgThrows)},${session.bestRun},${session.totalThrows},\"$runHistory\"\n")
+            val runDurationsMillis = session.runDurationsMillis.joinToString(";")
+            builder.append("$date,${session.ballCount},${session.runCount},${session.durationSeconds},${"%.2f".format(session.avgThrows)},${session.bestRun},${session.totalThrows},\"$runDurationsMillis\",\"$runHistory\"\n")
         }
         
         return builder.toString()
+    }
+
+    private fun parseLongList(value: Any?): List<Long> {
+        val raw = value as? List<*> ?: return emptyList()
+        return raw.mapNotNull { (it as? Number)?.toLong()?.coerceAtLeast(0L) }
+    }
+
+    private fun normalizeRunDurations(runCount: Int, runDurationsMillis: List<Long>): List<Long> {
+        val sanitized = runDurationsMillis.take(runCount)
+        if (sanitized.size == runCount) return sanitized
+        return sanitized + List(runCount - sanitized.size) { 0L }
     }
 
     // ── Recording support ──────────────────────────────────────────────

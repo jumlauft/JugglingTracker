@@ -35,7 +35,7 @@ flowchart LR
     E -->|ack| C
 ```
 
-The watch is the session controller. The phone listens, stores the received watch-hand catch counts, and sends an `ack`; the watch only exits after receiving that acknowledgement or after the user explicitly quits without syncing.
+The watch is the session controller. The phone listens, stores the received watch-hand catch counts and session duration, and sends an `ack`; the watch only exits after receiving that acknowledgement or after the user explicitly quits without syncing.
 
 ### Watch Detection
 
@@ -76,7 +76,7 @@ x,y,z
 Finished sessions:
 
 ```json
-{ "type": "session", "countMode": "watch_hand", "balls": 3, "timestamp": 1780511578, "runs": [17, 11, 21] }
+{ "type": "session", "countMode": "watch_hand", "balls": 3, "timestamp": 1780511578, "durationSeconds": 742, "runDurationsMillis": [8200, 5100, 10400], "runs": [17, 11, 21] }
 ```
 
 Raw recordings:

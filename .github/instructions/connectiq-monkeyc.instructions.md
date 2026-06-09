@@ -38,7 +38,7 @@ applyTo: "connectiq/**/*.mc"
 - Delayed burst clustering must only flush a pending candidate when the filtered signal is no longer above threshold. Flushing while `_above` is true can split one physical catch motion into multiple counts.
 
 ## Communication Protocol
-- Session payload sent via `Communications.transmit()`: `{ "type": "session", "countMode": "watch_hand", "balls": N, "timestamp": epochSeconds, "runs": [watchHandCatchCounts...] }`.
+- Session payload sent via `Communications.transmit()`: `{ "type": "session", "countMode": "watch_hand", "balls": N, "timestamp": epochSeconds, "durationSeconds": totalSessionSeconds, "runDurationsMillis": [firstToLastWatchHandCatchMs...], "runs": [watchHandCatchCounts...] }`.
 - Recording payload sent via `RecordingView`: `{ "type": "recording", "countMode": "watch_hand", "balls": N, "catches": watchHandLabel, "detected": detectorCount, "sampleRate": 25, "accelX": [...], "accelY": [...], "accelZ": [...], "timestamp": epochSeconds }`.
 - Wait for phone ACK (`{ "type": "ack", "timestamp": Long? }`) via `Communications.registerForPhoneAppMessages`. The watch only checks `type == "ack"`; the optional timestamp is for future matching.
 - 10-second sync timeout. On failure: prompt retry/quit/continue menu.
@@ -46,7 +46,7 @@ applyTo: "connectiq/**/*.mc"
 
 ## UI Drawing
 - All rendering in `onUpdate(dc)` using `Graphics` primitives — no Compose, no layouts.
-- Use `Graphics.FONT_NUMBER_THAI_HOT` for the main watch-hand catch count, `FONT_TINY`/`FONT_XTINY` for labels.
+- Use `Graphics.FONT_NUMBER_THAI_HOT` for the main watch-hand catch count, `FONT_TINY`/`FONT_XTINY` for labels, including the run-state label and total session timer.
 - Call `WatchUi.requestUpdate()` to trigger redraws.
 
 ## Error Handling

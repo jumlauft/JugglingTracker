@@ -31,6 +31,11 @@ class MainView extends WatchUi.View {
     // Last watch-hand catch count at which we vibrated.
     private var _lastVibrateCount as Number;
 
+    // Monotonic timer value when this tracking session screen started.
+    private var _sessionStartMs as Number;
+    // Monotonic timer value when the user ended the session, before sync menu time.
+    private var _sessionEndMs as Number?;
+
     // Repeating 1s timer that animates the "Sync to phone..." status by adding
     // a dot each second while we wait for the phone's acknowledgement.
     private var _statusTimer as Timer.Timer?;
@@ -48,6 +53,8 @@ class MainView extends WatchUi.View {
         _statusTimer = null;
         _syncDots = 0;
         _lastVibrateCount = 0;
+        _sessionStartMs = System.getTimer();
+        _sessionEndMs = null;
 
         // Listen for the phone's acknowledgement that a session was received.
         Communications.registerForPhoneAppMessages(method(:onPhoneMessage));
@@ -99,7 +106,7 @@ class MainView extends WatchUi.View {
         var statusH = dc.getFontHeight(Graphics.FONT_XTINY);
 
         // Layout: run state, top section (label + big number), then stats below.
-        var blockH = statusH + labelH + numberH + statsH * 2;
+        var blockH = statusH + labelH + numberH + statsH * 3;
         var y = cy - blockH / 2;
 
         var runActive = _detector.isRunActive();
@@ -108,9 +115,9 @@ class MainView extends WatchUi.View {
         dc.drawText(cx, y, Graphics.FONT_XTINY, statusText, Graphics.TEXT_JUSTIFY_CENTER);
         y += statusH;
 
-        // Watch-hand label, just above the big number (no large gap).
+        // Count label, just above the big number (no large gap).
         dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y, Graphics.FONT_TINY, "Watch hand", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, y, Graphics.FONT_TINY, "Catches in watch hand", Graphics.TEXT_JUSTIFY_CENTER);
         y += labelH;
 
         // Current run count, large, centered.
@@ -132,6 +139,10 @@ class MainView extends WatchUi.View {
         dc.drawText(leftX, y, Graphics.FONT_XTINY, Lang.format("Avg: $1$", [avgStr]), Graphics.TEXT_JUSTIFY_CENTER);
         var maxStr = _detector.sessionMax == 0 ? "-" : _detector.sessionMax.toString();
         dc.drawText(rightX, y, Graphics.FONT_XTINY, Lang.format("Max: $1$", [maxStr]), Graphics.TEXT_JUSTIFY_CENTER);
+        y += statsH;
+
+        var elapsedStr = formatElapsedSeconds(sessionDurationSeconds());
+        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Time: $1$", [elapsedStr]), Graphics.TEXT_JUSTIFY_CENTER);
 
         // Error banner at the bottom if a transfer failed.
         if (_errorMsg != null) {
@@ -192,6 +203,9 @@ class MainView extends WatchUi.View {
             return;  // Already showing a confirmation dialog.
         }
         _awaitingDecision = true;
+        if (!isRetry && _sessionEndMs == null) {
+            _sessionEndMs = System.getTimer();
+        }
 
         var menu = new WatchUi.Menu2({ :title => isRetry ? "Sync failed" : "End session?" });
         if (isRetry) {
@@ -217,6 +231,9 @@ class MainView extends WatchUi.View {
 
         // Fold any run still in progress into the session.
         _detector.finishCurrentRun();
+        if (_sessionEndMs == null) {
+            _sessionEndMs = System.getTimer();
+        }
 
         var runs = _detector.runCatches();
         if (runs.size() == 0) {
@@ -229,6 +246,8 @@ class MainView extends WatchUi.View {
             "countMode" => "watch_hand",
             "balls" => _detector.ballCount,
             "timestamp" => Time.now().value(),
+            "durationSeconds" => sessionDurationSeconds(),
+            "runDurationsMillis" => _detector.runDurationsMillis(),
             "runs" => runs
         };
 
@@ -338,6 +357,35 @@ class MainView extends WatchUi.View {
         showSessionEndMenu(true);
     }
 
+    private function sessionDurationSeconds() as Number {
+        var endMs = _sessionEndMs;
+        if (endMs == null) {
+            endMs = System.getTimer();
+        }
+        var elapsedMs = endMs - _sessionStartMs;
+        if (elapsedMs < 0) {
+            elapsedMs = 0;
+        }
+        return elapsedMs / 1000;
+    }
+
+    private function twoDigits(value as Number) as String {
+        if (value < 10) {
+            return "0" + value.toString();
+        }
+        return value.toString();
+    }
+
+    private function formatElapsedSeconds(totalSeconds as Number) as String {
+        var hours = totalSeconds / 3600;
+        var minutes = (totalSeconds / 60) % 60;
+        var seconds = totalSeconds % 60;
+        if (hours > 0) {
+            return hours.toString() + ":" + twoDigits(minutes) + ":" + twoDigits(seconds);
+        }
+        return minutes.toString() + ":" + twoDigits(seconds);
+    }
+
     public function onSyncQuit() as Void {
         _awaitingDecision = false;
         doSync();
@@ -357,6 +405,7 @@ class MainView extends WatchUi.View {
 
     public function onContinueSession() as Void {
         _awaitingDecision = false;
+        _sessionEndMs = null;
     }
 
     public function onTransmitDone() as Void {
