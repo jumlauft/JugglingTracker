@@ -1,25 +1,19 @@
 import Toybox.Communications;
 import Toybox.Graphics;
 import Toybox.Lang;
-import Toybox.Math;
 import Toybox.Sensor;
 import Toybox.System;
 import Toybox.Time;
 import Toybox.Timer;
 import Toybox.WatchUi;
 
-// Recording mode: captures raw accelerometer data and, after each run,
-// prompts the user for the actual catch count. Data is transmitted to the
-// phone and also logged via System.println() in a parseable CSV format so
-// it can be used to tune the detection algorithm offline.
+// Recording mode: Back starts/stops each raw accelerometer run, then the user
+// labels the actual watch-hand catch count. Data is transmitted to the phone
+// and also logged via System.println() in a parseable CSV format so it can be
+// used to tune the detection algorithm offline.
 class RecordingView extends WatchUi.View {
     private const SAMPLE_RATE = 25;
     private const PERIOD_SECONDS = 1;
-    private const MILLI_G_TO_MS2 = 9.80665f / 1000.0f;
-    private const ACTIVITY_THRESHOLD = 3.0f; // m/s² linear acceleration to start/sustain a run
-    private const IDLE_TIMEOUT_MS = 2000;
-    private const WARMUP_SAMPLES = 25;
-    private const GRAVITY_ALPHA = 0.95f;
     private const MAX_RUN_SAMPLES = 750; // 30 seconds at 25 Hz
     private const SYNC_TIMEOUT_MS = 10000;
 
@@ -30,16 +24,6 @@ class RecordingView extends WatchUi.View {
 
     private var _state as Number;
     private var _ballCount as Number;
-
-    // Gravity estimation (for activity detection)
-    private var _gravityX as Float;
-    private var _gravityY as Float;
-    private var _gravityZ as Float;
-    private var _gravityInitialized as Boolean;
-    private var _samplesSeen as Number;
-
-    // Activity tracking
-    private var _lastActiveTime as Number;
 
     // Recording buffers for the current run (raw milli-g values)
     private var _accelX as Array<Number>;
@@ -70,12 +54,6 @@ class RecordingView extends WatchUi.View {
         WatchUi.View.initialize();
         _state = STATE_IDLE;
         _ballCount = ballCount;
-        _gravityX = 0.0f;
-        _gravityY = 0.0f;
-        _gravityZ = 0.0f;
-        _gravityInitialized = false;
-        _samplesSeen = 0;
-        _lastActiveTime = 0;
         _accelX = [];
         _accelY = [];
         _accelZ = [];
@@ -118,6 +96,24 @@ class RecordingView extends WatchUi.View {
         return _state == STATE_SYNCING;
     }
 
+    public function isIdle() as Boolean {
+        return _state == STATE_IDLE;
+    }
+
+    public function handleBackButton() as Boolean {
+        if (_state == STATE_IDLE) {
+            startRun();
+            WatchUi.requestUpdate();
+            return true;
+        }
+        if (_state == STATE_RECORDING) {
+            finishRun();
+            WatchUi.requestUpdate();
+            return true;
+        }
+        return true;
+    }
+
     public function incrementLabel() as Void {
         _labelCount += 1;
         WatchUi.requestUpdate();
@@ -130,13 +126,14 @@ class RecordingView extends WatchUi.View {
         WatchUi.requestUpdate();
     }
 
-    // User confirmed the catch count – log, transmit, and wait for ACK.
+    // User confirmed the watch-hand catch count: log, transmit, and wait for ACK.
     public function confirmLabel() as Void {
         // ── Parseable CSV log (for simulator console capture) ──
         System.println("RUN_DATA,balls=" + _ballCount +
             ",catches=" + _labelCount +
             ",detected=" + _detectedCount +
             ",rate=" + SAMPLE_RATE +
+            ",countMode=watch_hand" +
             ",samples=" + _accelX.size());
         for (var i = 0; i < _accelX.size(); i++) {
             System.println("S," + _accelX[i] + "," + _accelY[i] + "," + _accelZ[i]);
@@ -146,6 +143,7 @@ class RecordingView extends WatchUi.View {
         // ── Build payload and transmit to companion phone app ──
         _pendingPayload = {
             "type" => "recording",
+            "countMode" => "watch_hand",
             "balls" => _ballCount,
             "catches" => _labelCount,
             "detected" => _detectedCount,
@@ -354,54 +352,11 @@ class RecordingView extends WatchUi.View {
             processSample(xs[i], ys[i], zs[i], sampleMs);
         }
 
-        // Auto-finish: if recording and idle long enough, end the run.
-        if (_state == STATE_RECORDING && _lastActiveTime > 0 &&
-            (now - _lastActiveTime > IDLE_TIMEOUT_MS)) {
-            finishRun();
-        }
-
         WatchUi.requestUpdate();
     }
 
     private function processSample(x as Number, y as Number, z as Number, nowMs as Number) as Void {
-        var ax = x * MILLI_G_TO_MS2;
-        var ay = y * MILLI_G_TO_MS2;
-        var az = z * MILLI_G_TO_MS2;
-
-        // ── Gravity estimation (always running) ──
-        if (!_gravityInitialized) {
-            _gravityX = ax;
-            _gravityY = ay;
-            _gravityZ = az;
-            _gravityInitialized = true;
-        } else {
-            _gravityX = GRAVITY_ALPHA * _gravityX + (1.0f - GRAVITY_ALPHA) * ax;
-            _gravityY = GRAVITY_ALPHA * _gravityY + (1.0f - GRAVITY_ALPHA) * ay;
-            _gravityZ = GRAVITY_ALPHA * _gravityZ + (1.0f - GRAVITY_ALPHA) * az;
-        }
-
-        _samplesSeen += 1;
-        if (_samplesSeen <= WARMUP_SAMPLES) {
-            return;
-        }
-
-        // Linear acceleration magnitude
-        var lx = ax - _gravityX;
-        var ly = ay - _gravityY;
-        var lz = az - _gravityZ;
-        var mag = Math.sqrt(lx * lx + ly * ly + lz * lz).toFloat();
-
-        // ── State machine ──
-        if (_state == STATE_IDLE) {
-            if (mag > ACTIVITY_THRESHOLD) {
-                startRun(nowMs);
-                _accelX.add(x);
-                _accelY.add(y);
-                _accelZ.add(z);
-                _detector.processSample(x, y, z, nowMs);
-                _lastActiveTime = nowMs;
-            }
-        } else if (_state == STATE_RECORDING) {
+        if (_state == STATE_RECORDING) {
             // Cap run length to avoid running out of memory.
             if (_accelX.size() >= MAX_RUN_SAMPLES) {
                 finishRun();
@@ -411,20 +366,15 @@ class RecordingView extends WatchUi.View {
             _accelY.add(y);
             _accelZ.add(z);
             _detector.processSample(x, y, z, nowMs);
-            if (mag > ACTIVITY_THRESHOLD) {
-                _lastActiveTime = nowMs;
-            }
         }
-        // STATE_LABELING / STATE_SYNCING: gravity is updated above but no recording.
     }
 
-    private function startRun(nowMs as Number) as Void {
+    private function startRun() as Void {
         _state = STATE_RECORDING;
         _accelX = [];
         _accelY = [];
         _accelZ = [];
         _detector = new JugglingDetector(_ballCount);
-        _lastActiveTime = nowMs;
     }
 
     private function finishRun() as Void {
@@ -471,8 +421,8 @@ class RecordingView extends WatchUi.View {
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         var hint = _runsCompleted > 0
-            ? "Runs: " + _runsCompleted
-            : "Juggle to start";
+            ? "Back start | Runs: " + _runsCompleted
+            : "Back to start";
         dc.drawText(cx, y, Graphics.FONT_XTINY, hint, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
@@ -495,7 +445,7 @@ class RecordingView extends WatchUi.View {
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, y, Graphics.FONT_XTINY,
-            "Det: " + _detector.currentCount, Graphics.TEXT_JUSTIFY_CENTER);
+            "Back stop | Hand: " + _detector.currentCount, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     private function drawSyncingState(dc as Dc, cx as Number, cy as Number) as Void {
@@ -526,7 +476,7 @@ class RecordingView extends WatchUi.View {
         var y = cy - blockH / 2;
 
         dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y, Graphics.FONT_TINY, "Catches?", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, y, Graphics.FONT_TINY, "Watch hand?", Graphics.TEXT_JUSTIFY_CENTER);
         y += labelH;
 
         dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
@@ -536,7 +486,7 @@ class RecordingView extends WatchUi.View {
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, y, Graphics.FONT_XTINY,
-            "Detected: " + _detectedCount, Graphics.TEXT_JUSTIFY_CENTER);
+            "Detected hand: " + _detectedCount, Graphics.TEXT_JUSTIFY_CENTER);
         y += hintH;
 
         dc.drawText(cx, y, Graphics.FONT_XTINY,
@@ -576,10 +526,13 @@ class RecordingDelegate extends WatchUi.BehaviorDelegate {
 
     public function onKey(evt as WatchUi.KeyEvent) as Boolean {
         var key = evt.getKey();
+        if (key == WatchUi.KEY_ESC) {
+            return _view.handleBackButton();
+        }
         if (key == WatchUi.KEY_ENTER) {
             if (_view.isLabeling()) {
                 _view.confirmLabel();
-            } else if (!_view.isSyncing()) {
+            } else if (_view.isIdle()) {
                 _view.endSession();
             }
             return true;
@@ -594,6 +547,10 @@ class RecordingDelegate extends WatchUi.BehaviorDelegate {
             }
         }
         return false;
+    }
+
+    public function onBack() as Boolean {
+        return _view.handleBackButton();
     }
 
     public function onSelect() as Boolean {

@@ -55,7 +55,7 @@ fun CurrentRunCard(throwCount: Int, previousRunCount: Int? = null) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.weight(1f)
             ) {
-                Text(text = "CURRENT RUN", style = MaterialTheme.typography.labelMedium)
+                Text(text = "WATCH-HAND CATCHES", style = MaterialTheme.typography.labelMedium)
                 Text(
                     text = throwCount.toString(),
                     style = MaterialTheme.typography.displayLarge,
@@ -74,7 +74,7 @@ fun CurrentRunCard(throwCount: Int, previousRunCount: Int? = null) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(text = "PREVIOUS", style = MaterialTheme.typography.labelMedium)
+                    Text(text = "PREVIOUS HAND", style = MaterialTheme.typography.labelMedium)
                     Text(
                         text = previousRunCount.toString(),
                         style = MaterialTheme.typography.displayMedium,

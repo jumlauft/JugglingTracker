@@ -1,36 +1,9 @@
-import math
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import os
 
-MILLI_G_TO_MS2 = 9.80665 / 1000.0
-SAMPLE_RATE = 25
-
-def parse_runs(filepath):
-    runs = []
-    current_run = None
-    with open(filepath, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            if line.startswith('# '):
-                meta = {}
-                for part in line[2:].split(','):
-                    k, v = part.split('=')
-                    meta[k] = int(v) if v.lstrip('-').isdigit() else v
-                current_run = {'meta': meta, 'x': [], 'y': [], 'z': []}
-                runs.append(current_run)
-            elif line == 'x,y,z':
-                continue
-            elif current_run is not None:
-                parts = line.split(',')
-                if len(parts) == 3:
-                    current_run['x'].append(int(parts[0]))
-                    current_run['y'].append(int(parts[1]))
-                    current_run['z'].append(int(parts[2]))
-    return runs
+from data_utils import MILLI_G_TO_MS2, SAMPLE_RATE, parse_runs
 
 def plot_accel(runs, basename='output'):
     n = len(runs)
@@ -60,7 +33,7 @@ def plot_accel(runs, basename='output'):
         ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    out = os.path.join(os.path.dirname(__file__), f'{basename}_accel.png')
+    out = os.path.join(os.path.dirname(__file__), '..', 'data', f'{basename}_accel.png')
     plt.savefig(out, dpi=150, bbox_inches='tight')
     plt.close()
     print(f"Saved to {out}")
@@ -70,7 +43,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         filepath = sys.argv[1]
     else:
-        filepath = os.path.join(os.path.dirname(__file__), '260603.csv')
+        filepath = os.path.join(os.path.dirname(__file__), '..', 'data', 'juggling_recordings_20260603_223806.csv')
     basename = os.path.splitext(os.path.basename(filepath))[0]
     runs = parse_runs(filepath)
     print(f"Parsed {len(runs)} runs")

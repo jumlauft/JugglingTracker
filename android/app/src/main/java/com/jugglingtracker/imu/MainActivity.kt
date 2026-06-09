@@ -196,7 +196,7 @@ class MainActivity : ComponentActivity() {
         handler.postDelayed(heartbeatRunnable, HEARTBEAT_TIMEOUT_MS)
 
         // The watch sends one payload per finished session containing the ball
-        // count, a timestamp, and the throw count of every run in the session.
+        // count, a timestamp, and the watch-hand catch count of every run.
         if (payload["type"] == "session") {
             @Suppress("UNCHECKED_CAST")
             val typed = payload as Map<String, Any>

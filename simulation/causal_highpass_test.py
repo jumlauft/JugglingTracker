@@ -6,68 +6,14 @@ This script verifies the algorithm works with:
 1. Causal IIR highpass filter (sosfilt, not sosfiltfilt)
 2. Simple peak detection that doesn't need prominence (watch can't do that)
 """
-import math
 import os
-import glob
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from scipy.signal import butter, sosfilt, sosfiltfilt, find_peaks
+from scipy.signal import butter, sosfilt, find_peaks
 
-MILLI_G_TO_MS2 = 9.80665 / 1000.0
-SAMPLE_RATE = 25
-
-def parse_runs(filepath):
-    runs = []
-    current_run = None
-    with open(filepath, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            if line.startswith('# '):
-                meta = {}
-                for part in line[2:].split(','):
-                    k, v = part.split('=')
-                    meta[k] = int(v) if v.lstrip('-').isdigit() else v
-                current_run = {'meta': meta, 'x': [], 'y': [], 'z': []}
-                runs.append(current_run)
-            elif line == 'x,y,z':
-                continue
-            elif current_run is not None:
-                parts = line.split(',')
-                if len(parts) == 3:
-                    current_run['x'].append(int(parts[0]))
-                    current_run['y'].append(int(parts[1]))
-                    current_run['z'].append(int(parts[2]))
-    return runs
-
-
-def compute_magnitude_gravity(x_mg, y_mg, z_mg):
-    """Compute linear acceleration magnitude with dynamic gravity alpha."""
-    gx = x_mg[0] * MILLI_G_TO_MS2
-    gy = y_mg[0] * MILLI_G_TO_MS2
-    gz = z_mg[0] * MILLI_G_TO_MS2
-    mags = []
-    active = False
-    for i in range(len(x_mg)):
-        ax = x_mg[i] * MILLI_G_TO_MS2
-        ay = y_mg[i] * MILLI_G_TO_MS2
-        az = z_mg[i] * MILLI_G_TO_MS2
-        if i > 0:
-            alpha = 0.99 if active else 0.95
-            gx = alpha * gx + (1 - alpha) * ax
-            gy = alpha * gy + (1 - alpha) * ay
-            gz = alpha * gz + (1 - alpha) * az
-        lx = ax - gx
-        ly = ay - gy
-        lz = az - gz
-        mag = math.sqrt(lx*lx + ly*ly + lz*lz)
-        mags.append(mag)
-        if mag > 5.0:
-            active = True
-    return np.array(mags)
+from data_utils import MILLI_G_TO_MS2, SAMPLE_RATE, compute_magnitude_gravity, load_all_runs
 
 
 def get_highpass_coefficients(cutoff_hz, fs, order=2):
@@ -396,14 +342,7 @@ def print_watch_coefficients(highpass_hz):
 
 
 if __name__ == '__main__':
-    data_dir = os.path.dirname(__file__) or '.'
-    
-    all_runs = []
-    for csvfile in sorted(glob.glob(os.path.join(data_dir, '*.csv'))):
-        runs = parse_runs(csvfile)
-        for r in runs:
-            r['file'] = os.path.basename(csvfile)
-            all_runs.append(r)
+    all_runs = load_all_runs()
     
     print(f"Loaded {len(all_runs)} runs")
     
@@ -419,11 +358,10 @@ if __name__ == '__main__':
     print(f"  Causal HP + threshold/hyst:  error={ct_err:3d}  {ct_params}")
     print(f"  Causal HP + prominence:      error={cp_err:3d}  {cp_params}")
     print(f"  Non-causal HP + prominence:  error={nc_err:3d}  {nc_params}  (reference)")
-    print(f"  Previous best (no filter):   error= 14  threshold=15, hyst=0.7, refr=100")
     
     # Print coefficients for watch
     print_watch_coefficients(ct_params['highpass_hz'])
     
     # Plot
-    outpath = os.path.join(data_dir, 'causal_highpass_detection.png')
+    outpath = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'causal_highpass_detection.png')
     plot_comparison(all_runs, ct_params, outpath)

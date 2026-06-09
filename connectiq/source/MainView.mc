@@ -28,7 +28,7 @@ class MainView extends WatchUi.View {
     // True while the retry/force-quit confirmation dialog is on screen.
     private var _awaitingDecision as Boolean;
 
-    // Last catch count at which we vibrated (for every-10-catches feedback).
+    // Last watch-hand catch count at which we vibrated.
     private var _lastVibrateCount as Number;
 
     // Repeating 1s timer that animates the "Sync to phone..." status by adding
@@ -101,9 +101,9 @@ class MainView extends WatchUi.View {
         var blockH = labelH + numberH + statsH * 2;
         var y = cy - blockH / 2;
 
-        // "Throws" label, just above the big number (no large gap).
+        // Watch-hand label, just above the big number (no large gap).
         dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y, Graphics.FONT_TINY, "Throws", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, y, Graphics.FONT_TINY, "Watch hand", Graphics.TEXT_JUSTIFY_CENTER);
         y += labelH;
 
         // Current run count, large, centered.
@@ -146,7 +146,7 @@ class MainView extends WatchUi.View {
             return;
         }
 
-        // Run throw detection locally on every sample in the batch.
+        // Run watch-hand catch detection locally on every sample in the batch.
         // Interpolate per-sample timestamps so the refractory period works
         // correctly within a single batch (at 25 Hz samples are 40ms apart).
         var now = System.getTimer();
@@ -160,7 +160,7 @@ class MainView extends WatchUi.View {
             _detector.processSample(xs[i], ys[i], zs[i], sampleMs);
         }
 
-        // Vibrate every 10 catches as tactile feedback.
+        // Vibrate every 10 watch-hand catches as tactile feedback.
         var count = _detector.currentCount;
         if (count > 0 && count / 10 > _lastVibrateCount / 10) {
             if (Attention has :vibrate) {
@@ -211,7 +211,7 @@ class MainView extends WatchUi.View {
         // Fold any run still in progress into the session.
         _detector.finishCurrentRun();
 
-        var runs = _detector.runThrows();
+        var runs = _detector.runCatches();
         if (runs.size() == 0) {
             // No runs recorded this session; just close the app.
             System.exit();
@@ -219,6 +219,7 @@ class MainView extends WatchUi.View {
 
         _pendingPayload = {
             "type" => "session",
+            "countMode" => "watch_hand",
             "balls" => _detector.ballCount,
             "timestamp" => Time.now().value(),
             "runs" => runs
@@ -380,7 +381,6 @@ class MainView extends WatchUi.View {
         _awaitingDecision = true;
         var menu = new WatchUi.Menu2({ :title => "Quit without sync?" });
         menu.addItem(new WatchUi.MenuItem("Yes", null, :quit_confirm, null));
-        menu.addItem(new WatchUi.MenuItem("No", null, :quit_cancel, null));
         menu.addItem(new WatchUi.MenuItem("Continue", null, :quit_continue, null));
         WatchUi.pushView(
             menu,
@@ -396,7 +396,6 @@ class MainView extends WatchUi.View {
 
     public function onQuitCancelled() as Void {
         _awaitingDecision = false;
-        WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
     }
 }
 
@@ -409,10 +408,9 @@ class QuitConfirmationDelegate extends WatchUi.Menu2InputDelegate {
     }
 
     public function onSelect(item as WatchUi.MenuItem) as Void {
+        WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
         if (item.getId() == :quit_confirm) {
             _view.onQuitConfirmed();
-        } else if (item.getId() == :quit_continue) {
-            _view.onQuitCancelled();
         } else {
             _view.onQuitCancelled();
         }
@@ -473,6 +471,7 @@ class CommListener extends Communications.ConnectionListener {
     }
 
     function onError() {
+        System.println("Session data transmission failed");
         _view.onTransmitError();
     }
 }

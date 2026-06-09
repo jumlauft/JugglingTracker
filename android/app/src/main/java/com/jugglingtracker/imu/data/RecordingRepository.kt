@@ -14,23 +14,29 @@ import java.util.Locale
  *   recordings/rec_<timestamp>_<balls>b_<catches>c.csv
  *
  * The CSV format is:
- *   # balls=3,catches=12,detected=10,sampleRate=25,timestamp=1717430000
+ *   # balls=3,catches=12,detected=10,sampleRate=25,timestamp=1717430000,countMode=watch_hand
  *   x,y,z
  *   -123,456,987
  *   ...
  *
- * All values are raw milli-g integers as reported by the watch sensor.
+ * The catches and detected values are watch-hand catches: catches made by the
+ * hand wearing the watch, not both-hands totals. All sample values are raw
+ * milli-g integers as reported by the watch sensor.
  * Call [exportAllCsv] to produce a single merged CSV suitable for analysis.
  */
-class RecordingRepository(context: Context) {
+class RecordingRepository(private val recordingsDir: File) {
     companion object {
         private const val TAG = "RecordingRepository"
         private const val DIR_NAME = "recordings"
     }
 
-    private val recordingsDir = File(context.filesDir, DIR_NAME).also { it.mkdirs() }
+    constructor(context: Context) : this(File(context.filesDir, DIR_NAME))
 
-    /** Save one recording run to a CSV file. Returns the file on success. */
+    init {
+        recordingsDir.mkdirs()
+    }
+
+    /** Save one recording run to a CSV file. Catches are watch-hand catches. */
     fun saveRecording(
         balls: Int,
         catches: Int,
@@ -49,7 +55,7 @@ class RecordingRepository(context: Context) {
 
         return try {
             file.bufferedWriter().use { w ->
-                w.write("# balls=$balls,catches=$catches,detected=$detected,sampleRate=$sampleRate,timestamp=$timestamp")
+                w.write("# balls=$balls,catches=$catches,detected=$detected,sampleRate=$sampleRate,timestamp=$timestamp,countMode=watch_hand")
                 w.newLine()
                 w.write("x,y,z")
                 w.newLine()

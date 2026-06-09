@@ -1,106 +1,168 @@
-# JugglingTracker IMU Stream
+# JugglingTracker
 
-Stream accelerometer data from a Garmin Forerunner 245 watch to an Android
-phone in real time and visualize it. The watch app reads the onboard
-accelerometer and transmits batched samples over the Connect IQ messaging
-channel; the Android companion app receives the samples and displays the live
-X/Y/Z values.
+Two-platform juggling tracker focused on the hand wearing the watch. A Garmin Forerunner 245 watch app counts watch-hand catches from accelerometer data, stores runs for the active watch session, and sends finished sessions to an Android companion app for storage, charts, CSV export, and algorithm recording workflows. Counts are not both-hands totals.
 
-## Project structure
+## Project Structure
 
-- `connectiq/` — Garmin Connect IQ watch app (Monkey C)
-  - `manifest.xml` — app manifest (app id, target products, permissions)
-  - `monkey.jungle`, `project.xml` — build/project configuration
-  - `source/JugglingTrackerApp.mc` — watch app implementation
-  - `resources/` — strings, images, and resource definitions
-- `android/` — Android companion app (Kotlin)
-  - `app/src/main/java/com/jugglingtracker/imu/MainActivity.kt` — Connect IQ
-    integration, permissions, and live data UI
-  - `app/src/main/AndroidManifest.xml` — Bluetooth permissions
-  - `app/src/main/res/layout/activity_main.xml` — bar/value display layout
-  - Gradle wrapper and build files
+- `connectiq/` - Garmin Connect IQ watch app in Monkey C.
+  - `source/JugglingTrackerApp.mc` - app entry point.
+  - `source/ModeSelectView.mc` - choose normal tracking or recording mode.
+  - `source/BallSelectView.mc` - choose 3-9 balls before a run.
+  - `source/JugglingDetector.mc` - watch-hand catch detection algorithm.
+  - `source/MainView.mc` - normal tracking UI, sensor listener, session sync.
+  - `source/RecordingView.mc` - raw accelerometer capture and labeling mode.
+  - `manifest.xml`, `monkey.jungle`, `resources/` - Connect IQ configuration and assets.
+- `android/` - Android companion app in Kotlin and Jetpack Compose.
+  - `MainActivity.kt` - Garmin Connect IQ SDK integration, permissions, message routing.
+  - `logic/JugglingViewModel.kt` - UI/session state, imports, CSV export, voice events.
+  - `data/SessionRepository.kt` - SharedPreferences persistence for finished sessions.
+  - `data/RecordingRepository.kt` - raw recording CSV persistence/export.
+  - `ui/` - Compose screens, session cards, charts, tracker/settings UI.
+  - `model/` - session/run data classes.
+- `data/` - labeled accelerometer recordings used to tune and verify detection.
+- `simulation/` - Python analysis, plotting, tuning, and regression tests.
 
-## How it works
+## How It Works
 
 ```mermaid
 flowchart LR
-    A[FR245 accelerometer] -->|25 Hz, 1 s batches| B[Watch app]
-    B -->|Communications.transmit| C[Connect IQ channel]
-    C -->|registerForAppEvents| D[Android app]
-    D --> E[Live X/Y/Z display]
+    A[FR245 accelerometer, 25 Hz] --> B[JugglingDetector]
+    B --> C[MainView watch-hand run/session state]
+    C -->|session payload| D[Garmin Connect IQ channel]
+    D --> E[MainActivity]
+    E --> F[JugglingViewModel]
+    F --> G[SessionRepository]
+    E -->|ack| C
 ```
 
-### Watch app (`connectiq/source/JugglingTrackerApp.mc`)
+The watch is the session controller. The phone listens, stores the received watch-hand catch counts, and sends an `ack`; the watch only exits after receiving that acknowledgement or after the user explicitly quits without syncing.
 
-- Registers an accelerometer data listener at **25 Hz**, buffering **1 second**
-  of samples per callback.
-- On each callback, sends a structured payload to the phone:
-  `{ "rate": 25, "x": [...], "y": [...], "z": [...] }`.
-- Sends one message at a time (skips a batch if the previous transmit is still
-  in flight) to avoid overflowing the messaging channel.
-- Shows the most recent sample on the watch screen.
+### Watch Detection
 
-App id: `A1B2C3D4E5F60718293A4B5C6D7E8F90` · Targets: `fr245`, `fr245m`.
+`JugglingDetector` processes milli-g accelerometer samples at 25 Hz:
 
-### Android companion app
+1. Convert to m/s².
+2. Estimate gravity with a low-pass filter (`0.95` idle, `0.99` during active juggling).
+3. Subtract gravity and use linear acceleration magnitude.
+4. Apply a causal 2nd-order Butterworth highpass filter at 0.7 Hz.
+5. Treat threshold crossings as candidate events.
+6. Delay and merge nearby candidates into one catch-motion burst.
+7. Count odd-numbered committed bursts as catches by the watch-wearing hand and skip the alternating other-hand bursts.
 
-- Requests the required Bluetooth permissions (`BLUETOOTH_CONNECT` /
-  `BLUETOOTH_SCAN` on Android 12+, `ACCESS_FINE_LOCATION` on older versions).
-- Initializes the Garmin Connect IQ Mobile SDK, finds the paired device, and
-  registers for app events using the matching watch app id.
-- Parses each batch and displays the latest X/Y/Z values as text and bars.
+Current burst-clustering parameters:
 
-## Building and running
+| Balls | HP threshold | Candidate refractory | Raw gate | Merge window |
+| --- | ---: | ---: | ---: | ---: |
+| 3 | 2.6 | 80 ms | 9.0 m/s² | 120 ms |
+| 4 | 4.0 | 40 ms | disabled | 80 ms |
+| 5+ | 0.5 | 80 ms | disabled | 280 ms |
 
-### Watch app
+The Python simulator in `simulation/eval_new_watch.py` mirrors the watch detector. Keep it, `connectiq/source/JugglingDetector.mc`, `simulation/test_detection.py`, and `.github/instructions/connectiq-monkeyc.instructions.md` in sync when changing detector behavior or parameters.
 
-Requires the [Garmin Connect IQ SDK](https://developer.garmin.com/connect-iq/)
-and a developer signing key (`developer_key.der`).
+### Recording Mode
+
+Recording mode captures raw accelerometer samples on the watch. Press Back to start a run, press Back again to stop it, then enter the actual watch-hand catch count. The watch sends a `recording` payload to the phone, and the Android app stores each recording as CSV through `RecordingRepository` so it can be exported for tuning in `simulation/`.
+
+The labeled CSV format starts each run with metadata:
+
+```csv
+# balls=3,catches=17,detected=17,sampleRate=25,timestamp=1780511578,countMode=watch_hand
+x,y,z
+...
+```
+
+## Communication Payloads
+
+Finished sessions:
+
+```json
+{ "type": "session", "countMode": "watch_hand", "balls": 3, "timestamp": 1780511578, "runs": [17, 11, 21] }
+```
+
+Raw recordings:
+
+```json
+{
+  "type": "recording",
+  "countMode": "watch_hand",
+  "balls": 3,
+  "catches": 17,
+  "detected": 17,
+  "sampleRate": 25,
+  "accelX": [],
+  "accelY": [],
+  "accelZ": [],
+  "timestamp": 1780511578
+}
+```
+
+Acknowledgement from phone to watch:
+
+```json
+{ "type": "ack", "timestamp": 1780511578 }
+```
+
+## Build And Test
+
+### Android
+
+Requires JDK 17+. Android Studio's bundled JBR works.
 
 ```sh
-SDK="$HOME/Library/Application Support/Garmin/ConnectIQ/Sdks/<your-sdk-version>"
-"$SDK/bin/monkeyc" -f connectiq/monkey.jungle -d fr245 \
-    -o connectiq/build/JugglingTracker.prg -y developer_key.der -r
+cd android
+./gradlew assembleDebug       # build debug APK
+./gradlew test                # unit tests
+./gradlew installDebug        # install on connected phone
 ```
+
+### Detection Simulation
+
+Run from the repository root or from `simulation/`:
+
+```sh
+cd simulation
+python -m pytest test_detection.py -v
+python eval_new_watch.py
+```
+
+`test_detection.py` locks the labeled-data detector baseline. The current watch-hand delayed burst-clustering baseline is 20 total absolute error and 0 total overcount error across 21 labeled runs / 266 watch-hand catches.
+
+### Connect IQ Watch App
+
+Requires the Garmin Connect IQ SDK and a developer signing key at `connectiq/developer_key.der`.
+
+```sh
+monkeyc -f connectiq/monkey.jungle -d fr245 \
+    -o connectiq/build/JugglingTracker.prg \
+    -y connectiq/developer_key.der -r
+```
+
+A Windows SDK install can also be invoked with the full `monkeyc.bat` path if `monkeyc` is not on `PATH`.
 
 Run in the simulator:
 
 ```sh
-"$SDK/bin/connectiq"                                      # launch simulator
-"$SDK/bin/monkeydo" connectiq/build/JugglingTracker.prg fr245
+connectiq
+monkeydo connectiq/build/JugglingTracker.prg fr245
 ```
 
-> The simulator's accelerometer needs a FIT data file for playback
-> (Simulation -> Data Playback). On a real device the live sensor is used.
+Install on a real watch over USB by copying the built app to the mounted device:
 
-To install on a real watch, copy the built `.prg` to the device's
-`GARMIN/Apps/` folder over USB, or sideload via the Connect IQ tools.
-
-### Android app
-
-Requires Android Studio with a JDK 17+ (the bundled JBR works). Open the
-`android/` folder in Android Studio and run, or build from the command line:
-
-```sh
-cd android
-./gradlew assembleDebug          # APK in app/build/outputs/apk/debug/
+```powershell
+Copy-Item connectiq\build\JugglingTracker.prg D:\GARMIN\APPS\JugglingTracker.prg -Force
 ```
 
-Install on a connected phone:
+Use the actual drive letter for the mounted Garmin volume, then safely eject the device before unplugging.
 
-```sh
-./gradlew installDebug
-```
+## End-To-End Use
 
-### End-to-end
+1. Pair the Forerunner 245 with the phone in Garmin Connect.
+2. Install the Connect IQ watch app on the watch.
+3. Install and open the Android app; grant Bluetooth permissions.
+4. Start the watch app and choose normal tracking or recording mode.
+5. For normal sessions, stop from the watch menu and choose sync when finished.
+6. For recording mode, press Back to start/stop each run, then label the watch-hand catch count and let the phone store the raw CSV.
 
-1. Pair the Forerunner 245 with the phone via the Garmin Connect app.
-2. Install and start the watch app on the FR245.
-3. Launch the Android app and grant Bluetooth permissions.
-4. The phone connects to the watch and shows live accelerometer values.
+## Security Note
 
-## Security note
-
-The Connect IQ `developer_key.der` / `.pem` are private signing keys. They are
-gitignored and must **never** be committed. If a key is ever exposed, rotate it
-and re-sign the app.
+Connect IQ developer signing keys such as `developer_key.der` and private-key variants are local secrets. They are gitignored and must not be committed. If a key is ever exposed, rotate it and re-sign the app.

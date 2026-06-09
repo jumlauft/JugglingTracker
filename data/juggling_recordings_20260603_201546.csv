@@ -1,4 +1,4 @@
-# balls=3,catches=11,detected=4,sampleRate=25,timestamp=1780511540
+# balls=3,catches=6,detected=4,sampleRate=25,timestamp=1780511540,countMode=watch_hand
 x,y,z
 284,1412,164
 248,2560,676
@@ -200,7 +200,7 @@ x,y,z
 172,28,-964
 172,40,-964
 168,28,-968
-# balls=3,catches=34,detected=6,sampleRate=25,timestamp=1780511578
+# balls=3,catches=17,detected=6,sampleRate=25,timestamp=1780511578,countMode=watch_hand
 x,y,z
 484,624,-1036
 436,732,-944
@@ -763,7 +763,7 @@ x,y,z
 -20,-84,-972
 -20,-88,-964
 -12,-96,-976
-# balls=5,catches=8,detected=2,sampleRate=25,timestamp=1780511671
+# balls=5,catches=4,detected=2,sampleRate=25,timestamp=1780511671,countMode=watch_hand
 x,y,z
 56,-312,-804
 104,-92,-368
@@ -1023,7 +1023,7 @@ x,y,z
 260,328,-892
 260,328,-904
 260,316,-904
-# balls=5,catches=25,detected=2,sampleRate=25,timestamp=1780511744
+# balls=5,catches=13,detected=2,sampleRate=25,timestamp=1780511744,countMode=watch_hand
 x,y,z
 396,-128,-832
 68,-400,-880

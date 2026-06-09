@@ -1,4 +1,4 @@
-# balls=3,catches=40,detected=12,sampleRate=25,timestamp=1780510639
+# balls=3,catches=20,detected=12,sampleRate=25,timestamp=1780510639,countMode=watch_hand
 x,y,z
 268,736,-792
 284,600,-780

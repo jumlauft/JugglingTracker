@@ -341,7 +341,7 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
         if (viewModel.isVoiceEnabled) {
             Column(modifier = Modifier.padding(horizontal = 8.dp)) {
                 Text(
-                    text = "Announce every ${viewModel.voiceInterval} throws",
+                    text = "Announce every ${viewModel.voiceInterval} watch-hand catches",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Slider(

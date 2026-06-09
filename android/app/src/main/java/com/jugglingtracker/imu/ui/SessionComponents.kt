@@ -43,13 +43,13 @@ fun SessionHistoryGraph(sessions: List<SessionSummary>, modifier: Modifier = Mod
                     val s = displaySessions[selectedIndex!!]
                     val dateStr = dateFormat.format(Date(s.timestamp))
                     Text(
-                        text = "$dateStr | Avg: %.1f | Best: %d".format(s.avgThrows, s.bestRun),
+                        text = "$dateStr | Hand avg: %.1f | Best: %d".format(s.avgThrows, s.bestRun),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
                     )
                 } else {
-                    Text(text = "Session Trends", style = MaterialTheme.typography.labelSmall)
+                    Text(text = "Watch-Hand Trends", style = MaterialTheme.typography.labelSmall)
                 }
                 
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -57,7 +57,7 @@ fun SessionHistoryGraph(sessions: List<SessionSummary>, modifier: Modifier = Mod
                     Text(" Best ", fontSize = 10.sp, style = MaterialTheme.typography.labelSmall)
                     Spacer(Modifier.width(8.dp))
                     Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF2196F3)))
-                    Text(" Avg", fontSize = 10.sp, style = MaterialTheme.typography.labelSmall)
+                    Text(" Hand avg", fontSize = 10.sp, style = MaterialTheme.typography.labelSmall)
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -202,12 +202,12 @@ fun SessionHistoryItem(session: SessionSummary, onClick: () -> Unit) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = dateString, fontWeight = FontWeight.Bold)
                 Text(
-                    text = "${session.ballCount} balls • ${session.runCount} runs • ${session.totalThrows} total",
+                    text = "${session.ballCount} balls • ${session.runCount} runs • ${session.totalThrows} watch-hand catches",
                     fontSize = 12.sp
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                StatItem("Avg", "%.1f (±%.1f)".format(session.avgThrows, session.stdDevThrows))
+                StatItem("Hand Avg", "%.1f (±%.1f)".format(session.avgThrows, session.stdDevThrows))
                 StatItem("Best", session.bestRun.toString())
             }
         }
@@ -250,9 +250,9 @@ fun SessionDetailsDialog(session: SessionSummary, onDismiss: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    StatItem("Avg", "%.1f".format(session.avgThrows))
+                    StatItem("Hand Avg", "%.1f".format(session.avgThrows))
                     StatItem("Best", session.bestRun.toString())
-                    StatItem("Total", session.totalThrows.toString())
+                    StatItem("Hand Total", session.totalThrows.toString())
                 }
             }
         },

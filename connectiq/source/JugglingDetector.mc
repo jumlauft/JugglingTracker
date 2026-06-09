@@ -5,10 +5,11 @@ import Toybox.System;
 // The accelerometer reports samples in milli-g (gravity still included). The
 // detector converts each sample to m/s², keeps a low-pass estimate of the
 // gravity vector, removes gravity, and computes the magnitude of the remaining
-// linear acceleration. True peak detection (local maxima above threshold with
-// hysteresis) counts throws. Each detected peak adds 2 to the count (one wrist
-// sensor sees one arm; doubled for the other hand). After a pause with no
-// throws the run is finished and the count moves to "previous run".
+// linear acceleration. Threshold crossings on a highpass-filtered signal create
+// candidates; nearby candidates are delayed and merged into catch bursts. The
+// displayed count is every other committed burst, representing catches made by
+// the hand wearing the watch. After a pause the run is finished and the count
+// moves to "previous run".
 class JugglingDetector {
     private const MILLI_G_TO_MS2 = 9.80665f / 1000.0f;
 
@@ -18,9 +19,16 @@ class JugglingDetector {
     private const GRAVITY_ALPHA_IDLE = 0.95f;
     private const GRAVITY_ALPHA_ACTIVE = 0.99f;
 
-    // Refractory period between consecutive peaks. With the highpass
-    // filter removing drift, a fixed 200ms works across all ball counts.
-    private const REFRACTORY_MS = 200;
+    // Per-ball-count refractory period (ms) between consecutive candidates.
+    // Data-driven from delayed burst-clustering sweep for watch-hand catches.
+    private const REFRACTORY_MS_3 = 80;
+    private const REFRACTORY_MS_4 = 40;
+    private const REFRACTORY_MS_5PLUS = 80;
+
+    // Candidates closer than this are treated as lobes of one catch motion.
+    private const MERGE_WINDOW_MS_3 = 120;
+    private const MERGE_WINDOW_MS_4 = 80;
+    private const MERGE_WINDOW_MS_5PLUS = 280;
 
     private const AUTO_FINISH_DELAY_MS = 2000;
 
@@ -34,11 +42,21 @@ class JugglingDetector {
     private const HP_A1 = -1.752268f;  // negated in difference equation
     private const HP_A2 =  0.779739f;  // negated in difference equation
 
-    // Detection thresholds for the highpass-filtered signal.
-    // Universal — no per-ball-count scaling needed because the filter
-    // normalises the signal by removing the DC component.
-    private const HP_THRESHOLD = 1.0f;
+    // Detection thresholds for the highpass-filtered signal. Tuned against
+    // labels that count catches by the watch-wearing hand only: total absolute
+    // error 20 across 21 runs, positive overcount error 0.
+    private const HP_THRESHOLD_3 = 2.6f;
+    private const HP_THRESHOLD_4 = 4.0f;
+    private const HP_THRESHOLD_5PLUS = 0.5f;
     private const HP_HYSTERESIS = 0.3f;  // signal must drop below threshold * 0.3
+
+    // Minimum raw (pre-highpass) magnitude for a candidate to count.
+    // Prevents false positives from noise that the highpass filter amplifies.
+    // Per-ball-count: 3b uses a gate to suppress arm-swing noise,
+    // 4b and 5+b disable the gate (threshold/cluster timing is selective enough).
+    private const MIN_RAW_MAG_3 = 9.0f;
+    private const MIN_RAW_MAG_4 = 0.0f;  // disabled
+    private const MIN_RAW_MAG_5PLUS = 0.0f;  // disabled
 
     // Number of balls being juggled (3-9), selected at startup.
     public var ballCount as Number;
@@ -46,14 +64,14 @@ class JugglingDetector {
     private var _gravityX as Float;
     private var _gravityY as Float;
     private var _gravityZ as Float;
-    private var _lastThrowTime as Number;
+    private var _lastCandidateTime as Number;
     // Last time the smoothed signal was above the activity floor (half the
     // detection threshold). Used for auto-finish: the run ends when the
     // signal stays below the activity floor for AUTO_FINISH_DELAY_MS,
     // rather than when no peaks are detected — prevents premature splits.
     private var _lastActiveTime as Number;
 
-    // Number of samples to wait before detecting throws, giving the gravity
+    // Number of samples to wait before detecting catches, giving the gravity
     // estimate time to settle. Prevents a spurious run at startup.
     private const WARMUP_SAMPLES = 25;
     private var _samplesSeen as Number;
@@ -67,8 +85,13 @@ class JugglingDetector {
     private var _sessionTotal as Number;
     public var sessionMax as Number;
 
-    // Throw counts of each completed run this session, in order.
-    private var _runThrows as Array<Number>;
+    // Watch-hand catch counts of each completed run this session, in order.
+    private var _runCatches as Array<Number>;
+
+    // Number of committed candidate bursts in the current run. The detector
+    // counts odd-numbered bursts as the watch-hand catches and skips the
+    // alternating bursts from the other hand.
+    private var _committedBurstCount as Number;
 
     // IIR highpass filter state.
     private var _hpX1 as Float;  // x[n-1]
@@ -76,23 +99,34 @@ class JugglingDetector {
     private var _hpY1 as Float;  // y[n-1]
     private var _hpY2 as Float;  // y[n-2]
 
-    // Threshold-crossing peak detection state.
+    // Threshold-crossing candidate detection state.
     // When the filtered signal rises above HP_THRESHOLD we enter the "above"
-    // state and track the peak value and time.  The peak is only registered
-    // when the signal drops back below HP_THRESHOLD * HP_HYSTERESIS, giving
-    // exactly one detection per above→below cycle (matches Python simulation).
+    // state and track the strongest filtered peak. The candidate is emitted
+    // only when the signal drops back below HP_THRESHOLD * HP_HYSTERESIS.
     private var _above as Boolean;   // true while filtered signal > threshold
     private var _peakTime as Number; // timestamp of highest sample in current crossing
+    private var _peakRawMag as Float; // raw magnitude at highest filtered sample in current crossing
+    private var _peakFiltered as Float;
 
-    // Set to true to print per-sample debug info via System.println().
-    private const DEBUG_LOG = false;
+    // Delayed burst-clustering state. A pending candidate becomes a count only
+    // after no nearby candidate has appeared within _mergeWindowMs.
+    private var _hasPendingPeak as Boolean;
+    private var _pendingPeakTime as Number;
+    private var _pendingPeakScore as Float;
+    private var _clusterLastCandidateTime as Number;
+
+    // Cached per-ball-count parameters (set once in initialize).
+    private var _hpThreshold as Float;
+    private var _refractoryMs as Number;
+    private var _minRawMag as Float;
+    private var _mergeWindowMs as Number;
 
     public function initialize(balls as Number) {
         ballCount = balls;
         _gravityX = 0.0f;
         _gravityY = 0.0f;
         _gravityZ = 9.80665f;
-        _lastThrowTime = 0;
+        _lastCandidateTime = 0;
         _lastActiveTime = 0;
         _samplesSeen = 0;
         _gravityInitialized = false;
@@ -101,40 +135,133 @@ class JugglingDetector {
         _sessionRuns = 0;
         _sessionTotal = 0;
         sessionMax = 0;
-        _runThrows = [];
+        _runCatches = [];
+        _committedBurstCount = 0;
         _hpX1 = 0.0f;
         _hpX2 = 0.0f;
         _hpY1 = 0.0f;
         _hpY2 = 0.0f;
         _above = false;
         _peakTime = 0;
-    }
+        _peakRawMag = 0.0f;
+        _peakFiltered = 0.0f;
+        _hasPendingPeak = false;
+        _pendingPeakTime = 0;
+        _pendingPeakScore = 0.0f;
+        _clusterLastCandidateTime = 0;
 
-    // Throw counts of all completed runs this session, in order.
-    public function runThrows() as Array<Number> {
-        return _runThrows;
-    }
-
-    // Fold a finished run's throw count into the session statistics and the
-    // per-run list. Shared by auto-finish and manual session end.
-    private function recordRun(throws as Number) as Void {
-        previousCount = throws;
-        _sessionRuns += 1;
-        _sessionTotal += throws;
-        if (throws > sessionMax) {
-            sessionMax = throws;
+        // Cache ball-count-adaptive parameters.
+        if (balls <= 3) {
+            _hpThreshold = HP_THRESHOLD_3;
+            _refractoryMs = REFRACTORY_MS_3;
+            _minRawMag = MIN_RAW_MAG_3;
+            _mergeWindowMs = MERGE_WINDOW_MS_3;
+        } else if (balls == 4) {
+            _hpThreshold = HP_THRESHOLD_4;
+            _refractoryMs = REFRACTORY_MS_4;
+            _minRawMag = MIN_RAW_MAG_4;
+            _mergeWindowMs = MERGE_WINDOW_MS_4;
+        } else {
+            _hpThreshold = HP_THRESHOLD_5PLUS;
+            _refractoryMs = REFRACTORY_MS_5PLUS;
+            _minRawMag = MIN_RAW_MAG_5PLUS;
+            _mergeWindowMs = MERGE_WINDOW_MS_5PLUS;
         }
-        _runThrows.add(throws);
+    }
+
+    // Watch-hand catch counts of all completed runs this session, in order.
+    public function runCatches() as Array<Number> {
+        return _runCatches;
+    }
+
+    // Fold a finished run's watch-hand catch count into the session stats and
+    // per-run list. Shared by auto-finish and manual session end.
+    private function recordRun(catches as Number) as Void {
+        previousCount = catches;
+        _sessionRuns += 1;
+        _sessionTotal += catches;
+        if (catches > sessionMax) {
+            sessionMax = catches;
+        }
+        _runCatches.add(catches);
+    }
+
+    private function hasActiveRun() as Boolean {
+        return currentCount > 0 || _hasPendingPeak || _committedBurstCount > 0;
+    }
+
+    private function clearRunDetectionState() as Void {
+        _lastCandidateTime = 0;
+        _lastActiveTime = 0;
+        _above = false;
+        _peakTime = 0;
+        _peakRawMag = 0.0f;
+        _peakFiltered = 0.0f;
+        _hasPendingPeak = false;
+        _pendingPeakTime = 0;
+        _pendingPeakScore = 0.0f;
+        _clusterLastCandidateTime = 0;
+        _committedBurstCount = 0;
+    }
+
+    private function commitPendingPeak(nowMs as Number) as Void {
+        if (!_hasPendingPeak) {
+            return;
+        }
+        _committedBurstCount += 1;
+        if ((_committedBurstCount % 2) == 1) {
+            currentCount += 1;
+        }
+        _lastActiveTime = nowMs;
+        _hasPendingPeak = false;
+        _pendingPeakTime = 0;
+        _pendingPeakScore = 0.0f;
+        _clusterLastCandidateTime = 0;
+    }
+
+    private function addCandidate(candidateTime as Number, score as Float, nowMs as Number) as Void {
+        if (!_hasPendingPeak) {
+            _hasPendingPeak = true;
+            _pendingPeakTime = candidateTime;
+            _pendingPeakScore = score;
+            _clusterLastCandidateTime = candidateTime;
+            return;
+        }
+
+        if (candidateTime - _clusterLastCandidateTime < _mergeWindowMs) {
+            if (score > _pendingPeakScore) {
+                _pendingPeakTime = candidateTime;
+                _pendingPeakScore = score;
+            }
+            _clusterLastCandidateTime = candidateTime;
+            return;
+        }
+
+        commitPendingPeak(nowMs);
+        _hasPendingPeak = true;
+        _pendingPeakTime = candidateTime;
+        _pendingPeakScore = score;
+        _clusterLastCandidateTime = candidateTime;
+    }
+
+    private function flushPendingPeak(nowMs as Number) as Void {
+        if (_hasPendingPeak && !_above && nowMs - _clusterLastCandidateTime >= _mergeWindowMs) {
+            commitPendingPeak(nowMs);
+        }
     }
 
     // Ends a run that is still in progress (e.g. when the user stops the
-    // session manually). Records it if it has any throws. Returns the count.
+    // session manually). Records it if it has any watch-hand catches. Returns
+    // the watch-hand catch count.
     public function finishCurrentRun() as Number {
+        if (_hasPendingPeak) {
+            commitPendingPeak(_pendingPeakTime);
+        }
         if (currentCount > 0) {
             var finished = currentCount;
             recordRun(finished);
             currentCount = 0;
-            _lastThrowTime = 0;
+            clearRunDetectionState();
             return finished;
         }
         return 0;
@@ -152,7 +279,7 @@ class JugglingDetector {
         return y;
     }
 
-    // Average throws per completed run this session (0.0 if no runs yet).
+    // Average watch-hand catches per completed run this session (0.0 if no runs yet).
     public function sessionAverage() as Float {
         if (_sessionRuns == 0) {
             return 0.0f;
@@ -181,7 +308,7 @@ class JugglingDetector {
         } else {
             // Slow down gravity adaptation during active juggling to prevent
             // the estimate from drifting toward sustained arm motion.
-            var alpha = (currentCount > 0) ? GRAVITY_ALPHA_ACTIVE : GRAVITY_ALPHA_IDLE;
+            var alpha = hasActiveRun() ? GRAVITY_ALPHA_ACTIVE : GRAVITY_ALPHA_IDLE;
             _gravityX = alpha * _gravityX + (1.0f - alpha) * ax;
             _gravityY = alpha * _gravityY + (1.0f - alpha) * ay;
             _gravityZ = alpha * _gravityZ + (1.0f - alpha) * az;
@@ -192,7 +319,7 @@ class JugglingDetector {
         var ly = ay - _gravityY;
         var lz = az - _gravityZ;
 
-        // Acceleration magnitude — captures throw energy in all directions
+        // Acceleration magnitude — captures catch energy in all directions
         // (cascade, shower, columns) rather than only the vertical component.
         var mag = Math.sqrt(lx * lx + ly * ly + lz * lz).toFloat();
 
@@ -209,26 +336,37 @@ class JugglingDetector {
             return;
         }
 
-        // Threshold-crossing peak detection on the highpass-filtered signal.
-        // One peak per complete above→below cycle: signal must rise above
-        // HP_THRESHOLD and then fall below HP_THRESHOLD * HP_HYSTERESIS.
-        // The peak is registered on the down-crossing, not at the local max.
-        var isPeak = false;
+        // Threshold-crossing candidate detection on the highpass-filtered signal.
+        // One candidate per complete above→below cycle: signal must rise above
+        // _hpThreshold and then fall below _hpThreshold * HP_HYSTERESIS.
+        // Candidates are delayed and clustered before they become counts.
 
         if (!_above) {
             // Waiting for signal to rise above threshold.
-            if (filtered > HP_THRESHOLD) {
+            if (filtered > _hpThreshold) {
                 _above = true;
                 _peakTime = nowMs;
+                _peakFiltered = filtered;
+                _peakRawMag = mag;
             }
         } else {
-            // Signal is above threshold — track when we entered.
+            // Track the strongest filtered peak while above threshold.
+            if (filtered > _peakFiltered) {
+                _peakFiltered = filtered;
+                _peakTime = nowMs;
+            }
+            if (mag > _peakRawMag) {
+                _peakRawMag = mag;
+            }
             // Wait for it to drop below hysteresis level.
-            if (filtered < HP_THRESHOLD * HP_HYSTERESIS) {
+            if (filtered < _hpThreshold * HP_HYSTERESIS) {
                 _above = false;
-                // Register the peak if refractory period has elapsed.
-                if (_peakTime - _lastThrowTime > REFRACTORY_MS) {
-                    isPeak = true;
+                // Add a candidate if refractory period has elapsed and the raw
+                // magnitude confirms a real catch motion (not just noise).
+                if (_peakTime - _lastCandidateTime > _refractoryMs &&
+                    _peakRawMag > _minRawMag) {
+                    addCandidate(_peakTime, _peakFiltered, nowMs);
+                    _lastCandidateTime = _peakTime;
                 }
             }
         }
@@ -236,28 +374,17 @@ class JugglingDetector {
         // Track activity: any sample with filtered value above half the
         // threshold keeps the run alive. Prevents premature auto-finish
         // during brief dips between peaks.
-        if (currentCount > 0 && filtered > HP_THRESHOLD * 0.5f) {
+        if (hasActiveRun() && filtered > _hpThreshold * 0.5f) {
             _lastActiveTime = nowMs;
         }
 
-        if (isPeak) {
-            currentCount += 2;  // Both hands: one detected peak = 2 throws
-            _lastThrowTime = _peakTime;
-            _lastActiveTime = nowMs;
-        }
-
-        if (DEBUG_LOG) {
-            System.println("JDET: mag=" + mag.format("%.1f") +
-                " hp=" + filtered.format("%.2f") +
-                " above=" + _above +
-                " pk=" + isPeak +
-                " cnt=" + currentCount);
-        }
+        flushPendingPeak(nowMs);
     }
 
     // Finishes the current run if it has been idle long enough. Returns the
-    // number of throws in the just-finished run, or -1 if no run finished.
+    // number of watch-hand catches in the just-finished run, or 0 if no run finished.
     public function checkAutoFinish(nowMs as Number) as Number {
+        flushPendingPeak(nowMs);
         if (currentCount > 0 && _lastActiveTime > 0 && (nowMs - _lastActiveTime > AUTO_FINISH_DELAY_MS)) {
             var finished = currentCount;
 
@@ -265,10 +392,10 @@ class JugglingDetector {
             recordRun(finished);
 
             currentCount = 0;
-            _lastThrowTime = 0;
+            clearRunDetectionState();
 
             return finished;
         }
-        return -1;
+        return 0;
     }
 }

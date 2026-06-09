@@ -273,7 +273,7 @@ class JugglingViewModelTest {
         assertEquals(2, lines.size)
         val dataLine = lines[1]
         assertTrue(dataLine.contains(",3,"))       // ball count
-        assertTrue(dataLine.contains(",30,"))       // total throws
+        assertTrue(dataLine.contains(",30,"))       // watch-hand catch total
         assertTrue(dataLine.contains("\"10;20\""))  // run history
     }
 

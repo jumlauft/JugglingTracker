@@ -43,9 +43,9 @@ class JugglingViewModel(
     }
 
     // Import a single finished session transferred from the Garmin watch.
-    // Payload shape: { type: "session", balls: Int, timestamp: Long (epoch s),
-    // runs: List<Number> }. The watch is the sole session controller; the phone
-    // only listens and records what it receives.
+    // Payload shape: { type: "session", countMode: "watch_hand", balls: Int,
+    // timestamp: Long (epoch s), runs: List<Number> }. Runs are watch-hand
+    // catch counts; the phone only listens and records what it receives.
     fun importSessionFromWatch(payload: Map<String, Any>) {
         val balls = (payload["balls"] as? Number)?.toInt() ?: return
         // The watch sends epoch seconds; convert to milliseconds for Java Date APIs.
@@ -99,7 +99,7 @@ class JugglingViewModel(
 
     fun getSessionsCsv(): String {
         val builder = StringBuilder()
-        builder.append("Date,Ball Count,Run Count,Average,Best,Total Throws,Run History\n")
+        builder.append("Date,Ball Count,Run Count,Watch Hand Average,Watch Hand Best,Watch Hand Total,Watch Hand Run History\n")
         
         val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
         
@@ -114,7 +114,7 @@ class JugglingViewModel(
 
     // ── Recording support ──────────────────────────────────────────────
 
-    /** Import a recording payload received from the Garmin watch. */
+    /** Import a recording payload received from the Garmin watch. Catches are watch-hand catches. */
     fun importRecordingFromWatch(payload: Map<String, Any>) {
         val balls = (payload["balls"] as? Number)?.toInt() ?: return
         val catches = (payload["catches"] as? Number)?.toInt() ?: return

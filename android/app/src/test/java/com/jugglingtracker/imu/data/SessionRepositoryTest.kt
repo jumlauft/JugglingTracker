@@ -148,60 +148,6 @@ class SessionRepositoryTest {
         assertEquals(1000L, reloaded.getSessions()[0].timestamp)
     }
 
-    // ── importRunsBatch ─────────────────────────────────────────────────
-
-    @Test
-    fun `batch import creates session from runs`() {
-        val runs = listOf(
-            mapOf("timestamp" to 100L, "balls" to 3, "throws" to 10),
-            mapOf("timestamp" to 101L, "balls" to 3, "throws" to 20)
-        )
-        repository.importRunsBatch(runs, null, null, null)
-
-        val sessions = repository.getSessions()
-        assertEquals(1, sessions.size)
-        assertEquals(3, sessions[0].ballCount)
-        assertEquals(2, sessions[0].runCount)
-        assertEquals(30, sessions[0].totalThrows)
-    }
-
-    @Test
-    fun `batch import empty list is a no-op`() {
-        repository.importRunsBatch(emptyList(), null, null, null)
-
-        assertTrue(repository.getSessions().isEmpty())
-    }
-
-    @Test
-    fun `batch import groups by ball count`() {
-        val runs = listOf(
-            mapOf("timestamp" to 100L, "balls" to 3, "throws" to 10),
-            mapOf("timestamp" to 101L, "balls" to 5, "throws" to 20)
-        )
-        repository.importRunsBatch(runs, null, null, null)
-
-        val sessions = repository.getSessions()
-        assertEquals(2, sessions.size)
-        val ballCounts = sessions.map { it.ballCount }.toSet()
-        assertEquals(setOf(3, 5), ballCounts)
-    }
-
-    @Test
-    fun `batch import skips malformed entries`() {
-        val runs = listOf(
-            mapOf("timestamp" to 100L, "balls" to 3, "throws" to 10),
-            mapOf("bad_key" to "bad_value"),
-            mapOf("timestamp" to 102L, "balls" to 3, "throws" to 30)
-        )
-        repository.importRunsBatch(runs, null, null, null)
-
-        val sessions = repository.getSessions()
-        assertEquals(1, sessions.size)
-        // The malformed entry defaults to balls=3, throws=0, so it still gets included
-        // Actual count depends on defaults — just verify no crash
-        assertTrue(sessions[0].runCount >= 2)
-    }
-
     // ── addSession ──────────────────────────────────────────────────────
 
     @Test

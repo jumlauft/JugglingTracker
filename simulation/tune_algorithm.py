@@ -4,37 +4,11 @@ Tests different threshold / hysteresis / smoothing combinations and reports
 accuracy for each.
 """
 import math
-import os
-import glob
 
-MILLI_G_TO_MS2 = 9.80665 / 1000.0
-SAMPLE_RATE = 25
-WARMUP = 25
-
-def parse_runs(filepath):
-    runs = []
-    current_run = None
-    with open(filepath, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            if line.startswith('# '):
-                meta = {}
-                for part in line[2:].split(','):
-                    k, v = part.split('=')
-                    meta[k] = int(v) if v.lstrip('-').isdigit() else v
-                current_run = {'meta': meta, 'x': [], 'y': [], 'z': []}
-                runs.append(current_run)
-            elif line == 'x,y,z':
-                continue
-            elif current_run is not None:
-                parts = line.split(',')
-                if len(parts) == 3:
-                    current_run['x'].append(int(parts[0]))
-                    current_run['y'].append(int(parts[1]))
-                    current_run['z'].append(int(parts[2]))
-    return runs
+from data_utils import (
+    MILLI_G_TO_MS2, SAMPLE_RATE, WARMUP,
+    load_all_runs,
+)
 
 def compute_signal(x_mg, y_mg, z_mg, gravity_alpha_idle, gravity_alpha_active, smooth_window,
                    throw_count=0):
@@ -79,7 +53,7 @@ def compute_signal(x_mg, y_mg, z_mg, gravity_alpha_idle, gravity_alpha_active, s
 def detect_with_params(x, y, z, ball_count, threshold, hysteresis_factor, 
                         refractory_base_ms, smooth_window,
                         gravity_alpha_idle=0.95, gravity_alpha_active=0.99,
-                        count_per_peak=2):
+                        count_per_peak=1):
     """Run detection with given parameters, matching watch behavior exactly.
     
     Gravity alpha switches from idle to active after the first peak is
@@ -111,7 +85,7 @@ def detect_with_params(x, y, z, ball_count, threshold, hysteresis_factor,
         az = z[i] * MILLI_G_TO_MS2
         
         if i > 0:
-            # Switch alpha based on whether we've detected throws — matches watch
+            # Switch alpha based on whether we've detected watch-hand catches.
             alpha = gravity_alpha_active if throw_count > 0 else gravity_alpha_idle
             gx = alpha * gx + (1 - alpha) * ax
             gy = alpha * gy + (1 - alpha) * ay
@@ -158,7 +132,7 @@ def detect_adaptive(x, y, z, ball_count,
                      refractory_base_ms,
                      gravity_alpha_idle=0.95, gravity_alpha_active=0.99,
                      min_magnitude=5.0,
-                     count_per_peak=2):
+                     count_per_peak=1):
     """
     Adaptive detection: find local maxima with sufficient prominence.
     Single-pass with dynamic gravity alpha (matches watch behavior).
@@ -229,17 +203,6 @@ def detect_adaptive(x, y, z, ball_count,
     return throw_count, peaks
 
 
-def load_all_runs():
-    """Load all CSV recordings from the data directory."""
-    data_dir = os.path.dirname(__file__)
-    all_runs = []
-    for csvfile in sorted(glob.glob(os.path.join(data_dir, '*.csv'))):
-        runs = parse_runs(csvfile)
-        for r in runs:
-            r['file'] = os.path.basename(csvfile)
-            all_runs.append(r)
-    return all_runs
-
 def evaluate(runs, detect_fn, **params):
     """Evaluate a detection function across all runs. Returns total error."""
     total_error = 0
@@ -309,9 +272,9 @@ if __name__ == '__main__':
             print(f"    Active region: min={min(active):.1f}, max={max(active):.1f}, "
                   f"mean={sum(active)/len(active):.1f}, median={sorted(active)[len(active)//2]:.1f}")
 
-    # ── Current algorithm (fixed threshold=8.0 for all ball counts) ──
+    # ── Legacy algorithm (fixed threshold=8.0 for all ball counts) ──
     print("\n" + "="*80)
-    print("CURRENT ALGORITHM (threshold=8.0 for all)")
+    print("LEGACY ALGORITHM (threshold=8.0 for all)")
     print("="*80)
     results, total_abs, _ = evaluate(runs, detect_with_params,
         threshold=8.0,

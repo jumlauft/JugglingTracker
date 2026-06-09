@@ -18,12 +18,14 @@ applyTo: "android/**/*.kt"
 - `buildSessionJson()` builds JSON strings by template interpolation — keep this pattern consistent.
 - Always call `saveSessionsToStorage()` after mutating `sessionsCache`.
 - Use `apply()` (async) not `commit()` for SharedPreferences writes.
+- `RecordingRepository` stores raw accelerometer recordings as CSV files under the app's `recordings/` files directory and can export all recordings as one merged CSV string for simulation/tuning.
 
 ## Garmin Connect IQ SDK
 - `ConnectIQ.getInstance()` with `IQConnectType.WIRELESS`.
 - Register for app events with the watch app ID `A1B2C3D4E5F60718293A4B5C6D7E8F90`.
 - The phone never starts or controls sessions — it only receives finished session payloads and sends back an `ack`.
-- Incoming message shape: `{ "type": "session", "balls": Int, "timestamp": Long (epoch seconds), "runs": List<Number> }`.
+- Incoming message shape: `{ "type": "session", "countMode": "watch_hand", "balls": Int, "timestamp": Long (epoch seconds), "runs": List<Number> }`. `runs` contains watch-hand catch counts.
+- Recording message shape: `{ "type": "recording", "countMode": "watch_hand", "balls": Int, "catches": Int, "detected": Int, "sampleRate": Int, "accelX": List<Number>, "accelY": List<Number>, "accelZ": List<Number>, "timestamp": Long }`. `catches` and `detected` are watch-hand counts.
 - ACK shape: `{ "type": "ack", "timestamp": Long? }`. The timestamp is included when available so the watch can match it to the pending send.
 
 ## Error Handling

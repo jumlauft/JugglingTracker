@@ -1,73 +1,19 @@
 """
-Fair comparison: old threshold-only vs new highpass+threshold on all 17 runs.
+Fair comparison: old threshold-only vs new highpass+threshold on all labeled runs.
+The `catches` labels are watch-hand catches, not both-hands totals.
 Also tries hybrid: highpass filter + minimum raw magnitude gate.
 """
-import math
-import os
-import glob
 import numpy as np
 from scipy.signal import butter, sosfilt
 
-MILLI_G_TO_MS2 = 9.80665 / 1000.0
-SAMPLE_RATE = 25
-
-def parse_runs(filepath):
-    runs = []
-    current_run = None
-    with open(filepath, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            if line.startswith('# '):
-                meta = {}
-                for part in line[2:].split(','):
-                    k, v = part.split('=')
-                    meta[k] = int(v) if v.lstrip('-').isdigit() else v
-                current_run = {'meta': meta, 'x': [], 'y': [], 'z': []}
-                runs.append(current_run)
-            elif line == 'x,y,z':
-                continue
-            elif current_run is not None:
-                parts = line.split(',')
-                if len(parts) == 3:
-                    current_run['x'].append(int(parts[0]))
-                    current_run['y'].append(int(parts[1]))
-                    current_run['z'].append(int(parts[2]))
-    return runs
-
-
-def compute_magnitude_gravity(x_mg, y_mg, z_mg):
-    gx = x_mg[0] * MILLI_G_TO_MS2
-    gy = y_mg[0] * MILLI_G_TO_MS2
-    gz = z_mg[0] * MILLI_G_TO_MS2
-    mags = []
-    active = False
-    for i in range(len(x_mg)):
-        ax = x_mg[i] * MILLI_G_TO_MS2
-        ay = y_mg[i] * MILLI_G_TO_MS2
-        az = z_mg[i] * MILLI_G_TO_MS2
-        if i > 0:
-            alpha = 0.99 if active else 0.95
-            gx = alpha * gx + (1 - alpha) * ax
-            gy = alpha * gy + (1 - alpha) * ay
-            gz = alpha * gz + (1 - alpha) * az
-        lx = ax - gx
-        ly = ay - gy
-        lz = az - gz
-        mag = math.sqrt(lx*lx + ly*ly + lz*lz)
-        mags.append(mag)
-        if mag > 5.0:
-            active = True
-    return np.array(mags)
+from data_utils import SAMPLE_RATE, compute_magnitude_gravity, load_all_runs
 
 
 def detect_threshold_only(x_mg, y_mg, z_mg, threshold=15, hysteresis_factor=0.7,
                           refractory_ms=100, smooth_window=3):
     """Old algorithm: gravity removal + moving average + threshold/hysteresis."""
     mag = compute_magnitude_gravity(x_mg, y_mg, z_mg)
-    
-    # Moving average smoothing
+    mag = np.array(mag)
     if smooth_window > 1:
         kernel = np.ones(smooth_window) / smooth_window
         smoothed = np.convolve(mag, kernel, mode='same')
@@ -107,7 +53,7 @@ def detect_highpass_threshold(x_mg, y_mg, z_mg, highpass_hz=0.8,
                               threshold=2.0, hysteresis_factor=0.6,
                               refractory_ms=200):
     """New algorithm: gravity removal + highpass filter + threshold/hysteresis."""
-    mag = compute_magnitude_gravity(x_mg, y_mg, z_mg)
+    mag = np.array(compute_magnitude_gravity(x_mg, y_mg, z_mg))
     
     sos = butter(2, highpass_hz, btype='highpass', fs=SAMPLE_RATE, output='sos')
     filtered = sosfilt(sos, mag)
@@ -150,7 +96,7 @@ def detect_hybrid(x_mg, y_mg, z_mg, highpass_hz=0.8,
     - HP-filtered signal crosses threshold (clean peak detection)
     - Raw gravity-removed magnitude at peak > min_raw_mag (prevents noise triggers)
     """
-    mag = compute_magnitude_gravity(x_mg, y_mg, z_mg)
+    mag = np.array(compute_magnitude_gravity(x_mg, y_mg, z_mg))
     
     sos = butter(2, highpass_hz, btype='highpass', fs=SAMPLE_RATE, output='sos')
     filtered = sosfilt(sos, mag)
@@ -218,17 +164,11 @@ def print_results(label, results, total_err, params=None):
 
 
 if __name__ == '__main__':
-    data_dir = os.path.dirname(__file__) or '.'
-    all_runs = []
-    for csvfile in sorted(glob.glob(os.path.join(data_dir, '*.csv'))):
-        runs = parse_runs(csvfile)
-        for r in runs:
-            r['file'] = os.path.basename(csvfile)
-            all_runs.append(r)
+    all_runs = load_all_runs()
     
     print(f"Loaded {len(all_runs)} runs")
     total_catches = sum(r['meta']['catches'] for r in all_runs)
-    print(f"Total actual catches: {total_catches}")
+    print(f"Total actual watch-hand catches: {total_catches}")
     
     # 1. Old threshold-only approach (sweep)
     print("\n" + "#"*80)
@@ -297,7 +237,7 @@ if __name__ == '__main__':
     
     # Summary
     print(f"\n{'='*80}")
-    print("FINAL COMPARISON ({} runs, {} total catches)".format(len(all_runs), total_catches))
+    print("FINAL COMPARISON ({} runs, {} watch-hand catches)".format(len(all_runs), total_catches))
     print(f"{'='*80}")
     print(f"  Threshold-only:    error={best_err:3d}  (avg {best_err/len(all_runs):.1f}/run)  {best_p}")
     print(f"  Highpass+thresh:   error={best_hp_err:3d}  (avg {best_hp_err/len(all_runs):.1f}/run)  {best_hp_p}")

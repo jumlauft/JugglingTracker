@@ -1,4 +1,3 @@
-import csv
 import math
 import matplotlib
 matplotlib.use('Agg')
@@ -6,44 +5,17 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import os
 
-MILLI_G_TO_MS2 = 9.80665 / 1000.0
-GRAVITY_ALPHA_IDLE = 0.95
-GRAVITY_ALPHA_ACTIVE = 0.99
-SAMPLE_RATE = 25
-
-def parse_runs(filepath):
-    """Parse multi-run CSV into list of dicts with metadata and samples."""
-    runs = []
-    current_run = None
-
-    with open(filepath, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            if line.startswith('# '):
-                # Header line: # balls=3,catches=5,detected=2,...
-                meta = {}
-                for part in line[2:].split(','):
-                    k, v = part.split('=')
-                    meta[k] = int(v) if v.lstrip('-').isdigit() else v
-                current_run = {'meta': meta, 'x': [], 'y': [], 'z': []}
-                runs.append(current_run)
-            elif line == 'x,y,z':
-                continue
-            elif current_run is not None:
-                parts = line.split(',')
-                if len(parts) == 3:
-                    current_run['x'].append(int(parts[0]))
-                    current_run['y'].append(int(parts[1]))
-                    current_run['z'].append(int(parts[2]))
-    return runs
+from data_utils import (
+    MILLI_G_TO_MS2, GRAVITY_ALPHA_IDLE, GRAVITY_ALPHA_ACTIVE, SAMPLE_RATE,
+    parse_runs,
+)
 
 def detect_and_compute(x_mg, y_mg, z_mg, ball_count):
-    """Single-pass detection + signal computation matching watch behavior exactly.
+    """Single-pass detection using the legacy smoothing-based algorithm.
     
-    Returns (raw_mags, smoothed, peaks, threshold) where gravity alpha switches
-    from idle to active after the first detected peak.
+    NOTE: This does NOT match the current watch algorithm, which uses an IIR
+    highpass filter. This is kept for visualization of the old approach.
+    Returns (raw_mags, smoothed, peaks, threshold).
     """
     threshold = 9.0 + ball_count
     hysteresis_factor = min(0.325 + 0.075 * ball_count, 0.8)
@@ -58,7 +30,7 @@ def detect_and_compute(x_mg, y_mg, z_mg, ball_count):
     raw_mags = []
     smoothed = []
     peaks = []
-    throw_count = 0
+    catch_count = 0
     armed = True
     last_throw_idx = -refractory_samples - 1
     prev_mag = 0.0
@@ -69,7 +41,7 @@ def detect_and_compute(x_mg, y_mg, z_mg, ball_count):
         ay = y_mg[i] * MILLI_G_TO_MS2
         az = z_mg[i] * MILLI_G_TO_MS2
         if i > 0:
-            alpha = GRAVITY_ALPHA_ACTIVE if throw_count > 0 else GRAVITY_ALPHA_IDLE
+            alpha = GRAVITY_ALPHA_ACTIVE if catch_count > 0 else GRAVITY_ALPHA_IDLE
             gx = alpha * gx + (1 - alpha) * ax
             gy = alpha * gy + (1 - alpha) * ay
             gz = alpha * gz + (1 - alpha) * az
@@ -102,7 +74,7 @@ def detect_and_compute(x_mg, y_mg, z_mg, ball_count):
             peaks.append(i - 1)
             last_throw_idx = i
             armed = False
-            throw_count += 2
+            catch_count += 1
 
         prev_prev_mag = prev_mag
         prev_mag = mag
@@ -122,7 +94,7 @@ def plot_runs(runs, basename='output'):
 
         balls = meta.get('balls', 3)
         mags, smoothed, peaks, threshold = detect_and_compute(x, y, z, balls)
-        detected_count = len(peaks) * 2  # each peak = 2 throws
+        detected_count = len(peaks)
 
         ax = fig.add_subplot(gs[idx])
 
@@ -153,7 +125,7 @@ def plot_runs(runs, basename='output'):
         ax.set_ylabel('Linear accel magnitude (m/s²)')
         ax.set_title(
             f'Run {idx+1}: {meta.get("balls","")} balls | '
-            f'Actual catches: {meta.get("catches","")} | '
+            f'Actual watch-hand catches: {meta.get("catches","")} | '
             f'Algorithm detected: {detected_count} (peaks: {len(peaks)}) | '
             f'Watch reported: {meta.get("detected","")}',
             fontsize=11, fontweight='bold'
@@ -164,14 +136,14 @@ def plot_runs(runs, basename='output'):
 
     plt.savefig(os.path.join(os.path.dirname(__file__), f'{basename}_analysis.png'), dpi=150, bbox_inches='tight')
     plt.close()
-    print("Saved to 260603_analysis.png")
+    print(f"Saved to {basename}_analysis.png")
 
 if __name__ == '__main__':
     import sys
     if len(sys.argv) > 1:
         filepath = sys.argv[1]
     else:
-        filepath = os.path.join(os.path.dirname(__file__), '260603.csv')
+        filepath = os.path.join(os.path.dirname(__file__), '..', 'data', 'juggling_recordings_20260603_223806.csv')
     basename = os.path.splitext(os.path.basename(filepath))[0]
     runs = parse_runs(filepath)
     print(f"Parsed {len(runs)} runs")
