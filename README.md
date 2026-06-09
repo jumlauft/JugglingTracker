@@ -1,6 +1,6 @@
 # JugglingTracker
 
-Two-platform juggling tracker focused on the hand wearing the watch. A Garmin Forerunner 245 watch app counts watch-hand catches from accelerometer data, stores runs for the active watch session, and sends finished sessions to an Android companion app for storage, charts, CSV export, and developer-only algorithm recording workflows. Counts are not both-hands totals.
+Two-platform juggling tracker focused on a single counting hand. A Garmin Forerunner 245 watch app counts watch-hand catches from accelerometer data, stores runs for the active watch session, and sends finished sessions to an Android companion app for storage, charts, CSV export, and developer-only algorithm recording workflows. The Android app can also record sessions directly from the phone accelerometer when the phone is held in the counting hand. Counts are not both-hands totals.
 
 ## Project Structure
 
@@ -15,6 +15,7 @@ Two-platform juggling tracker focused on the hand wearing the watch. A Garmin Fo
 - `android/` - Android companion app in Kotlin and Jetpack Compose.
   - `MainActivity.kt` - Garmin Connect IQ SDK integration, permissions, message routing.
   - `logic/JugglingViewModel.kt` - UI/session state, imports, CSV export, voice events.
+  - `logic/PhoneJugglingDetector.kt` - phone IMU detector mirroring the watch catch-detection state machine.
   - `data/SessionRepository.kt` - SharedPreferences persistence for finished sessions.
   - `data/RecordingRepository.kt` - raw recording CSV persistence/export.
   - `ui/` - Compose screens, session cards, charts, tracker/settings UI.
@@ -30,12 +31,14 @@ flowchart LR
     B --> C[MainView watch-hand run/session state]
     C -->|session payload| D[Garmin Connect IQ channel]
     D --> E[MainActivity]
+    P[Phone accelerometer, 25 Hz effective] --> Q[PhoneJugglingDetector]
+    Q --> E
     E --> F[JugglingViewModel]
     F --> G[SessionRepository]
     E -->|ack| C
 ```
 
-The watch is the session controller. The phone listens, stores the received watch-hand catch counts and session duration, and sends an `ack`; the watch only exits after receiving that acknowledgement or after the user explicitly quits without syncing.
+  The watch is the session controller for Garmin sessions. The phone listens, stores the received watch-hand catch counts and session duration, and sends an `ack`; the watch only exits after receiving that acknowledgement or after the user explicitly quits without syncing. Phone IMU sessions are controlled entirely in the Android app and are saved through the same session repository.
 
 ### Watch Detection
 
@@ -58,6 +61,12 @@ Current burst-clustering parameters:
 | 5+ | 0.8 | 320 ms | 13.0 m/s² | 160 ms |
 
 The Python simulator in `simulation/eval_new_watch.py` mirrors the watch detector. Keep it, `connectiq/source/JugglingDetector.mc`, `simulation/test_detection.py`, and `.github/instructions/connectiq-monkeyc.instructions.md` in sync when changing detector behavior or parameters.
+
+### Phone IMU Sessions
+
+The tracker screen has a phone button next to the Garmin status. It opens a full-screen phone tracker where the user selects the ball count, starts recording, juggles while holding the phone in the counting hand, then saves the finished session. The Android detector mirrors the watch burst-clustering/counting algorithm and processes phone accelerometer samples at an effective 25 Hz so the stored `runs`, `durationSeconds`, and `runDurationsMillis` match the watch session shape.
+
+Phone sessions are stored in the same `SessionSummary` history as watch sessions. There is intentionally no separate source field in storage, so graphs and CSV export treat watch and phone sessions seamlessly.
 
 ### Recording Mode
 
@@ -161,6 +170,8 @@ Use the actual drive letter for the mounted Garmin volume, then safely eject the
 3. Install and open the Android app; grant Bluetooth permissions.
 4. Start the watch app, choose the ball count, and juggle normally.
 5. Stop from the watch menu and choose sync when finished.
+
+Alternatively, open the Android app, tap the phone button next to the Garmin status, choose the ball count, start recording, and save when finished. Hold the phone in the counting hand for phone IMU sessions.
 
 ## Security Note
 

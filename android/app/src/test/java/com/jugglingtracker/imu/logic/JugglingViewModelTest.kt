@@ -11,6 +11,10 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class JugglingViewModelTest {
+    private companion object {
+        const val GRAVITY = 9.80665
+        const val PERIOD_MS = PhoneJugglingDetector.SAMPLE_PERIOD_MS
+    }
 
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
@@ -350,6 +354,71 @@ class JugglingViewModelTest {
         assertEquals(3, event.count)
     }
 
+    // ── Phone session import path ──────────────────────────────────────
+
+    @Test
+    fun `start phone session updates phone state`() {
+        viewModel.startPhoneSession(ballCount = 4, startedAtMillis = 1000L)
+
+        val state = viewModel.phoneSessionState
+        assertTrue(state.isRecording)
+        assertEquals(4, state.selectedBallCount)
+        assertEquals("Waiting for juggling input", state.statusMessage)
+    }
+
+    @Test
+    fun `stop phone session without runs does not create session`() {
+        viewModel.startPhoneSession(ballCount = 3, startedAtMillis = 1000L)
+
+        val saved = viewModel.stopPhoneSessionAndSave(stoppedAtMillis = 5000L)
+
+        assertFalse(saved)
+        assertTrue(viewModel.completedSessions.isEmpty())
+        assertEquals("No phone runs to save", viewModel.phoneSessionState.sensorError)
+    }
+
+    @Test
+    fun `stop phone session saves detected runs in session history`() = runTest {
+        viewModel.startPhoneSession(ballCount = 3, startedAtMillis = 100_000L)
+        var sampleMs = feedPhoneBaseline(0L, 30)
+        sampleMs = feedPhoneBurst(sampleMs)
+        sampleMs = feedPhoneBurst(sampleMs)
+        feedPhoneBurst(sampleMs)
+
+        val saved = viewModel.stopPhoneSessionAndSave(stoppedAtMillis = 112_000L)
+        advanceUntilIdle()
+
+        assertTrue(saved)
+        assertFalse(viewModel.phoneSessionState.isRecording)
+        assertEquals(1, viewModel.completedSessions.size)
+        val summary = viewModel.completedSessions[0]
+        assertEquals(3, summary.ballCount)
+        assertEquals(listOf(2), summary.runHistory)
+        assertEquals(12L, summary.durationSeconds)
+        assertEquals(1, summary.runDurationsMillis.size)
+        assertTrue(summary.runDurationsMillis[0] > 0L)
+    }
+
+    @Test
+    fun `phone session save emits PhoneSessionSaved event`() = runTest {
+        val events = mutableListOf<JugglingEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.events.collect { events.add(it) }
+        }
+
+        viewModel.startPhoneSession(ballCount = 3, startedAtMillis = 100_000L)
+        var sampleMs = feedPhoneBaseline(0L, 30)
+        feedPhoneBurst(sampleMs)
+
+        viewModel.stopPhoneSessionAndSave(stoppedAtMillis = 105_000L)
+        advanceUntilIdle()
+
+        assertEquals(1, events.size)
+        val event = events[0] as JugglingEvent.PhoneSessionSaved
+        assertEquals(1, event.count)
+        assertEquals(3, event.ballCount)
+    }
+
     // ── Statistics accuracy ─────────────────────────────────────────────
 
     @Test
@@ -363,5 +432,32 @@ class JugglingViewModelTest {
         val summary = viewModel.completedSessions[0]
         assertEquals(20.0, summary.avgThrows, 0.001)
         assertEquals(8.165, summary.stdDevThrows, 0.01)
+    }
+
+    private fun feedPhoneBaseline(startMs: Long, samples: Int): Long {
+        var nowMs = startMs
+        repeat(samples) {
+            viewModel.processPhoneSample(0.0, 0.0, GRAVITY, nowMs * 1_000_000L)
+            nowMs += PERIOD_MS
+        }
+        return nowMs
+    }
+
+    private fun feedPhoneBurst(
+        startMs: Long,
+        amplitude: Double = 50.0,
+        pulseSamples: Int = 3,
+        settleSamples: Int = 12,
+    ): Long {
+        var nowMs = startMs
+        repeat(pulseSamples) {
+            viewModel.processPhoneSample(amplitude, 0.0, GRAVITY, nowMs * 1_000_000L)
+            nowMs += PERIOD_MS
+        }
+        repeat(settleSamples) {
+            viewModel.processPhoneSample(0.0, 0.0, GRAVITY, nowMs * 1_000_000L)
+            nowMs += PERIOD_MS
+        }
+        return nowMs
     }
 }

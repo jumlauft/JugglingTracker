@@ -3,6 +3,10 @@ package com.jugglingtracker.imu
 import android.Manifest
 import android.bluetooth.BluetoothManager
 import android.content.pm.PackageManager
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -38,6 +42,7 @@ class MainActivity : ComponentActivity() {
         private const val WATCH_APP_ID = "a77c0c66-f421-49f5-889f-0bf4a446dfea"
         private const val PERMISSION_REQUEST_CODE = 1001
         private const val HEARTBEAT_TIMEOUT_MS = 15000L
+        private const val PHONE_SAMPLE_PERIOD_US = 40_000
     }
 
     private val repository: SessionRepository by lazy { SessionRepository(this) }
@@ -59,6 +64,23 @@ class MainActivity : ComponentActivity() {
     private var isWatchAppRunning by mutableStateOf(false)
 
     private val handler = Handler(Looper.getMainLooper())
+    private val sensorManager: SensorManager by lazy { getSystemService(SensorManager::class.java) }
+    private var phoneSensorRegistered = false
+
+    private val phoneSensorListener = object : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent) {
+            if (event.sensor.type != Sensor.TYPE_ACCELEROMETER || event.values.size < 3) return
+            viewModel.processPhoneSample(
+                ax = event.values[0].toDouble(),
+                ay = event.values[1].toDouble(),
+                az = event.values[2].toDouble(),
+                timestampNanos = event.timestamp,
+            )
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+    }
+
     private val heartbeatRunnable = Runnable {
         if (isWatchAppRunning) {
             isWatchAppRunning = false
@@ -77,6 +99,9 @@ class MainActivity : ComponentActivity() {
                     JugglingTrackerApp(
                         viewModel = viewModel,
                         isWatchAppRunning = isWatchAppRunning,
+                        onStartPhoneSession = ::startPhoneRecording,
+                        onStopPhoneSession = ::stopPhoneRecordingAndSave,
+                        onCancelPhoneSession = ::cancelPhoneRecording,
                     )
                 }
             }
@@ -262,8 +287,64 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun startPhoneRecording(ballCount: Int): Boolean {
+        if (viewModel.phoneSessionState.isRecording && phoneSensorRegistered) return true
+
+        viewModel.startPhoneSession(ballCount)
+        if (!registerPhoneSensorListener()) {
+            viewModel.markPhoneSensorUnavailable("Phone accelerometer unavailable")
+            return false
+        }
+        return true
+    }
+
+    private fun stopPhoneRecordingAndSave(): Boolean {
+        stopPhoneSensorListener()
+        return viewModel.stopPhoneSessionAndSave()
+    }
+
+    private fun cancelPhoneRecording() {
+        stopPhoneSensorListener()
+        viewModel.cancelPhoneSession()
+    }
+
+    private fun registerPhoneSensorListener(): Boolean {
+        if (phoneSensorRegistered) return true
+        val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) ?: return false
+        val registered = sensorManager.registerListener(
+            phoneSensorListener,
+            accelerometer,
+            PHONE_SAMPLE_PERIOD_US,
+            0,
+            handler,
+        )
+        phoneSensorRegistered = registered
+        return registered
+    }
+
+    private fun stopPhoneSensorListener() {
+        if (!phoneSensorRegistered) return
+        sensorManager.unregisterListener(phoneSensorListener)
+        phoneSensorRegistered = false
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (viewModel.phoneSessionState.isRecording && !phoneSensorRegistered) {
+            if (!registerPhoneSensorListener()) {
+                viewModel.markPhoneSensorUnavailable("Phone accelerometer unavailable")
+            }
+        }
+    }
+
+    override fun onPause() {
+        stopPhoneSensorListener()
+        super.onPause()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        stopPhoneSensorListener()
         handler.removeCallbacks(heartbeatRunnable)
         if (::connectIQ.isInitialized && iqDevice != null && iqApp != null) {
             try {

@@ -5,12 +5,17 @@ import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,7 +34,7 @@ import java.util.*
 import kotlin.math.roundToInt
 
 enum class Screen {
-    Tracker, Settings
+    Tracker, PhoneSession, Settings
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,6 +42,9 @@ enum class Screen {
 fun JugglingTrackerApp(
     viewModel: JugglingViewModel,
     isWatchAppRunning: Boolean,
+    onStartPhoneSession: (Int) -> Boolean,
+    onStopPhoneSession: () -> Boolean,
+    onCancelPhoneSession: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var currentScreen by remember { mutableStateOf(Screen.Tracker) }
@@ -66,6 +74,10 @@ fun JugglingTrackerApp(
                     Toast.makeText(context, "Received ${event.count} runs for ${event.ballCount} balls", Toast.LENGTH_LONG).show()
                     tts.speak("Synced ${event.count} runs", TextToSpeech.QUEUE_FLUSH, null, null)
                 }
+                is JugglingEvent.PhoneSessionSaved -> {
+                    Toast.makeText(context, "Saved ${event.count} phone runs for ${event.ballCount} balls", Toast.LENGTH_LONG).show()
+                    tts.speak("Saved ${event.count} runs", TextToSpeech.QUEUE_FLUSH, null, null)
+                }
             }
         }
     }
@@ -90,11 +102,22 @@ fun JugglingTrackerApp(
         topBar = {
             TopAppBar(
                 title = { 
-                    Text(if (currentScreen == Screen.Settings) "Settings" else "Juggling Tracker") 
+                    Text(
+                        when (currentScreen) {
+                            Screen.Settings -> "Settings"
+                            Screen.PhoneSession -> "Phone Tracker"
+                            Screen.Tracker -> "Juggling Tracker"
+                        }
+                    )
                 },
                 navigationIcon = {
-                    if (currentScreen == Screen.Settings) {
-                        IconButton(onClick = { currentScreen = Screen.Tracker }) {
+                    if (currentScreen != Screen.Tracker) {
+                        IconButton(
+                            onClick = {
+                                if (currentScreen == Screen.PhoneSession) onCancelPhoneSession()
+                                currentScreen = Screen.Tracker
+                            },
+                        ) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     }
@@ -114,7 +137,16 @@ fun JugglingTrackerApp(
                 TrackerScreen(
                     viewModel = viewModel,
                     isWatchAppRunning = isWatchAppRunning,
+                    onPhoneRecordClick = { currentScreen = Screen.PhoneSession },
                 ) { selectedSessionForDetails.value = it }
+            } else if (currentScreen == Screen.PhoneSession) {
+                PhoneSessionScreen(
+                    viewModel = viewModel,
+                    onBack = { currentScreen = Screen.Tracker },
+                    onStartPhoneSession = onStartPhoneSession,
+                    onStopPhoneSession = onStopPhoneSession,
+                    onCancelPhoneSession = onCancelPhoneSession,
+                )
             } else {
                 SettingsScreen(viewModel)
             }
@@ -127,6 +159,7 @@ fun JugglingTrackerApp(
 fun TrackerScreen(
     viewModel: JugglingViewModel,
     isWatchAppRunning: Boolean,
+    onPhoneRecordClick: () -> Unit,
     onSessionClick: (SessionSummary) -> Unit,
 ) {
     var sessionToDelete by remember { mutableStateOf<SessionSummary?>(null) }
@@ -166,7 +199,8 @@ fun TrackerScreen(
         // Garmin Status Header
         GarminStatusHeader(
             status = viewModel.garminStatus,
-            message = viewModel.statusMessage
+            message = viewModel.statusMessage,
+            onPhoneRecordClick = onPhoneRecordClick,
         )
 
         if (viewModel.completedSessions.isNotEmpty()) {
@@ -262,7 +296,7 @@ fun TrackerScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Start juggling on your watch and\nresults will appear here automatically.",
+                        text = "Start juggling on your watch or phone and\nresults will appear here automatically.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.outline,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -274,7 +308,11 @@ fun TrackerScreen(
 }
 
 @Composable
-fun GarminStatusHeader(status: GarminConnectionStatus, message: String) {
+fun GarminStatusHeader(
+    status: GarminConnectionStatus,
+    message: String,
+    onPhoneRecordClick: () -> Unit,
+) {
     val (backgroundColor, textColor, statusText) = when (status) {
         GarminConnectionStatus.READY -> Triple(
             Color(0xFFE8F5E9), // Light Green
@@ -306,33 +344,252 @@ fun GarminStatusHeader(status: GarminConnectionStatus, message: String) {
             .animateContentSize(),
         colors = CardDefaults.cardColors(containerColor = backgroundColor)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = statusText,
-                style = MaterialTheme.typography.titleSmall,
-                color = textColor,
-                fontWeight = FontWeight.Bold
-            )
-            
-            if (status == GarminConnectionStatus.BLUETOOTH_DISABLED || 
-                status == GarminConnectionStatus.NO_PAIRED_DEVICES || 
-                status == GarminConnectionStatus.SDK_ERROR) {
-                Spacer(modifier = Modifier.height(4.dp))
-                val advice = if (status == GarminConnectionStatus.BLUETOOTH_DISABLED) {
-                    "Go to Android Settings to enable Bluetooth."
-                } else {
-                    "Ensure your watch is paired in the Garmin ConnectIQ app."
-                }
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.Start,
+            ) {
                 Text(
-                    text = "Troubleshooting: $advice",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = textColor.copy(alpha = 0.8f)
+                    text = statusText,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = textColor,
+                    fontWeight = FontWeight.Bold
+                )
+
+                if (status == GarminConnectionStatus.BLUETOOTH_DISABLED ||
+                    status == GarminConnectionStatus.NO_PAIRED_DEVICES ||
+                    status == GarminConnectionStatus.SDK_ERROR) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val advice = if (status == GarminConnectionStatus.BLUETOOTH_DISABLED) {
+                        "Go to Android Settings to enable Bluetooth."
+                    } else {
+                        "Ensure your watch is paired in the Garmin ConnectIQ app."
+                    }
+                    Text(
+                        text = "Troubleshooting: $advice",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = textColor.copy(alpha = 0.8f)
+                    )
+                }
+            }
+
+            FilledTonalButton(onClick = onPhoneRecordClick) {
+                Icon(Icons.Default.PhoneAndroid, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Phone")
+            }
+        }
+    }
+}
+
+@Composable
+fun PhoneSessionScreen(
+    viewModel: JugglingViewModel,
+    onBack: () -> Unit,
+    onStartPhoneSession: (Int) -> Boolean,
+    onStopPhoneSession: () -> Boolean,
+    onCancelPhoneSession: () -> Unit,
+) {
+    val state = viewModel.phoneSessionState
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (state.isRecording) {
+            StatusIndicator(isJuggling = state.currentCount > 0)
+
+            Text(
+                text = state.statusMessage,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+
+            CurrentPhoneRunCard(
+                currentCount = state.currentCount,
+                previousCount = state.previousCount,
+            )
+
+            PhoneSessionStats(
+                runCount = state.sessionRunCount,
+                average = state.sessionAverage,
+                max = state.sessionMax,
+                elapsedSeconds = state.elapsedSeconds,
+            )
+
+            if (state.completedRuns.isNotEmpty()) {
+                Text(
+                    text = "Runs: ${state.completedRuns.joinToString("  ")}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.align(Alignment.Start),
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        onCancelPhoneSession()
+                        onBack()
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Cancel")
+                }
+                Button(
+                    onClick = {
+                        if (onStopPhoneSession()) onBack()
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Default.Save, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Save")
+                }
+            }
+        } else {
+            Text(
+                text = "Ball Count",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.align(Alignment.Start),
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                (3..9).forEach { count ->
+                    FilterChip(
+                        selected = state.selectedBallCount == count,
+                        onClick = { viewModel.selectPhoneBallCount(count) },
+                        label = { Text("$count") },
+                    )
+                }
+            }
+
+            if (state.sensorError != null) {
+                Text(
+                    text = state.sensorError,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.align(Alignment.Start),
+                )
+            }
+
+            Button(
+                onClick = { onStartPhoneSession(state.selectedBallCount) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Default.PlayArrow, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Start")
+            }
+        }
+    }
+}
+
+@Composable
+private fun CurrentPhoneRunCard(currentCount: Int, previousCount: Int) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (currentCount > 0) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            },
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(text = "COUNTING HAND", style = MaterialTheme.typography.labelMedium)
+                Text(
+                    text = currentCount.toString(),
+                    style = MaterialTheme.typography.displayLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(text = "PREVIOUS RUN", style = MaterialTheme.typography.labelMedium)
+                Text(
+                    text = if (previousCount == 0) "-" else previousCount.toString(),
+                    style = MaterialTheme.typography.displayMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PhoneSessionStats(
+    runCount: Int,
+    average: Double,
+    max: Int,
+    elapsedSeconds: Long,
+) {
+    val avgText = if (runCount == 0) "-" else "%.1f".format(average)
+    val maxText = if (max == 0) "-" else max.toString()
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        PhoneStat("Runs", runCount.toString(), Modifier.weight(1f))
+        PhoneStat("Avg", avgText, Modifier.weight(1f))
+        PhoneStat("Max", maxText, Modifier.weight(1f))
+        PhoneStat("Time", formatPhoneElapsedSeconds(elapsedSeconds), Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun PhoneStat(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(text = label, style = MaterialTheme.typography.labelSmall)
+        Text(text = value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    }
+}
+
+private fun formatPhoneElapsedSeconds(totalSeconds: Long): String {
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds / 60) % 60
+    val seconds = totalSeconds % 60
+    fun twoDigits(value: Long) = if (value < 10) "0$value" else value.toString()
+    return if (hours > 0) {
+        "$hours:${twoDigits(minutes)}:${twoDigits(seconds)}"
+    } else {
+        "$minutes:${twoDigits(seconds)}"
     }
 }
 
