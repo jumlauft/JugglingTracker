@@ -47,7 +47,7 @@ fun SessionHistoryGraph(sessions: List<SessionSummary>, modifier: Modifier = Mod
                     val s = displaySessions[selectedIndex!!]
                     val dateStr = dateFormat.format(Date(s.timestamp))
                     Text(
-                        text = "$dateStr | Hand avg: %.1f | Best: %d".format(s.avgThrows, s.bestRun),
+                        text = "$dateStr | Average: %.1f | Best: %d".format(s.avgThrows, s.bestRun),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
@@ -248,7 +248,7 @@ fun SessionHistoryItem(session: SessionSummary, onClick: () -> Unit) {
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                StatItem("Hand Avg", "%.1f (±%.1f)".format(session.avgThrows, session.stdDevThrows))
+                StatItem("Average", "%.1f (±%.1f)".format(session.avgThrows, session.stdDevThrows))
                 StatItem("Best", session.bestRun.toString())
             }
         }
@@ -292,15 +292,28 @@ fun SessionDetailsDialog(session: SessionSummary, onDismiss: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    StatItem("Hand Avg", "%.1f".format(session.avgThrows))
+                    StatItem("Average", "%.1f".format(session.avgThrows))
                     StatItem("Best", session.bestRun.toString())
-                    StatItem("Hand Total", session.totalThrows.toString())
+                    StatItem("Total", session.totalThrows.toString())
                 }
 
-                RunTimingTable(
-                    runs = session.runHistory,
-                    durationsMillis = session.runDurationsMillis,
-                )
+                if (session.runDurationsMillis.isNotEmpty()) {
+                    val totalDurationMillis = session.runDurationsMillis.sum()
+                    val avgFreq = if (totalDurationMillis > 0) {
+                        session.totalThrows.toDouble() / (totalDurationMillis / 1000.0)
+                    } else 0.0
+                    val avgGap = if (session.totalThrows > 0) {
+                        (totalDurationMillis / 1000.0) / session.totalThrows
+                    } else 0.0
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                    ) {
+                        StatItem("Average Frequency", "%.2f/s".format(avgFreq))
+                        StatItem("Average Gap", "%.2fs".format(avgGap))
+                    }
+                }
             }
         },
         confirmButton = {
@@ -309,52 +322,6 @@ fun SessionDetailsDialog(session: SessionSummary, onDismiss: () -> Unit) {
             }
         }
     )
-}
-
-@Composable
-private fun RunTimingTable(runs: List<Int>, durationsMillis: List<Long>) {
-    if (runs.isEmpty() || durationsMillis.isEmpty()) return
-
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            TimingCell("Run", cellWeight = 1.1f, header = true)
-            TimingCell("Catches", cellWeight = 1.1f, header = true)
-            TimingCell("Freq", cellWeight = 1f, header = true)
-            TimingCell("Avg gap", cellWeight = 1f, header = true)
-        }
-
-        runs.forEachIndexed { index, catches ->
-            val durationMillis = durationsMillis.getOrNull(index) ?: 0L
-            Row(modifier = Modifier.fillMaxWidth()) {
-                TimingCell((index + 1).toString(), cellWeight = 1.1f)
-                TimingCell(catches.toString(), cellWeight = 1.1f)
-                TimingCell(formatCatchFrequency(catches, durationMillis), cellWeight = 1f)
-                TimingCell(formatAverageCatchSpacing(catches, durationMillis), cellWeight = 1f)
-            }
-        }
-    }
-}
-
-@Composable
-private fun RowScope.TimingCell(text: String, cellWeight: Float, header: Boolean = false) {
-    Text(
-        text = text,
-        modifier = Modifier.weight(cellWeight),
-        style = if (header) MaterialTheme.typography.labelSmall else MaterialTheme.typography.bodySmall,
-        fontWeight = if (header) FontWeight.Bold else FontWeight.Normal,
-    )
-}
-
-private fun formatCatchFrequency(catches: Int, durationMillis: Long): String {
-    val durationSeconds = durationMillis / 1000.0
-    if (catches <= 0 || durationSeconds <= 0.0) return "-"
-    return "%.2f/s".format(catches / durationSeconds)
-}
-
-private fun formatAverageCatchSpacing(catches: Int, durationMillis: Long): String {
-    val durationSeconds = durationMillis / 1000.0
-    if (catches <= 0 || durationSeconds <= 0.0) return "-"
-    return "%.2fs".format(durationSeconds / catches)
 }
 
 @Composable
