@@ -3,6 +3,8 @@ import Toybox.Lang;
 import Toybox.WatchUi;
 
 class JugglingTrackerApp extends Application.AppBase {
+    private const ENABLE_RECORDING_MODE = false;
+
     function initialize() {
         Application.AppBase.initialize();
     }
@@ -14,7 +16,12 @@ class JugglingTrackerApp extends Application.AppBase {
     }
 
     function getInitialView() as [Views] or [Views, InputDelegates] {
-        var modeView = new ModeSelectView();
-        return [modeView, new ModeSelectDelegate(modeView)];
+        if (ENABLE_RECORDING_MODE) {
+            var modeView = new ModeSelectView();
+            return [modeView, new ModeSelectDelegate(modeView)];
+        }
+
+        var ballView = new BallSelectView(:juggle);
+        return [ballView, new BallSelectDelegate(ballView)];
     }
 }

@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.jugglingtracker.imu.logic.GarminConnectionStatus
 import com.jugglingtracker.imu.logic.JugglingEvent
 import com.jugglingtracker.imu.logic.JugglingViewModel
 import com.jugglingtracker.imu.model.SessionSummary
@@ -35,7 +36,6 @@ enum class Screen {
 @Composable
 fun JugglingTrackerApp(
     viewModel: JugglingViewModel,
-    garminStatus: String,
     isWatchAppRunning: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -59,9 +59,12 @@ fun JugglingTrackerApp(
                 is JugglingEvent.Announcement -> {
                     tts.speak(event.text, TextToSpeech.QUEUE_FLUSH, null, null)
                 }
+                is JugglingEvent.SyncStarted -> {
+                    // Show brief feedback when sync starts
+                    Toast.makeText(context, "Receiving data...", Toast.LENGTH_SHORT).show()
+                }
                 is JugglingEvent.SyncCompleted -> {
-                    // Toast or snackbar notification could be shown here
-                    // For now, the session list will update automatically
+                    Toast.makeText(context, "Sync complete: ${event.count} runs received", Toast.LENGTH_LONG).show()
                     tts.speak("Synced ${event.count} runs", TextToSpeech.QUEUE_FLUSH, null, null)
                 }
             }
@@ -111,7 +114,6 @@ fun JugglingTrackerApp(
             if (currentScreen == Screen.Tracker) {
                 TrackerScreen(
                     viewModel = viewModel,
-                    garminStatus = garminStatus,
                     isWatchAppRunning = isWatchAppRunning,
                 ) { selectedSessionForDetails.value = it }
             } else {
@@ -125,7 +127,6 @@ fun JugglingTrackerApp(
 @Composable
 fun TrackerScreen(
     viewModel: JugglingViewModel,
-    garminStatus: String,
     isWatchAppRunning: Boolean,
     onSessionClick: (SessionSummary) -> Unit,
 ) {
@@ -163,51 +164,11 @@ fun TrackerScreen(
         verticalArrangement = Arrangement.spacedBy(space = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Garmin Status Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isWatchAppRunning) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-            )
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text(text = "GARMIN STATUS", style = MaterialTheme.typography.labelSmall)
-                Text(text = garminStatus, style = MaterialTheme.typography.bodyMedium)
-                if (isWatchAppRunning) {
-                    Text(
-                        text = "Watch App: Running",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF4CAF50),
-                        fontWeight = FontWeight.Bold
-                    )
-                } else {
-                    Text(
-                        text = "Watch App: Stopped",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-        }
-
-        // The watch is the sole session controller; the phone only listens for
-        // finished sessions and records them. No session is started here.
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-        ) {
-            Text(
-                text = if (isWatchAppRunning) {
-                    "Listening for sessions from your watch…"
-                } else {
-                    "Start a session on your watch. Results appear here automatically."
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(12.dp)
-            )
-        }
+        // Garmin Status Header
+        GarminStatusHeader(
+            status = viewModel.garminStatus,
+            message = viewModel.statusMessage
+        )
 
         if (viewModel.completedSessions.isNotEmpty()) {
             Text(
@@ -285,6 +246,69 @@ fun TrackerScreen(
                         ) { onSessionClick(session) }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun GarminStatusHeader(status: GarminConnectionStatus, message: String) {
+    val (backgroundColor, textColor, statusText) = when (status) {
+        GarminConnectionStatus.READY -> Triple(
+            Color(0xFFE8F5E9), // Light Green
+            Color(0xFF2E7D32), // Dark Green
+            "Ready to receive data from your watch"
+        )
+        GarminConnectionStatus.RECEIVING -> Triple(
+            Color(0xFFFFF3E0), // Light Orange
+            Color(0xFFEF6C00), // Dark Orange
+            "Receiving data..."
+        )
+        GarminConnectionStatus.BLUETOOTH_DISABLED,
+        GarminConnectionStatus.NO_PAIRED_DEVICES,
+        GarminConnectionStatus.SDK_ERROR -> Triple(
+            Color(0xFFFFEBEE), // Light Red
+            Color(0xFFC62828), // Dark Red
+            message
+        )
+        GarminConnectionStatus.NOT_INITIALIZED -> Triple(
+            MaterialTheme.colorScheme.surfaceVariant,
+            MaterialTheme.colorScheme.onSurfaceVariant,
+            "Connecting to Garmin..."
+        )
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(),
+        colors = CardDefaults.cardColors(containerColor = backgroundColor)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = statusText,
+                style = MaterialTheme.typography.titleSmall,
+                color = textColor,
+                fontWeight = FontWeight.Bold
+            )
+            
+            if (status == GarminConnectionStatus.BLUETOOTH_DISABLED || 
+                status == GarminConnectionStatus.NO_PAIRED_DEVICES || 
+                status == GarminConnectionStatus.SDK_ERROR) {
+                Spacer(modifier = Modifier.height(4.dp))
+                val advice = if (status == GarminConnectionStatus.BLUETOOTH_DISABLED) {
+                    "Go to Android Settings to enable Bluetooth."
+                } else {
+                    "Ensure your watch is paired in the Garmin ConnectIQ app."
+                }
+                Text(
+                    text = "Troubleshooting: $advice",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = textColor.copy(alpha = 0.8f)
+                )
             }
         }
     }

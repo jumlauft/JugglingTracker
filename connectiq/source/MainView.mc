@@ -96,10 +96,17 @@ class MainView extends WatchUi.View {
         var numberH = dc.getFontHeight(Graphics.FONT_NUMBER_THAI_HOT);
         var labelH = dc.getFontHeight(Graphics.FONT_TINY);
         var statsH = dc.getFontHeight(Graphics.FONT_XTINY);
+        var statusH = dc.getFontHeight(Graphics.FONT_XTINY);
 
-        // Layout: top section (label + big number), then 2 columns of stats below
-        var blockH = labelH + numberH + statsH * 2;
+        // Layout: run state, top section (label + big number), then stats below.
+        var blockH = statusH + labelH + numberH + statsH * 2;
         var y = cy - blockH / 2;
+
+        var runActive = _detector.isRunActive();
+        var statusText = runActive ? "RUN ACTIVE" : "WAITING";
+        dc.setColor(runActive ? Graphics.COLOR_GREEN : Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_XTINY, statusText, Graphics.TEXT_JUSTIFY_CENTER);
+        y += statusH;
 
         // Watch-hand label, just above the big number (no large gap).
         dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);

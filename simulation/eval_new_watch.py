@@ -27,9 +27,9 @@ HP_A2 =  0.779739  # negated in difference equation
 HP_HYSTERESIS = 0.3
 
 CURRENT_WATCH_PARAMS = {
-    3: {'threshold': 2.6, 'refractory_ms': 80, 'raw_gate': 9.0, 'merge_window_ms': 120},
+    3: {'threshold': 2.0, 'refractory_ms': 80, 'raw_gate': 7.0, 'merge_window_ms': 160},
     4: {'threshold': 4.0, 'refractory_ms': 40, 'raw_gate': 0.0, 'merge_window_ms': 80},
-    5: {'threshold': 0.5, 'refractory_ms': 80, 'raw_gate': 0.0, 'merge_window_ms': 280},
+    5: {'threshold': 0.8, 'refractory_ms': 320, 'raw_gate': 13.0, 'merge_window_ms': 160},
 }
 
 
@@ -198,7 +198,7 @@ if __name__ == '__main__':
         best_params = None
         for thresh in [0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.5, 1.8, 2.0, 2.3, 2.6, 3.0, 3.5, 4.0]:
             for refr in [40, 80, 120, 160, 200, 240, 320, 400]:
-                for raw_gate in [0.0, 3.0, 5.0, 7.0, 9.0]:
+                for raw_gate in [0.0, 3.0, 5.0, 7.0, 9.0, 11.0, 13.0]:
                     for merge_ms in [80, 120, 160, 200, 240, 280, 320, 400]:
                         total_err = 0
                         total_over = 0

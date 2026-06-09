@@ -2,8 +2,9 @@ import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.WatchUi;
 
-// First screen: choose between a normal juggling session or a recording
-// session that captures raw IMU data for algorithm tuning.
+// Developer-only screen: choose between a normal juggling session or a
+// recording session that captures raw IMU data for algorithm tuning.
+// Customer startup bypasses this while ENABLE_RECORDING_MODE is false.
 class ModeSelectView extends WatchUi.View {
     public var isRecordMode as Boolean;
 

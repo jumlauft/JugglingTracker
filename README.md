@@ -1,16 +1,16 @@
 # JugglingTracker
 
-Two-platform juggling tracker focused on the hand wearing the watch. A Garmin Forerunner 245 watch app counts watch-hand catches from accelerometer data, stores runs for the active watch session, and sends finished sessions to an Android companion app for storage, charts, CSV export, and algorithm recording workflows. Counts are not both-hands totals.
+Two-platform juggling tracker focused on the hand wearing the watch. A Garmin Forerunner 245 watch app counts watch-hand catches from accelerometer data, stores runs for the active watch session, and sends finished sessions to an Android companion app for storage, charts, CSV export, and developer-only algorithm recording workflows. Counts are not both-hands totals.
 
 ## Project Structure
 
 - `connectiq/` - Garmin Connect IQ watch app in Monkey C.
   - `source/JugglingTrackerApp.mc` - app entry point.
-  - `source/ModeSelectView.mc` - choose normal tracking or recording mode.
+  - `source/ModeSelectView.mc` - developer-only chooser for normal tracking vs recording mode, hidden in customer startup.
   - `source/BallSelectView.mc` - choose 3-9 balls before a run.
   - `source/JugglingDetector.mc` - watch-hand catch detection algorithm.
   - `source/MainView.mc` - normal tracking UI, sensor listener, session sync.
-  - `source/RecordingView.mc` - raw accelerometer capture and labeling mode.
+  - `source/RecordingView.mc` - developer-only raw accelerometer capture and labeling mode.
   - `manifest.xml`, `monkey.jungle`, `resources/` - Connect IQ configuration and assets.
 - `android/` - Android companion app in Kotlin and Jetpack Compose.
   - `MainActivity.kt` - Garmin Connect IQ SDK integration, permissions, message routing.
@@ -53,15 +53,15 @@ Current burst-clustering parameters:
 
 | Balls | HP threshold | Candidate refractory | Raw gate | Merge window |
 | --- | ---: | ---: | ---: | ---: |
-| 3 | 2.6 | 80 ms | 9.0 m/s² | 120 ms |
+| 3 | 2.0 | 80 ms | 7.0 m/s² | 160 ms |
 | 4 | 4.0 | 40 ms | disabled | 80 ms |
-| 5+ | 0.5 | 80 ms | disabled | 280 ms |
+| 5+ | 0.8 | 320 ms | 13.0 m/s² | 160 ms |
 
 The Python simulator in `simulation/eval_new_watch.py` mirrors the watch detector. Keep it, `connectiq/source/JugglingDetector.mc`, `simulation/test_detection.py`, and `.github/instructions/connectiq-monkeyc.instructions.md` in sync when changing detector behavior or parameters.
 
 ### Recording Mode
 
-Recording mode captures raw accelerometer samples on the watch. Press Back to start a run, press Back again to stop it, then enter the actual watch-hand catch count. The watch sends a `recording` payload to the phone, and the Android app stores each recording as CSV through `RecordingRepository` so it can be exported for tuning in `simulation/`.
+Recording mode is retained for detector tuning but hidden from customer watch startup while `ENABLE_RECORDING_MODE` is `false` in `connectiq/source/JugglingTrackerApp.mc`. When enabled for development, it captures raw accelerometer samples on the watch. Press Back to start a run, press Back again to stop it, then enter the actual watch-hand catch count. The watch sends a `recording` payload to the phone, and the Android app stores each recording as CSV through `RecordingRepository` so it can be exported for tuning in `simulation/`.
 
 The labeled CSV format starts each run with metadata:
 
@@ -125,7 +125,7 @@ python -m pytest test_detection.py -v
 python eval_new_watch.py
 ```
 
-`test_detection.py` locks the labeled-data detector baseline. The current watch-hand delayed burst-clustering baseline is 20 total absolute error and 0 total overcount error across 21 labeled runs / 266 watch-hand catches.
+`test_detection.py` locks the labeled-data detector baseline. The current watch-hand delayed burst-clustering baseline is 55 total absolute error and 5 total overcount error across 36 labeled runs / 483 watch-hand catches.
 
 ### Connect IQ Watch App
 
@@ -159,9 +159,8 @@ Use the actual drive letter for the mounted Garmin volume, then safely eject the
 1. Pair the Forerunner 245 with the phone in Garmin Connect.
 2. Install the Connect IQ watch app on the watch.
 3. Install and open the Android app; grant Bluetooth permissions.
-4. Start the watch app and choose normal tracking or recording mode.
-5. For normal sessions, stop from the watch menu and choose sync when finished.
-6. For recording mode, press Back to start/stop each run, then label the watch-hand catch count and let the phone store the raw CSV.
+4. Start the watch app, choose the ball count, and juggle normally.
+5. Stop from the watch menu and choose sync when finished.
 
 ## Security Note
 

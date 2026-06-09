@@ -6,8 +6,8 @@ datasets with the current JugglingDetector.mc parameters, asserting that
 detection performance does not regress.
 
 The expected detection counts come from the delayed burst-clustering algorithm
-with alternating watch-hand burst counting: total absolute error = 20 and
-positive overcount error = 0 across 21 runs (266 actual watch-hand catches).
+with alternating watch-hand burst counting: total absolute error = 55 and
+positive overcount error = 5 across 36 runs (483 actual watch-hand catches).
 """
 import os
 import sys
@@ -21,9 +21,9 @@ from data_utils import load_all_runs
 
 # ── Current watch parameters (must match JugglingDetector.mc) ──────────────
 WATCH_PARAMS = {
-    3: {"threshold": 2.6, "refractory_ms": 80, "raw_gate": 9.0, "merge_window_ms": 120},
+    3: {"threshold": 2.0, "refractory_ms": 80, "raw_gate": 7.0, "merge_window_ms": 160},
     4: {"threshold": 4.0, "refractory_ms": 40, "raw_gate": 0.0, "merge_window_ms": 80},
-    5: {"threshold": 0.5, "refractory_ms": 80, "raw_gate": 0.0, "merge_window_ms": 280},
+    5: {"threshold": 0.8, "refractory_ms": 320, "raw_gate": 13.0, "merge_window_ms": 160},
 }
 
 # ── Expected detection counts per run ──────────────────────────────────────
@@ -31,12 +31,12 @@ WATCH_PARAMS = {
 # Run index disambiguates multiple runs of the same ball count in one file.
 EXPECTED_RUNS = [
     ("juggling_recordings_20260603_201546.csv", 0, 3, 6, 4),
-    ("juggling_recordings_20260603_201546.csv", 1, 3, 17, 17),
+    ("juggling_recordings_20260603_201546.csv", 1, 3, 17, 18),
     ("juggling_recordings_20260603_201546.csv", 2, 5, 4, 4),
-    ("juggling_recordings_20260603_201546.csv", 3, 5, 13, 11),
-    ("juggling_recordings_20260603_203008.csv", 0, 3, 20, 18),
-    ("juggling_recordings_20260603_223806.csv", 0, 3, 25, 22),
-    ("juggling_recordings_20260603_223806.csv", 1, 3, 26, 25),
+    ("juggling_recordings_20260603_201546.csv", 3, 5, 13, 9),
+    ("juggling_recordings_20260603_203008.csv", 0, 3, 20, 20),
+    ("juggling_recordings_20260603_223806.csv", 0, 3, 25, 23),
+    ("juggling_recordings_20260603_223806.csv", 1, 3, 26, 26),
     ("juggling_recordings_20260603_223806.csv", 2, 3, 5, 4),
     ("juggling_recordings_20260603_223806.csv", 3, 3, 7, 7),
     ("juggling_recordings_20260603_223806.csv", 4, 3, 8, 7),
@@ -44,18 +44,33 @@ EXPECTED_RUNS = [
     ("juggling_recordings_20260603_223806.csv", 6, 4, 0, 0),
     ("juggling_recordings_20260603_223806.csv", 7, 4, 8, 8),
     ("juggling_recordings_20260603_223806.csv", 8, 4, 21, 21),
-    ("juggling_recordings_20260603_223806.csv", 9, 5, 4, 4),
-    ("juggling_recordings_20260603_223806.csv", 10, 5, 9, 9),
-    ("juggling_recordings_20260603_223806.csv", 11, 5, 9, 5),
-    ("juggling_recordings_20260609_103926.csv", 0, 5, 22, 22),
+    ("juggling_recordings_20260603_223806.csv", 9, 5, 4, 3),
+    ("juggling_recordings_20260603_223806.csv", 10, 5, 9, 6),
+    ("juggling_recordings_20260603_223806.csv", 11, 5, 9, 6),
+    ("juggling_recordings_20260609_103926.csv", 0, 5, 22, 24),
     ("juggling_recordings_20260609_103926.csv", 1, 3, 19, 17),
     ("juggling_recordings_20260609_103926.csv", 2, 4, 4, 4),
     ("juggling_recordings_20260609_103926.csv", 3, 4, 26, 25),
+    ("juggling_recordings_20260609_114726.csv", 0, 3, 5, 5),
+    ("juggling_recordings_20260609_114726.csv", 1, 3, 15, 14),
+    ("juggling_recordings_20260609_114726.csv", 2, 3, 26, 25),
+    ("juggling_recordings_20260609_114726.csv", 3, 4, 25, 24),
+    ("juggling_recordings_20260609_114726.csv", 4, 4, 41, 36),
+    ("juggling_recordings_20260609_114726.csv", 5, 5, 4, 4),
+    ("juggling_recordings_20260609_114726.csv", 6, 5, 4, 4),
+    ("juggling_recordings_20260609_114726.csv", 7, 5, 5, 5),
+    ("juggling_recordings_20260609_114726.csv", 8, 5, 6, 6),
+    ("juggling_recordings_20260609_114726.csv", 9, 5, 10, 9),
+    ("juggling_recordings_20260609_114726.csv", 10, 5, 21, 13),
+    ("juggling_recordings_20260609_114726.csv", 11, 5, 10, 9),
+    ("juggling_recordings_20260609_114726.csv", 12, 5, 19, 13),
+    ("juggling_recordings_20260609_114726.csv", 13, 5, 21, 16),
+    ("juggling_recordings_20260609_114726.csv", 14, 5, 5, 7),
 ]
 
 # Maximum allowed total absolute error across all runs.
-MAX_TOTAL_ERROR = 20
-MAX_TOTAL_OVERCOUNT = 0
+MAX_TOTAL_ERROR = 55
+MAX_TOTAL_OVERCOUNT = 5
 
 
 def _get_data_dir():
@@ -126,7 +141,7 @@ def test_detection_count_per_run(runs_by_file, entry):
 def test_total_absolute_error(runs_by_file):
     """Total absolute error across all runs must not exceed the baseline.
 
-    Current baseline: 20 total absolute error across 21 runs (266 watch-hand catches).
+    Current baseline: 55 total absolute error across 36 runs (483 watch-hand catches).
     A regression means the algorithm is less accurate overall.
     """
     total_error = 0
@@ -232,3 +247,64 @@ def test_watch_counts_alternating_bursts_as_watch_hand_catches():
     assert "(_committedBurstCount % 2) == 1" in source
     assert "currentCount += 1;" in source
     assert "currentCount += 2;" not in source
+
+
+def test_auto_finish_timer_uses_committed_bursts_not_low_level_motion():
+    """Auto-finish should not require the watch hand to be perfectly still.
+
+    The finish timer is intentionally refreshed by committed candidate bursts,
+    not by every sample above a low activity floor. This prevents small post-run
+    wrist motion from postponing run completion indefinitely.
+    """
+    mc_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..", "connectiq", "source", "JugglingDetector.mc",
+    )
+    if not os.path.exists(mc_path):
+        pytest.skip("JugglingDetector.mc not found")
+
+    with open(mc_path, "r") as f:
+        source = f.read()
+
+    assert "filtered > _hpThreshold * 0.5f" not in source
+
+    commit_start = source.index("private function commitPendingPeak")
+    add_start = source.index("private function addCandidate")
+    commit_body = source[commit_start:add_start]
+    assert "_lastActiveTime = nowMs;" in commit_body
+
+
+def test_main_view_displays_run_state():
+    """The watch face should show whether detection is in or between runs."""
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    detector_path = os.path.join(root, "connectiq", "source", "JugglingDetector.mc")
+    main_view_path = os.path.join(root, "connectiq", "source", "MainView.mc")
+    if not os.path.exists(detector_path) or not os.path.exists(main_view_path):
+        pytest.skip("ConnectIQ source files not found")
+
+    with open(detector_path, "r") as f:
+        detector_source = f.read()
+    with open(main_view_path, "r") as f:
+        main_view_source = f.read()
+
+    assert "public function isRunActive() as Boolean" in detector_source
+    assert "_detector.isRunActive()" in main_view_source
+    assert "RUN ACTIVE" in main_view_source
+    assert "WAITING" in main_view_source
+
+
+def test_customer_watch_startup_hides_recording_mode():
+    """Customer builds should start directly in normal tracking setup."""
+    app_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..", "connectiq", "source", "JugglingTrackerApp.mc",
+    )
+    if not os.path.exists(app_path):
+        pytest.skip("JugglingTrackerApp.mc not found")
+
+    with open(app_path, "r") as f:
+        source = f.read()
+
+    assert "private const ENABLE_RECORDING_MODE = false;" in source
+    assert "new BallSelectView(:juggle)" in source
+    assert "new ModeSelectView()" in source

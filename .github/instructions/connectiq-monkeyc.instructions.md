@@ -11,11 +11,11 @@ applyTo: "connectiq/**/*.mc"
 ## App Structure
 - Watch classes are split by feature under `connectiq/source/`.
 - `JugglingTrackerApp` — App entry point. Starts the mode-selection flow.
-- `ModeSelectView` / `ModeSelectDelegate` — First screen for normal tracking vs recording mode.
+- `ModeSelectView` / `ModeSelectDelegate` — Developer-only chooser for normal tracking vs recording mode. Customer builds bypass it while `ENABLE_RECORDING_MODE` is `false` in `JugglingTrackerApp`.
 - `JugglingDetector` — Stateful per-session algorithm class. Processes raw accelerometer samples and detects catches made by the hand wearing the watch with highpass-filtered candidate burst clustering.
 - `BallSelectView` / `BallSelectDelegate` — Startup screen for ball count selection (3–9).
 - `MainView` / `MainDelegate` — Main tracking screen. Owns the sensor listener, detector, sync logic, and all UI drawing.
-- `RecordingView` / `RecordingDelegate` — Raw accelerometer recording and labeling workflow for detector tuning data. The Back button starts and stops each recording run.
+- `RecordingView` / `RecordingDelegate` — Developer-only raw accelerometer recording and labeling workflow for detector tuning data. The Back button starts and stops each recording run.
 - `CommListener` — Thin wrapper forwarding `onComplete`/`onError` to `MainView`.
 - `SessionEndDelegate` / `QuitConfirmationDelegate` — Menu delegates for session end flow.
 
@@ -26,13 +26,13 @@ applyTo: "connectiq/**/*.mc"
 - Linear acceleration magnitude (`sqrt(lx² + ly² + lz²)`) used for detection — captures catch energy in all directions.
 - Threshold crossings are candidates, not immediate counts. Nearby candidates are delayed and merged into one catch-motion burst. Odd-numbered committed bursts increment `currentCount` by 1; alternating even-numbered bursts are treated as the other hand and do not change the displayed watch-hand count. Do not double the count.
 - 2nd-order Butterworth IIR highpass filter (0.7 Hz cutoff) applied to the magnitude signal after gravity removal. Removes slow drift from gravity estimation, giving clean peaks that are consistent across ball counts. Filter is causal (real-time) — 5 multiplies + 4 additions per sample.
-- Ball-count-adaptive burst clustering (data-driven from watch-hand labels over 21 runs):
-  - 3 balls: HP threshold 2.6, candidate refractory 80ms, raw gate 9.0 m/s², merge window 120ms
+- Ball-count-adaptive burst clustering (data-driven from watch-hand labels over 36 runs):
+  - 3 balls: HP threshold 2.0, candidate refractory 80ms, raw gate 7.0 m/s², merge window 160ms
   - 4 balls: HP threshold 4.0, candidate refractory 40ms, no raw gate, merge window 80ms
-  - 5+ balls: HP threshold 0.5, candidate refractory 80ms, no raw gate, merge window 280ms
+  - 5+ balls: HP threshold 0.8, candidate refractory 320ms, raw gate 13.0 m/s², merge window 160ms
 - Hysteresis factor is 0.3. Raw magnitude gate: a candidate only counts if the pre-highpass magnitude also exceeds the per-ball-count floor.
 - True peak detection: threshold-crossing on the filtered signal with hysteresis (signal must drop below `threshold × 0.3` before re-arming). The strongest filtered peak in a burst represents the catch motion.
-- Auto-finish after 2s idle.
+- Auto-finish after 2s without a committed candidate burst. Do not refresh the finish timer from low-level filtered motion; otherwise the user has to hold the watch hand too still after a run.
 - 25-sample warmup before detection begins.
 - `simulation/eval_new_watch.py` must mirror `JugglingDetector.mc`; update both plus `simulation/test_detection.py` whenever parameters or detection semantics change.
 - Delayed burst clustering must only flush a pending candidate when the filtered signal is no longer above threshold. Flushing while `_above` is true can split one physical catch motion into multiple counts.

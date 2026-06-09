@@ -1,6 +1,7 @@
 package com.jugglingtracker.imu
 
 import android.Manifest
+import android.bluetooth.BluetoothManager
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -23,6 +24,7 @@ import com.garmin.android.connectiq.ConnectIQ
 import com.garmin.android.connectiq.IQApp
 import com.garmin.android.connectiq.IQDevice
 import com.garmin.android.connectiq.exception.ServiceUnavailableException
+import com.jugglingtracker.imu.logic.GarminConnectionStatus
 import com.jugglingtracker.imu.logic.JugglingViewModel
 import com.jugglingtracker.imu.data.SessionRepository
 import com.jugglingtracker.imu.data.RecordingRepository
@@ -53,14 +55,12 @@ class MainActivity : ComponentActivity() {
     private var iqDevice: IQDevice? = null
     private var iqApp: IQApp? = null
 
-    private var garminStatus by mutableStateOf("Waiting for Garmin connection...")
     private var isWatchAppRunning by mutableStateOf(false)
 
     private val handler = Handler(Looper.getMainLooper())
     private val heartbeatRunnable = Runnable {
         if (isWatchAppRunning) {
             isWatchAppRunning = false
-            garminStatus = "Watch app stopped (timeout)"
         }
     }
 
@@ -74,7 +74,6 @@ class MainActivity : ComponentActivity() {
                 ) {
                     JugglingTrackerApp(
                         viewModel = viewModel,
-                        garminStatus = garminStatus,
                         isWatchAppRunning = isWatchAppRunning,
                     )
                 }
@@ -82,6 +81,12 @@ class MainActivity : ComponentActivity() {
         }
 
         ensurePermissionsThenInitialize()
+    }
+
+    private fun checkBluetooth(): Boolean {
+        val bluetoothManager = getSystemService(BluetoothManager::class.java)
+        val adapter = bluetoothManager?.adapter
+        return adapter?.isEnabled == true
     }
 
     private fun requiredPermissions(): Array<String> {
@@ -102,7 +107,12 @@ class MainActivity : ComponentActivity() {
         }
 
         if (missing.isEmpty()) {
-            initializeGarminConnectIQ()
+            if (!checkBluetooth()) {
+                viewModel.garminStatus = GarminConnectionStatus.BLUETOOTH_DISABLED
+                viewModel.statusMessage = "Turn on bluetooth to receive data from watch"
+            } else {
+                initializeGarminConnectIQ()
+            }
         } else {
             ActivityCompat.requestPermissions(
                 this,
@@ -123,9 +133,15 @@ class MainActivity : ComponentActivity() {
             val allGranted = grantResults.isNotEmpty() &&
                 grantResults.all { it == PackageManager.PERMISSION_GRANTED }
             if (allGranted) {
-                initializeGarminConnectIQ()
+                if (checkBluetooth()) {
+                    initializeGarminConnectIQ()
+                } else {
+                    viewModel.garminStatus = GarminConnectionStatus.BLUETOOTH_DISABLED
+                    viewModel.statusMessage = "Turn on bluetooth to receive data from watch"
+                }
             } else {
-                garminStatus = "Bluetooth permissions are required."
+                viewModel.garminStatus = GarminConnectionStatus.SDK_ERROR
+                viewModel.statusMessage = "Bluetooth permissions are required for Garmin sync."
             }
         }
     }
@@ -138,16 +154,16 @@ class MainActivity : ComponentActivity() {
             true,
             object : ConnectIQ.ConnectIQListener {
                 override fun onSdkReady() {
-                    garminStatus = "SDK ready. Looking for devices..."
                     findAndRegisterDevice()
                 }
 
                 override fun onInitializeError(status: ConnectIQ.IQSdkErrorStatus) {
-                    garminStatus = "SDK init failed: ${status.name}"
+                    viewModel.garminStatus = GarminConnectionStatus.SDK_ERROR
+                    viewModel.statusMessage = "Garmin SDK error: ${status.name}. Please restart the app."
                 }
 
                 override fun onSdkShutDown() {
-                    garminStatus = "SDK shutdown"
+                    viewModel.garminStatus = GarminConnectionStatus.NOT_INITIALIZED
                 }
             },
         )
@@ -159,14 +175,17 @@ class MainActivity : ComponentActivity() {
             if (!devices.isNullOrEmpty()) {
                 val device = devices[0]
                 iqDevice = device
-                garminStatus = "Found: ${device.friendlyName}. Listening..."
+                viewModel.garminStatus = GarminConnectionStatus.READY
+                viewModel.statusMessage = "Connected to ${device.friendlyName}"
                 registerImuAppListener()
             } else {
-                garminStatus = "No paired Garmin devices found."
+                viewModel.garminStatus = GarminConnectionStatus.NO_PAIRED_DEVICES
+                viewModel.statusMessage = "No paired Garmin devices found. Link your watch in the Garmin ConnectIQ app."
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error finding device", e)
-            garminStatus = "Error finding device."
+            viewModel.garminStatus = GarminConnectionStatus.SDK_ERROR
+            viewModel.statusMessage = "Error finding device. Ensure Bluetooth is active."
         }
     }
 
@@ -183,7 +202,6 @@ class MainActivity : ComponentActivity() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error registering app listener", e)
-            garminStatus = "Failed to register app listener."
         }
     }
 
@@ -197,23 +215,28 @@ class MainActivity : ComponentActivity() {
 
         // The watch sends one payload per finished session containing the ball
         // count, a timestamp, and the watch-hand catch count of every run.
-        if (payload["type"] == "session") {
+        if (payload["type"] == "session" || payload["type"] == "recording") {
             @Suppress("UNCHECKED_CAST")
             val typed = payload as Map<String, Any>
+            
+            // Briefly show receiving state
+            viewModel.garminStatus = GarminConnectionStatus.RECEIVING
+            
             runOnUiThread {
-                viewModel.importSessionFromWatch(typed)
+                if (payload["type"] == "session") {
+                    viewModel.importSessionFromWatch(typed)
+                } else {
+                    viewModel.importRecordingFromWatch(typed)
+                }
+                
+                // Return to ready after a short delay
+                handler.postDelayed({
+                    if (viewModel.garminStatus == GarminConnectionStatus.RECEIVING) {
+                        viewModel.garminStatus = GarminConnectionStatus.READY
+                    }
+                }, 1500)
             }
-            // Acknowledge receipt so the watch knows the data is safely stored
-            // and can close. The timestamp lets the watch match the ACK to its
-            // pending send.
-            val ts = (payload["timestamp"] as? Number)?.toLong()
-            sendAck(ts)
-        } else if (payload["type"] == "recording") {
-            @Suppress("UNCHECKED_CAST")
-            val typed = payload as Map<String, Any>
-            runOnUiThread {
-                viewModel.importRecordingFromWatch(typed)
-            }
+
             val ts = (payload["timestamp"] as? Number)?.toLong()
             sendAck(ts)
         }

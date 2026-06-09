@@ -23,12 +23,12 @@ class JugglingDetector {
     // Data-driven from delayed burst-clustering sweep for watch-hand catches.
     private const REFRACTORY_MS_3 = 80;
     private const REFRACTORY_MS_4 = 40;
-    private const REFRACTORY_MS_5PLUS = 80;
+    private const REFRACTORY_MS_5PLUS = 320;
 
     // Candidates closer than this are treated as lobes of one catch motion.
-    private const MERGE_WINDOW_MS_3 = 120;
+    private const MERGE_WINDOW_MS_3 = 160;
     private const MERGE_WINDOW_MS_4 = 80;
-    private const MERGE_WINDOW_MS_5PLUS = 280;
+    private const MERGE_WINDOW_MS_5PLUS = 160;
 
     private const AUTO_FINISH_DELAY_MS = 2000;
 
@@ -44,19 +44,19 @@ class JugglingDetector {
 
     // Detection thresholds for the highpass-filtered signal. Tuned against
     // labels that count catches by the watch-wearing hand only: total absolute
-    // error 20 across 21 runs, positive overcount error 0.
-    private const HP_THRESHOLD_3 = 2.6f;
+    // error 55 across 36 runs, positive overcount error 5.
+    private const HP_THRESHOLD_3 = 2.0f;
     private const HP_THRESHOLD_4 = 4.0f;
-    private const HP_THRESHOLD_5PLUS = 0.5f;
+    private const HP_THRESHOLD_5PLUS = 0.8f;
     private const HP_HYSTERESIS = 0.3f;  // signal must drop below threshold * 0.3
 
     // Minimum raw (pre-highpass) magnitude for a candidate to count.
     // Prevents false positives from noise that the highpass filter amplifies.
-    // Per-ball-count: 3b uses a gate to suppress arm-swing noise,
-    // 4b and 5+b disable the gate (threshold/cluster timing is selective enough).
-    private const MIN_RAW_MAG_3 = 9.0f;
+    // Per-ball-count: 3b and 5+b use gates to suppress arm-swing noise;
+    // 4b disables the gate because threshold/cluster timing is selective enough.
+    private const MIN_RAW_MAG_3 = 7.0f;
     private const MIN_RAW_MAG_4 = 0.0f;  // disabled
-    private const MIN_RAW_MAG_5PLUS = 0.0f;  // disabled
+    private const MIN_RAW_MAG_5PLUS = 13.0f;
 
     // Number of balls being juggled (3-9), selected at startup.
     public var ballCount as Number;
@@ -65,10 +65,9 @@ class JugglingDetector {
     private var _gravityY as Float;
     private var _gravityZ as Float;
     private var _lastCandidateTime as Number;
-    // Last time the smoothed signal was above the activity floor (half the
-    // detection threshold). Used for auto-finish: the run ends when the
-    // signal stays below the activity floor for AUTO_FINISH_DELAY_MS,
-    // rather than when no peaks are detected — prevents premature splits.
+    // Last time a candidate burst was committed. Used for auto-finish: the run
+    // ends after no catch-like burst has appeared for AUTO_FINISH_DELAY_MS.
+    // Low-level post-run wrist motion must not keep the run alive.
     private var _lastActiveTime as Number;
 
     // Number of samples to wait before detecting catches, giving the gravity
@@ -188,6 +187,10 @@ class JugglingDetector {
 
     private function hasActiveRun() as Boolean {
         return currentCount > 0 || _hasPendingPeak || _committedBurstCount > 0;
+    }
+
+    public function isRunActive() as Boolean {
+        return hasActiveRun();
     }
 
     private function clearRunDetectionState() as Void {
@@ -369,13 +372,6 @@ class JugglingDetector {
                     _lastCandidateTime = _peakTime;
                 }
             }
-        }
-
-        // Track activity: any sample with filtered value above half the
-        // threshold keeps the run alive. Prevents premature auto-finish
-        // during brief dips between peaks.
-        if (hasActiveRun() && filtered > _hpThreshold * 0.5f) {
-            _lastActiveTime = nowMs;
         }
 
         flushPendingPeak(nowMs);

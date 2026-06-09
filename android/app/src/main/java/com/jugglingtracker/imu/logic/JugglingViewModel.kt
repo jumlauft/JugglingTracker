@@ -13,13 +13,27 @@ import kotlin.math.sqrt
 
 sealed class JugglingEvent {
     data class Announcement(val text: String) : JugglingEvent()
-    data class SyncCompleted(val count: Int) : JugglingEvent()
+    data class SyncCompleted(val count: Int, val ballCount: Int) : JugglingEvent()
+    object SyncStarted : JugglingEvent()
+}
+
+enum class GarminConnectionStatus {
+    READY,
+    RECEIVING,
+    NOT_INITIALIZED,
+    BLUETOOTH_DISABLED,
+    NO_PAIRED_DEVICES,
+    SDK_ERROR
 }
 
 class JugglingViewModel(
     private val repository: SessionRepository? = null,
     private val recordingRepository: RecordingRepository? = null,
 ) : ViewModel() {
+    // Garmin Status
+    var garminStatus by mutableStateOf(GarminConnectionStatus.NOT_INITIALIZED)
+    var statusMessage by mutableStateOf("")
+
     // Settings
     var isVoiceEnabled by mutableStateOf(value = true)
     var voiceInterval by mutableIntStateOf(10)
@@ -87,7 +101,7 @@ class JugglingViewModel(
         }
 
         viewModelScope.launch {
-            _events.emit(JugglingEvent.SyncCompleted(runs.size))
+            _events.emit(JugglingEvent.SyncCompleted(runs.size, balls))
         }
     }
 
