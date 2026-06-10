@@ -13,23 +13,24 @@ This document outlines the steps and assets needed to publish **Juggling Tracker
 
 ## 2. Store Listing Assets
 
-- [x] **App Icon**: 512x512 PNG (Generated: `android/play_store_icon.png`).
-- [x] **Feature Graphic**: 1024x500 PNG (Generated: `android/play_store_feature_graphic.png`).
-- [ ] **Screenshots**: At least 2 phone screenshots (portrait).
+- **App Icon**: 512x512 PNG (Generated: `android/play_store_icon.png`).
+- **Feature Graphic**: 1024x500 PNG (Generated: `android/play_store_feature_graphic.png`).
+- **Screenshots**: At least 2 phone screenshots (portrait).
     - *Tip*: Take screenshots of the Tracker screen and the Graph view.
-- [ ] **Short Description**: (Max 80 chars)
-    > Track your juggling progress with Garmin and phone sensors. Master your flow!
-- [ ] **Full Description**: (Max 4000 chars)
-    > Juggling Tracker is the ultimate companion for jugglers looking to quantify their practice. 
-    > 
-    > **Key Features:**
-    > - **Garmin Integration**: Sync catches automatically from your Garmin watch.
-    > - **Phone Tracking**: Use your phone's sensors to track runs when you're not wearing a watch.
-    > - **Visualization**: View your progress over time with beautiful history graphs.
-    > - **Voice Feedback**: Get real-time catch count announcements so you can keep your eyes on the balls.
-    > - **Detailed Analytics**: Track average throws, best runs, and consistency across different ball counts.
-    > 
-    > Whether you're working on your first 3-ball cascade or pushing for a new 7-ball record, Juggling Tracker helps you stay motivated and see your improvement.
+- **Short Description**: (Max 80 chars)
+    Track your juggling progress with automatic catch detection.
+- **Full Description**: (Max 4000 chars)
+    Juggling Tracker is the ultimate companion for jugglers looking to quantify their practice.
+
+    Key Features:
+    * Automated Detection: Use your phone's sensors to track catches and runs automatically. 
+    * Visualization: View your progress over time with history graphs.
+    * Detailed Analytics: Track average throws, best runs, and consistency across different ball counts.
+    * Garmin Integration: If you don't want to wear the phone on your wrist, use a garmin watch and sync your sessions seamlessly. 
+
+    Whether you're working on your first 3-ball cascade or pushing for a new 7-ball record, Juggling Tracker helps you stay motivated and see your improvement.
+
+
 
 ## 3. Privacy Policy
 
