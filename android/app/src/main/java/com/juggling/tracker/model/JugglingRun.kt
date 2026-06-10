@@ -1,4 +1,4 @@
-package com.jugglingtracker.imu.model
+package com.juggling.tracker.model
 
 data class JugglingRun(
     val timestamp: Long,

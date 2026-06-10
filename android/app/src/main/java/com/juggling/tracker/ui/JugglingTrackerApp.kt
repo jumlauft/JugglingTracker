@@ -1,4 +1,4 @@
-package com.jugglingtracker.imu.ui
+package com.juggling.tracker.ui
 
 import android.speech.tts.TextToSpeech
 import android.util.Log
@@ -23,13 +23,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.jugglingtracker.imu.logic.GarminConnectionStatus
-import com.jugglingtracker.imu.logic.JugglingEvent
-import com.jugglingtracker.imu.logic.JugglingViewModel
-import com.jugglingtracker.imu.model.SessionSummary
+import com.juggling.tracker.R
+import com.juggling.tracker.logic.GarminConnectionStatus
+import com.juggling.tracker.logic.JugglingEvent
+import com.juggling.tracker.logic.JugglingViewModel
+import com.juggling.tracker.model.SessionSummary
 import java.util.*
 import kotlin.math.roundToInt
 
@@ -65,18 +67,18 @@ fun JugglingTrackerApp(
         viewModel.events.collect { event ->
             when (event) {
                 is JugglingEvent.Announcement -> {
-                    tts.speak(event.text, TextToSpeech.QUEUE_FLUSH, null, null)
+                    tts?.speak(event.text, TextToSpeech.QUEUE_FLUSH, null, null)
                 }
                 is JugglingEvent.SyncStarted -> {
                     // No toast when sync starts as per user request
                 }
                 is JugglingEvent.SyncCompleted -> {
-                    Toast.makeText(context, "Received ${event.count} runs for ${event.ballCount} balls", Toast.LENGTH_LONG).show()
-                    tts.speak("Synced ${event.count} runs", TextToSpeech.QUEUE_FLUSH, null, null)
+                    Toast.makeText(context, context.getString(R.string.toast_sync_completed, event.count, event.ballCount), Toast.LENGTH_LONG).show()
+                    tts?.speak(context.getString(R.string.toast_sync_completed, event.count, event.ballCount), TextToSpeech.QUEUE_FLUSH, null, null)
                 }
                 is JugglingEvent.PhoneSessionSaved -> {
-                    Toast.makeText(context, "Saved ${event.count} phone runs for ${event.ballCount} balls", Toast.LENGTH_LONG).show()
-                    tts.speak("Saved ${event.count} runs", TextToSpeech.QUEUE_FLUSH, null, null)
+                    Toast.makeText(context, context.getString(R.string.toast_phone_session_saved, event.count, event.ballCount), Toast.LENGTH_LONG).show()
+                    tts?.speak(context.getString(R.string.toast_phone_session_saved, event.count, event.ballCount), TextToSpeech.QUEUE_FLUSH, null, null)
                 }
             }
         }
@@ -92,8 +94,8 @@ fun JugglingTrackerApp(
 
     DisposableEffect(Unit) {
         onDispose { 
-            tts.stop()
-            tts.shutdown()
+            tts?.stop()
+            tts?.shutdown()
         }
     }
 
@@ -104,9 +106,9 @@ fun JugglingTrackerApp(
                 title = { 
                     Text(
                         when (currentScreen) {
-                            Screen.Settings -> "Settings"
-                            Screen.PhoneSession -> "Phone Tracker"
-                            Screen.Tracker -> "Juggling Tracker"
+                            Screen.Settings -> stringResource(R.string.screen_settings)
+                            Screen.PhoneSession -> stringResource(R.string.screen_phone_tracker)
+                            Screen.Tracker -> stringResource(R.string.screen_tracker)
                         }
                     )
                 },
@@ -118,14 +120,14 @@ fun JugglingTrackerApp(
                                 currentScreen = Screen.Tracker
                             },
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                         }
                     }
                 },
                 actions = {
                     if (currentScreen == Screen.Tracker) {
                         IconButton(onClick = { currentScreen = Screen.Settings }) {
-                            Icon(Icons.Default.Settings, contentDescription = "Settings")
+                            Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.screen_settings))
                         }
                     }
                 },
@@ -167,8 +169,8 @@ fun TrackerScreen(
     if (sessionToDelete != null) {
         AlertDialog(
             onDismissRequest = { sessionToDelete = null },
-            title = { Text("Delete Session") },
-            text = { Text("Are you sure you want to delete this session from your history?") },
+            title = { Text(stringResource(R.string.dialog_delete_session_title)) },
+            text = { Text(stringResource(R.string.dialog_delete_session_text)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -177,12 +179,12 @@ fun TrackerScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete")
+                    Text(stringResource(R.string.action_delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { sessionToDelete = null }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
         )
@@ -205,7 +207,7 @@ fun TrackerScreen(
 
         if (viewModel.completedSessions.isNotEmpty()) {
             Text(
-                text = "Session History",
+                text = stringResource(R.string.section_session_history),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.align(Alignment.Start)
             )
@@ -233,7 +235,7 @@ fun TrackerScreen(
                     Tab(
                         selected = selectedTabBallCount == count,
                         onClick = { selectedTabBallCount = count },
-                        text = { Text("$count Balls") }
+                        text = { Text(stringResource(R.string.format_balls_tab, count)) }
                     )
                 }
             }
@@ -290,13 +292,13 @@ fun TrackerScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "No sessions yet",
+                        text = stringResource(R.string.empty_history_title),
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.outline
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Start juggling on your watch or phone and\nresults will appear here automatically.",
+                        text = stringResource(R.string.empty_history_text),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.outline,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -317,12 +319,12 @@ fun GarminStatusHeader(
         GarminConnectionStatus.READY -> Triple(
             Color(0xFFE8F5E9), // Light Green
             Color(0xFF2E7D32), // Dark Green
-            "Ready to receive data from your watch"
+            stringResource(R.string.garmin_ready)
         )
         GarminConnectionStatus.RECEIVING -> Triple(
             Color(0xFFFFF3E0), // Light Orange
             Color(0xFFEF6C00), // Dark Orange
-            "Receiving data..."
+            stringResource(R.string.garmin_receiving)
         )
         GarminConnectionStatus.BLUETOOTH_DISABLED,
         GarminConnectionStatus.NO_PAIRED_DEVICES,
@@ -334,7 +336,7 @@ fun GarminStatusHeader(
         GarminConnectionStatus.NOT_INITIALIZED -> Triple(
             MaterialTheme.colorScheme.surfaceVariant,
             MaterialTheme.colorScheme.onSurfaceVariant,
-            "Connecting to Garmin..."
+            stringResource(R.string.garmin_connecting)
         )
     }
 
@@ -367,12 +369,12 @@ fun GarminStatusHeader(
                     status == GarminConnectionStatus.SDK_ERROR) {
                     Spacer(modifier = Modifier.height(4.dp))
                     val advice = if (status == GarminConnectionStatus.BLUETOOTH_DISABLED) {
-                        "Go to Android Settings to enable Bluetooth."
+                        stringResource(R.string.garmin_bluetooth_advice)
                     } else {
-                        "Ensure your watch is paired in the Garmin ConnectIQ app."
+                        stringResource(R.string.garmin_paired_advice)
                     }
                     Text(
-                        text = "Troubleshooting: $advice",
+                        text = stringResource(R.string.garmin_troubleshooting, advice),
                         style = MaterialTheme.typography.bodySmall,
                         color = textColor.copy(alpha = 0.8f)
                     )
@@ -382,7 +384,7 @@ fun GarminStatusHeader(
             FilledTonalButton(onClick = onPhoneRecordClick) {
                 Icon(Icons.Default.PhoneAndroid, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Phone")
+                Text(stringResource(R.string.action_phone))
             }
         }
     }
@@ -429,7 +431,7 @@ fun PhoneSessionScreen(
 
             if (state.completedRuns.isNotEmpty()) {
                 Text(
-                    text = "Runs: ${state.completedRuns.joinToString("  ")}",
+                    text = "${stringResource(R.string.stat_runs)}: ${state.completedRuns.joinToString("  ")}",
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.align(Alignment.Start),
                 )
@@ -448,7 +450,7 @@ fun PhoneSessionScreen(
                 ) {
                     Icon(Icons.Default.Close, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Cancel")
+                    Text(stringResource(R.string.action_cancel))
                 }
                 Button(
                     onClick = {
@@ -458,12 +460,12 @@ fun PhoneSessionScreen(
                 ) {
                     Icon(Icons.Default.Save, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Save")
+                    Text(stringResource(R.string.action_save))
                 }
             }
         } else {
             Text(
-                text = "Ball Count",
+                text = stringResource(R.string.section_ball_count),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.align(Alignment.Start),
             )
@@ -498,7 +500,7 @@ fun PhoneSessionScreen(
             ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Start")
+                Text(stringResource(R.string.action_start))
             }
         }
     }
@@ -527,7 +529,7 @@ private fun CurrentPhoneRunCard(currentCount: Int, previousCount: Int) {
                 modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(text = "COUNTING HAND", style = MaterialTheme.typography.labelMedium)
+                Text(text = stringResource(R.string.stat_counting_hand), style = MaterialTheme.typography.labelMedium)
                 Text(
                     text = currentCount.toString(),
                     style = MaterialTheme.typography.displayLarge,
@@ -538,7 +540,7 @@ private fun CurrentPhoneRunCard(currentCount: Int, previousCount: Int) {
                 modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(text = "PREVIOUS RUN", style = MaterialTheme.typography.labelMedium)
+                Text(text = stringResource(R.string.stat_previous_run), style = MaterialTheme.typography.labelMedium)
                 Text(
                     text = if (previousCount == 0) "-" else previousCount.toString(),
                     style = MaterialTheme.typography.displayMedium,
@@ -563,10 +565,10 @@ private fun PhoneSessionStats(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        PhoneStat("Runs", runCount.toString(), Modifier.weight(1f))
-        PhoneStat("Avg", avgText, Modifier.weight(1f))
-        PhoneStat("Max", maxText, Modifier.weight(1f))
-        PhoneStat("Time", formatPhoneElapsedSeconds(elapsedSeconds), Modifier.weight(1f))
+        PhoneStat(stringResource(R.string.stat_runs), runCount.toString(), Modifier.weight(1f))
+        PhoneStat(stringResource(R.string.stat_avg), avgText, Modifier.weight(1f))
+        PhoneStat(stringResource(R.string.stat_max), maxText, Modifier.weight(1f))
+        PhoneStat(stringResource(R.string.stat_time), formatPhoneElapsedSeconds(elapsedSeconds), Modifier.weight(1f))
     }
 }
 
@@ -606,7 +608,7 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
                 }
             } catch (e: Exception) {
                 Log.e("JugglingTrackerApp", "CSV export failed", e)
-                Toast.makeText(context, "Export failed", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -618,7 +620,7 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             .verticalScroll(state = rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(space = 16.dp),
     ) {
-        Text(text = "Data Management", style = MaterialTheme.typography.titleLarge)
+        Text(text = stringResource(R.string.section_data_management), style = MaterialTheme.typography.titleLarge)
         
         Button(
             onClick = {
@@ -627,7 +629,7 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Export History to CSV")
+            Text(stringResource(R.string.action_export_csv))
         }
     }
 }

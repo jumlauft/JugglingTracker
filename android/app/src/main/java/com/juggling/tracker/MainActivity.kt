@@ -1,4 +1,4 @@
-package com.jugglingtracker.imu
+package com.juggling.tracker
 
 import android.Manifest
 import android.bluetooth.BluetoothManager
@@ -29,12 +29,13 @@ import com.garmin.android.connectiq.ConnectIQ
 import com.garmin.android.connectiq.IQApp
 import com.garmin.android.connectiq.IQDevice
 import com.garmin.android.connectiq.exception.ServiceUnavailableException
-import com.jugglingtracker.imu.logic.GarminConnectionStatus
-import com.jugglingtracker.imu.logic.JugglingViewModel
-import com.jugglingtracker.imu.data.SessionRepository
-import com.jugglingtracker.imu.data.RecordingRepository
-import com.jugglingtracker.imu.ui.JugglingTrackerApp
-import com.jugglingtracker.imu.ui.theme.JugglingTrackerTheme
+import com.juggling.tracker.logic.GarminConnectionStatus
+import com.juggling.tracker.logic.JugglingViewModel
+import com.juggling.tracker.data.SessionRepository
+import com.juggling.tracker.data.RecordingRepository
+import com.juggling.tracker.ui.JugglingTrackerApp
+import com.juggling.tracker.ui.theme.JugglingTrackerTheme
+import com.google.firebase.analytics.FirebaseAnalytics
 
 class MainActivity : ComponentActivity() {
     companion object {
@@ -47,12 +48,13 @@ class MainActivity : ComponentActivity() {
 
     private val repository: SessionRepository by lazy { SessionRepository(this) }
     private val recordingRepository: RecordingRepository by lazy { RecordingRepository(this) }
+    private val analytics: FirebaseAnalytics by lazy { FirebaseAnalytics.getInstance(this) }
     
     private val viewModel: JugglingViewModel by viewModels {
         object : androidx.lifecycle.ViewModelProvider.Factory {
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
                 @Suppress("UNCHECKED_CAST")
-                return JugglingViewModel(repository, recordingRepository) as T
+                return JugglingViewModel(repository, recordingRepository, analytics) as T
             }
         }
     }
@@ -211,6 +213,7 @@ class MainActivity : ComponentActivity() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error finding device", e)
+            FirebaseCrashlytics.getInstance().recordException(e)
             viewModel.garminStatus = GarminConnectionStatus.SDK_ERROR
             viewModel.statusMessage = "Error finding device. Ensure Bluetooth is active."
         }
@@ -229,6 +232,7 @@ class MainActivity : ComponentActivity() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error registering app listener", e)
+            FirebaseCrashlytics.getInstance().recordException(e)
         }
     }
 
@@ -284,6 +288,7 @@ class MainActivity : ComponentActivity() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error sending ACK", e)
+            FirebaseCrashlytics.getInstance().recordException(e)
         }
     }
 

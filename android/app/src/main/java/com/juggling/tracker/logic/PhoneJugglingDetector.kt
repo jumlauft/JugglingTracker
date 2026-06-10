@@ -1,4 +1,4 @@
-package com.jugglingtracker.imu.logic
+package com.juggling.tracker.logic
 
 import kotlin.math.sqrt
 

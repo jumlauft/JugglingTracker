@@ -1,6 +1,6 @@
-package com.jugglingtracker.imu.logic
+package com.juggling.tracker.logic
 
-import com.jugglingtracker.imu.MainDispatcherRule
+import com.juggling.tracker.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.*

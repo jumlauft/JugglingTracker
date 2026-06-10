@@ -1,4 +1,4 @@
-package com.jugglingtracker.imu
+package com.juggling.tracker
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi

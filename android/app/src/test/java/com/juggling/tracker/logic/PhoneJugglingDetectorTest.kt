@@ -1,4 +1,4 @@
-package com.jugglingtracker.imu.logic
+package com.juggling.tracker.logic
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

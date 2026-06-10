@@ -1,4 +1,4 @@
-package com.jugglingtracker.imu.model
+package com.juggling.tracker.model
 
 data class SessionSummary(
     val id: Int,

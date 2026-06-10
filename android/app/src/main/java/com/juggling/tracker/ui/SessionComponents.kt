@@ -1,4 +1,4 @@
-package com.jugglingtracker.imu.ui
+package com.juggling.tracker.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -19,10 +19,12 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jugglingtracker.imu.model.SessionSummary
+import com.juggling.tracker.R
+import com.juggling.tracker.model.SessionSummary
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -47,21 +49,21 @@ fun SessionHistoryGraph(sessions: List<SessionSummary>, modifier: Modifier = Mod
                     val s = displaySessions[selectedIndex!!]
                     val dateStr = dateFormat.format(Date(s.timestamp))
                     Text(
-                        text = "$dateStr | Average: %.1f | Best: %d".format(s.avgThrows, s.bestRun),
+                        text = stringResource(R.string.format_graph_details, dateStr, s.avgThrows, s.bestRun),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
                     )
                 } else {
-                    Text(text = "Watch-Hand Trends", style = MaterialTheme.typography.labelSmall)
+                    Text(text = stringResource(R.string.label_watch_hand_trends), style = MaterialTheme.typography.labelSmall)
                 }
                 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF4CAF50)))
-                    Text(" Best ", fontSize = 10.sp, style = MaterialTheme.typography.labelSmall)
+                    Text(" " + stringResource(R.string.label_best) + " ", fontSize = 10.sp, style = MaterialTheme.typography.labelSmall)
                     Spacer(Modifier.width(8.dp))
                     Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF2196F3)))
-                    Text(" Average", fontSize = 10.sp, style = MaterialTheme.typography.labelSmall)
+                    Text(" " + stringResource(R.string.label_average), fontSize = 10.sp, style = MaterialTheme.typography.labelSmall)
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -140,6 +142,10 @@ fun SessionHistoryGraph(sessions: List<SessionSummary>, modifier: Modifier = Mod
                     drawContext.canvas.nativeCanvas.save()
                     drawContext.canvas.nativeCanvas.rotate(-90f, -32.dp.toPx(), height / 2)
                     paint.textAlign = android.graphics.Paint.Align.CENTER
+                    // Note: Cannot use stringResource here as we are in a DrawScope
+                    // For now keeping it hardcoded or passing it in if needed.
+                    // But standard approach for DrawScope is to pass it in.
+                    // For simplicity, let's keep it hardcoded for now or use a variable.
                     drawContext.canvas.nativeCanvas.drawText(
                         "# of catches",
                         -32.dp.toPx(),
@@ -243,13 +249,13 @@ fun SessionHistoryItem(session: SessionSummary, onClick: () -> Unit) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = dateString, fontWeight = FontWeight.Bold)
                 Text(
-                    text = "${session.ballCount} balls • ${session.runCount} runs • ${session.totalThrows} catches",
+                    text = stringResource(R.string.format_session_summary, session.ballCount, session.runCount, session.totalThrows),
                     fontSize = 12.sp
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                StatItem("Average", "%.1f (±%.1f)".format(session.avgThrows, session.stdDevThrows))
-                StatItem("Best", session.bestRun.toString())
+                StatItem(stringResource(R.string.label_average), stringResource(R.string.format_avg_with_stddev, session.avgThrows, session.stdDevThrows))
+                StatItem(stringResource(R.string.label_best), session.bestRun.toString())
             }
         }
     }
@@ -264,7 +270,7 @@ fun SessionDetailsDialog(session: SessionSummary, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = {
             Column {
-                Text(text = "Session Details", style = MaterialTheme.typography.headlineSmall)
+                Text(text = stringResource(R.string.dialog_session_details_title), style = MaterialTheme.typography.headlineSmall)
                 Text(text = dateString, style = MaterialTheme.typography.bodyMedium)
             }
         },
@@ -277,7 +283,7 @@ fun SessionDetailsDialog(session: SessionSummary, onDismiss: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = "${session.ballCount} Balls • ${session.runCount} Runs",
+                    text = stringResource(R.string.format_session_details_summary, session.ballCount, session.runCount),
                     style = MaterialTheme.typography.titleMedium,
                 )
                 
@@ -292,9 +298,9 @@ fun SessionDetailsDialog(session: SessionSummary, onDismiss: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    StatItem("Average", "%.1f".format(session.avgThrows))
-                    StatItem("Best", session.bestRun.toString())
-                    StatItem("Total", session.totalThrows.toString())
+                    StatItem(stringResource(R.string.stat_avg), "%.1f".format(session.avgThrows))
+                    StatItem(stringResource(R.string.stat_max), session.bestRun.toString())
+                    StatItem(stringResource(R.string.stat_total), session.totalThrows.toString())
                 }
 
                 if (session.runDurationsMillis.isNotEmpty()) {
@@ -310,15 +316,15 @@ fun SessionDetailsDialog(session: SessionSummary, onDismiss: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
-                        StatItem("Average Frequency", "%.2f/s".format(avgFreq))
-                        StatItem("Average Gap", "%.2fs".format(avgGap))
+                        StatItem(stringResource(R.string.stat_avg_frequency), stringResource(R.string.format_frequency, avgFreq))
+                        StatItem(stringResource(R.string.stat_avg_gap), stringResource(R.string.format_gap, avgGap))
                     }
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close")
+                Text(stringResource(R.string.action_close))
             }
         }
     )

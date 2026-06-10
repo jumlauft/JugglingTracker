@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "188159348969",
+    "project_id": "jugglingtracker-abec0",
+    "storage_bucket": "jugglingtracker-abec0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:188159348969:android:1e29d39227692d0c466078",
+        "android_client_info": {
+          "package_name": "com.juggling.tracker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCbMUqw3Du1XzT5dslPW3p2zNzPcU2u6OA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

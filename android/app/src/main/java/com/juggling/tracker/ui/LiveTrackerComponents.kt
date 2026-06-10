@@ -1,4 +1,4 @@
-package com.jugglingtracker.imu.ui
+package com.juggling.tracker.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Canvas
@@ -11,8 +11,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.juggling.tracker.R
 
 @Composable
 fun StatusIndicator(isJuggling: Boolean) {
@@ -27,7 +29,7 @@ fun StatusIndicator(isJuggling: Boolean) {
         border = androidx.compose.foundation.BorderStroke(width = 1.dp, color = statusColor),
     ) {
         Text(
-            text = if (isJuggling) "JUGGLING..." else "READY",
+            text = if (isJuggling) stringResource(R.string.label_juggling) else stringResource(R.string.label_ready),
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelLarge,
             color = statusColor
@@ -55,7 +57,7 @@ fun CurrentRunCard(throwCount: Int, previousRunCount: Int? = null) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.weight(1f)
             ) {
-                Text(text = "CATCHES", style = MaterialTheme.typography.labelMedium)
+                Text(text = stringResource(R.string.stat_catches), style = MaterialTheme.typography.labelMedium)
                 Text(
                     text = throwCount.toString(),
                     style = MaterialTheme.typography.displayLarge,
@@ -74,7 +76,7 @@ fun CurrentRunCard(throwCount: Int, previousRunCount: Int? = null) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(text = "PREVIOUS HAND", style = MaterialTheme.typography.labelMedium)
+                    Text(text = stringResource(R.string.stat_previous_hand), style = MaterialTheme.typography.labelMedium)
                     Text(
                         text = previousRunCount.toString(),
                         style = MaterialTheme.typography.displayMedium,

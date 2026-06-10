@@ -1,10 +1,11 @@
-package com.jugglingtracker.imu.data
+package com.juggling.tracker.data
 
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import androidx.core.content.edit
-import com.jugglingtracker.imu.model.SessionSummary
+import com.juggling.tracker.model.SessionSummary
 import androidx.compose.runtime.mutableStateListOf
 import kotlin.math.sqrt
 
@@ -88,6 +89,7 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
             sharedPrefs.edit { putString(sessionsKey, "[$json]") }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save sessions to storage", e)
+            FirebaseCrashlytics.getInstance().recordException(e)
         }
     }
     
@@ -128,24 +130,65 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
             sessionsCache.addAll(sessions.sortedByDescending { it.timestamp })
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load sessions from storage", e)
+            FirebaseCrashlytics.getInstance().recordException(e)
         }
     }
     
     private fun buildSessionJson(session: SessionSummary): String {
-        val obj = org.json.JSONObject().apply {
-            put("id", session.id)
-            put("timestamp", session.timestamp)
-            put("ballCount", session.ballCount)
-            put("runCount", session.runCount)
-            put("avgThrows", session.avgThrows)
-            put("stdDevThrows", session.stdDevThrows)
-            put("bestRun", session.bestRun)
-            put("totalThrows", session.totalThrows)
-            put("runHistory", org.json.JSONArray(session.runHistory))
-            put("durationSeconds", session.durationSeconds)
-            put("runDurationsMillis", org.json.JSONArray(session.runDurationsMillis))
+        return try {
+            val json = org.json.JSONObject()
+            json.put("id", session.id)
+            json.put("timestamp", session.timestamp)
+            json.put("ballCount", session.ballCount)
+            json.put("runCount", session.runCount)
+            json.put("avgThrows", session.avgThrows)
+            json.put("stdDevThrows", session.stdDevThrows)
+            json.put("bestRun", session.bestRun)
+            json.put("totalThrows", session.totalThrows)
+            json.put("runHistory", org.json.JSONArray(session.runHistory))
+            json.put("durationSeconds", session.durationSeconds)
+            json.put("runDurationsMillis", org.json.JSONArray(session.runDurationsMillis))
+            json.toString()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to build session JSON", e)
+            FirebaseCrashlytics.getInstance().recordException(e)
+            "{}"
         }
-        return obj.toString()
+    }
+    
+    private fun parseSessionJson(json: org.json.JSONObject): SessionSummary? {
+        return try {
+            val id = json.getInt("id")
+            val timestamp = json.getLong("timestamp")
+            val ballCount = json.getInt("ballCount")
+            val runCount = json.getInt("runCount")
+            val avgThrows = json.getDouble("avgThrows")
+            val stdDevThrows = json.getDouble("stdDevThrows")
+            val avgConsistency = json.optDouble("avgConsistency", 0.0)
+            val bestRun = json.getInt("bestRun")
+            val totalThrows = json.getInt("totalThrows")
+            val runHistory = json.getJSONArray("runHistory").toList()
+            val durationSeconds = json.optLong("durationSeconds", 0L)
+            val runDurationsMillis = readLongArray(json, "runDurationsMillis")
+            SessionSummary(
+                id = id,
+                timestamp = timestamp,
+                ballCount = ballCount,
+                runCount = runCount,
+                avgThrows = avgThrows,
+                stdDevThrows = stdDevThrows,
+                avgConsistency = avgConsistency,
+                bestRun = bestRun,
+                totalThrows = totalThrows,
+                runHistory = runHistory,
+                durationSeconds = durationSeconds,
+                runDurationsMillis = runDurationsMillis,
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse session JSON", e)
+            FirebaseCrashlytics.getInstance().recordException(e)
+            null
+        }
     }
 
     private fun readLongArray(obj: org.json.JSONObject, key: String): List<Long> {

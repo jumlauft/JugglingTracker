@@ -1,6 +1,6 @@
-package com.jugglingtracker.imu.data
+package com.juggling.tracker.data
 
-import com.jugglingtracker.imu.FakeSharedPreferences
+import com.juggling.tracker.FakeSharedPreferences
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test

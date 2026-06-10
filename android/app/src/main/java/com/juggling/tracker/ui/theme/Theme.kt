@@ -1,4 +1,4 @@
-package com.jugglingtracker.imu.ui.theme
+package com.juggling.tracker.ui.theme
 
 import android.app.Activity
 import android.os.Build

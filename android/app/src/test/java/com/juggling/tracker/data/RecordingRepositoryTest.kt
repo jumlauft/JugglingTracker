@@ -1,4 +1,4 @@
-package com.jugglingtracker.imu.data
+package com.juggling.tracker.data
 
 import org.junit.After
 import org.junit.Assert.*

@@ -1,15 +1,17 @@
-package com.jugglingtracker.imu.logic
+package com.juggling.tracker.logic
 
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.jugglingtracker.imu.model.SessionSummary
-import com.jugglingtracker.imu.data.SessionRepository
-import com.jugglingtracker.imu.data.RecordingRepository
+import com.juggling.tracker.model.SessionSummary
+import com.juggling.tracker.data.SessionRepository
+import com.juggling.tracker.data.RecordingRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlin.math.sqrt
+import android.os.Bundle
+import com.google.firebase.analytics.FirebaseAnalytics
 
 sealed class JugglingEvent {
     data class Announcement(val text: String) : JugglingEvent()
@@ -45,6 +47,7 @@ data class PhoneSessionUiState(
 class JugglingViewModel(
     private val repository: SessionRepository? = null,
     private val recordingRepository: RecordingRepository? = null,
+    private val analytics: FirebaseAnalytics? = null,
 ) : ViewModel() {
     // Garmin Status
     var garminStatus by mutableStateOf(GarminConnectionStatus.NOT_INITIALIZED)
@@ -94,6 +97,14 @@ class JugglingViewModel(
         val runsRaw = payload["runs"] as? List<Any> ?: return
         val runs = runsRaw.mapNotNull { (it as? Number)?.toInt() }
         if (runs.isEmpty()) return
+
+        analytics?.logEvent("import_session", Bundle().apply {
+            putInt("ball_count", balls)
+            putInt("run_count", runs.size)
+            putInt("total_throws", runs.sum())
+            putString("source", "garmin_watch")
+        })
+
         val runDurationsMillis = normalizeRunDurations(runs.size, parseLongList(payload["runDurationsMillis"]))
 
         storeFinishedSession(balls, timestamp, runs, durationSeconds, runDurationsMillis)
@@ -187,6 +198,12 @@ class JugglingViewModel(
         val sampleRate = (payload["sampleRate"] as? Number)?.toInt() ?: 25
         val timestamp = (payload["timestamp"] as? Number)?.toLong() ?: return
 
+        analytics?.logEvent("import_recording", Bundle().apply {
+            putInt("ball_count", balls)
+            putInt("catches", catches)
+            putString("source", "garmin_watch")
+        })
+
         @Suppress("UNCHECKED_CAST")
         val xRaw = payload["accelX"] as? List<Any> ?: return
         @Suppress("UNCHECKED_CAST")
@@ -240,6 +257,10 @@ class JugglingViewModel(
             isRecording = true,
             statusMessage = "Waiting for juggling input",
         )
+
+        analytics?.logEvent("start_phone_session", Bundle().apply {
+            putInt("ball_count", sanitizedBallCount)
+        })
     }
 
     fun processPhoneSample(ax: Double, ay: Double, az: Double, timestampNanos: Long) {
@@ -268,6 +289,14 @@ class JugglingViewModel(
 
         val runs = detector.runCatches()
         val selectedBallCount = detector.ballCount.coerceIn(3, 9)
+        
+        analytics?.logEvent("stop_phone_session", Bundle().apply {
+            putInt("ball_count", selectedBallCount)
+            putInt("run_count", runs.size)
+            putInt("total_throws", runs.sum())
+            putBoolean("success", true)
+        })
+
         if (runs.isEmpty()) {
             resetPhoneSession("No phone runs to save")
             phoneSessionState = phoneSessionState.copy(sensorError = "No phone runs to save")
