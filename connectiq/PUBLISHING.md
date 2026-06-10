@@ -1,5 +1,14 @@
+# Juggling Tracker Garmin Publishing Checklist
 
-## Store Listing Assets
+## 1. Technical Requirements
+
+- [ ] **Developer Key**: Ensure you have `connectiq/developer_key.der`. 
+    - *Note*: If you lose this, you cannot update your app in the store.
+- [ ] **Build App Package**: Generate the `.iq` file for upload.
+    - Run: `monkeyc -e -f connectiq/monkey.jungle -o connectiq/JugglingTracker.iq -y connectiq/developer_key.der`
+- [ ] **Versioning**: Increment `version` in `connectiq/manifest.xml` for every new release.
+
+## 2. Store Listing Assets
 
 
 - **Ttitle**: (Max 50 chars)
@@ -19,12 +28,9 @@
 - **Privacy Policy URL**:
     https://github.com/jumlauft/JugglingTracker/
 - **Visual Assets**:
-    * **Cover Image**: 500x500 PNG (`connectiq/cover_image.png`)
-    * **Hero Image**: 1440x720 PNG (`android/garmin_hero_image.png`)
-    * **App Store Icon (64 Color)**: 128x128 PNG (`connectiq/app_store_icon_128_64color.png`)
-    * **App Store Icon (24-bit Color)**: 128x128 PNG (`connectiq/app_store_icon_128_24bit.png`)
-    * **Screenshots**:
-        * **Main Tracking Screen**: `connectiq/resources/images/screenshot_main.png`
-        * **Mode Selection Menu**: `connectiq/resources/images/screenshot_menu.png`
+    * **Cover Image**: 500x500 PNG (`connectiq/resources/images/cover_image.png`)
+    * **App Store Icon (64 Color)**: 128x128 PNG (`connectiq/resources/images/app_store_icon_128_64color.png`)
+    * **App Store Icon (24-bit Color)**: 128x128 PNG (`connectiq/resources/images/app_store_icon_128_24bit.png`)
+    * **Screenshots**: Found in `connectiq/resources/images/`
 
 

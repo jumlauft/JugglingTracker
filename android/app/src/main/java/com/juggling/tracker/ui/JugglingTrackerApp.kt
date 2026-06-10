@@ -29,6 +29,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.juggling.tracker.R
 import com.juggling.tracker.logic.GarminConnectionStatus
 import com.juggling.tracker.logic.JugglingEvent
@@ -116,32 +117,37 @@ fun JugglingTrackerApp(
     }
 
     // TTS Setup
+    var isTtsReady by remember { mutableStateOf(false) }
     val tts = remember {
-        var ttsInstance: TextToSpeech? = null
-        ttsInstance = TextToSpeech(context) { status ->
+        TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                ttsInstance?.language = Locale.US
+                isTtsReady = true
             }
         }
-        ttsInstance
     }
 
-    LaunchedEffect(viewModel) {
+    LaunchedEffect(tts, isTtsReady) {
+        if (isTtsReady) {
+            tts.language = Locale.US
+        }
+    }
+
+    LaunchedEffect(viewModel, isTtsReady) {
         viewModel.events.collect { event ->
             when (event) {
                 is JugglingEvent.Announcement -> {
-                    tts?.speak(event.text, TextToSpeech.QUEUE_FLUSH, null, null)
+                    if (isTtsReady) tts.speak(event.text, TextToSpeech.QUEUE_FLUSH, null, null)
                 }
                 is JugglingEvent.SyncStarted -> {
                     // No toast when sync starts as per user request
                 }
                 is JugglingEvent.SyncCompleted -> {
                     Toast.makeText(context, context.getString(R.string.toast_sync_completed, event.count, event.ballCount), Toast.LENGTH_LONG).show()
-                    tts?.speak(context.getString(R.string.toast_sync_completed, event.count, event.ballCount), TextToSpeech.QUEUE_FLUSH, null, null)
+                    if (isTtsReady) tts.speak(context.getString(R.string.toast_sync_completed, event.count, event.ballCount), TextToSpeech.QUEUE_FLUSH, null, null)
                 }
                 is JugglingEvent.PhoneSessionSaved -> {
                     Toast.makeText(context, context.getString(R.string.toast_phone_session_saved, event.count, event.ballCount), Toast.LENGTH_LONG).show()
-                    tts?.speak(context.getString(R.string.toast_phone_session_saved, event.count, event.ballCount), TextToSpeech.QUEUE_FLUSH, null, null)
+                    if (isTtsReady) tts.speak(context.getString(R.string.toast_phone_session_saved, event.count, event.ballCount), TextToSpeech.QUEUE_FLUSH, null, null)
                 }
             }
         }
@@ -157,8 +163,8 @@ fun JugglingTrackerApp(
 
     DisposableEffect(Unit) {
         onDispose { 
-            tts?.stop()
-            tts?.shutdown()
+            tts.stop()
+            tts.shutdown()
         }
     }
 
@@ -407,6 +413,11 @@ fun GarminStatusHeader(
             Color(0xFFC62828), // Dark Red
             stringResource(R.string.garmin_missing)
         )
+        GarminConnectionStatus.DISCONNECTED -> Triple(
+            Color(0xFFFFEBEE), // Light Red
+            Color(0xFFC62828), // Dark Red
+            stringResource(R.string.garmin_disconnected)
+        )
         GarminConnectionStatus.BLUETOOTH_DISABLED,
         GarminConnectionStatus.NO_PAIRED_DEVICES,
         GarminConnectionStatus.SDK_ERROR -> Triple(
@@ -438,7 +449,7 @@ fun GarminStatusHeader(
                     GarminConnectionStatus.READY -> onGarminSessionClick()
                     GarminConnectionStatus.RECEIVING,
                     GarminConnectionStatus.NOT_INITIALIZED -> {}
-                    else -> onGarminLinkClick()
+                    else -> onGarminLinkClick() // Show checklist for any error/disconnected state
                 }
             },
             colors = CardDefaults.cardColors(containerColor = backgroundColor)
@@ -751,6 +762,60 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             .verticalScroll(state = rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(space = 16.dp),
     ) {
+        // Voice Settings
+        Text(text = stringResource(R.string.section_voice), style = MaterialTheme.typography.titleLarge)
+        
+        SettingToggle(
+            label = stringResource(R.string.label_voice_enabled),
+            checked = viewModel.isVoiceEnabled,
+            onCheckedChange = { viewModel.toggleVoice(it) }
+        )
+
+        if (viewModel.isVoiceEnabled) {
+            Column(modifier = Modifier.padding(horizontal = 8.dp)) {
+                Text(
+                    text = stringResource(R.string.label_voice_interval),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(1, 2, 5, 10, 20, 50, 100).forEach { interval ->
+                        FilterChip(
+                            selected = viewModel.voiceInterval == interval,
+                            onClick = { viewModel.setVoiceInterval(interval) },
+                            label = { Text(stringResource(R.string.format_voice_interval, interval)) }
+                        )
+                    }
+                }
+            }
+        }
+
+        HorizontalDivider()
+
+        // Privacy Settings
+        Text(text = stringResource(R.string.section_privacy), style = MaterialTheme.typography.titleLarge)
+        
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            SettingToggle(
+                label = stringResource(R.string.label_share_data),
+                checked = viewModel.isAnalyticsEnabled,
+                onCheckedChange = { viewModel.toggleAnalytics(it) }
+            )
+            Text(
+                text = stringResource(R.string.desc_share_data),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+        }
+
+        HorizontalDivider()
+
+        // Data Management
         Text(text = stringResource(R.string.section_data_management), style = MaterialTheme.typography.titleLarge)
         
         Button(
@@ -797,6 +862,7 @@ fun GarminLinkDialog(onDismiss: () -> Unit) {
                 Text(stringResource(R.string.dialog_garmin_condition_connect_app))
                 Text(stringResource(R.string.dialog_garmin_condition_ciq_app))
                 Text(stringResource(R.string.dialog_garmin_condition_open))
+                Text(stringResource(R.string.dialog_garmin_condition_range))
             }
         },
         confirmButton = {

@@ -23,8 +23,16 @@
 
     <string name="section_session_history">Session History</string>
     <string name="section_data_management">Data Management</string>
+    <string name="section_privacy">Privacy</string>
+    <string name="section_voice">Voice Announcements</string>
     <string name="section_ball_count">Ball Count</string>
     <string name="phone_session_instructions">Select the number of balls, mount the phone to your wrist/forearm, and press start to initiate a juggling session.</string>
+
+    <string name="label_share_data">Share app activity and crash reports</string>
+    <string name="desc_share_data">Helps us improve the app by sending anonymous usage data and error reports.</string>
+    <string name="label_voice_enabled">Enable Voice</string>
+    <string name="label_voice_interval">Announcement Interval</string>
+    <string name="format_voice_interval">%1$d catches</string>
 
     <string name="action_save_and_quit">Save and quit session</string>
     <string name="action_quit_without_saving">Quit without saving data</string>
@@ -33,6 +41,7 @@
     <string name="empty_history_text">Start juggling on your watch or phone and\nresults will appear here automatically.</string>
 
     <string name="garmin_ready">Ready to record with Garmin</string>
+    <string name="garmin_disconnected">Watch is not connected via Bluetooth</string>
     <string name="garmin_missing">Watch is not linked correctly to phone</string>
     <string name="garmin_install_advice">Install it from the Play Store to sync with your watch.</string>
     <string name="label_record_with_garmin">Record with Garmin watch</string>
@@ -80,6 +89,7 @@
     <string name="dialog_garmin_condition_connect_app">3. The \"Garmin Connect\" app is installed and your watch is paired within it.</string>
     <string name="dialog_garmin_condition_ciq_app">4. The \"Juggling Tracker\" watch app is installed via the \"Connect IQ Store\".</string>
     <string name="dialog_garmin_condition_open">5. The Juggling activity is open on your watch.</string>
+    <string name="dialog_garmin_condition_range">6. Your watch is within Bluetooth range of your phone.</string>
     <string name="action_open_play_store">Open Play Store</string>
 
     <string name="dialog_garmin_session_title">Start Garmin Session</string>

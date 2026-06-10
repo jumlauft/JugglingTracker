@@ -6,7 +6,7 @@ applyTo: "connectiq/**/*.mc"
 
 ## Language
 - Monkey C targeting Connect IQ SDK 4.3+, min API 3.3.0.
-- Target devices: FR245, FR245M.
+- Target devices: All devices with API Level 3.3 or higher (e.g., FR245, Fenix 6, Venu, etc.).
 
 ## App Structure
 - Watch classes are split by feature under `connectiq/source/`.

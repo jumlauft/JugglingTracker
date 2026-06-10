@@ -33,6 +33,7 @@ import com.juggling.tracker.logic.GarminConnectionStatus
 import com.juggling.tracker.logic.JugglingViewModel
 import com.juggling.tracker.data.SessionRepository
 import com.juggling.tracker.data.RecordingRepository
+import com.juggling.tracker.data.SettingsManager
 import com.juggling.tracker.ui.JugglingTrackerApp
 import com.juggling.tracker.ui.theme.JugglingTrackerTheme
 import com.google.firebase.analytics.FirebaseAnalytics
@@ -49,13 +50,14 @@ class MainActivity : ComponentActivity() {
 
     private val repository: SessionRepository by lazy { SessionRepository(this) }
     private val recordingRepository: RecordingRepository by lazy { RecordingRepository(this) }
+    private val settingsManager: SettingsManager by lazy { SettingsManager(this) }
     private val analytics: FirebaseAnalytics by lazy { FirebaseAnalytics.getInstance(this) }
     
     private val viewModel: JugglingViewModel by viewModels {
         object : androidx.lifecycle.ViewModelProvider.Factory {
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
                 @Suppress("UNCHECKED_CAST")
-                return JugglingViewModel(repository, recordingRepository, analytics) as T
+                return JugglingViewModel(repository, recordingRepository, analytics, settingsManager) as T
             }
         }
     }
@@ -93,6 +95,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+
+        // Apply privacy settings to Firebase on startup
+        val isAnalyticsEnabled = settingsManager.isAnalyticsEnabled
+        analytics.setAnalyticsCollectionEnabled(isAnalyticsEnabled)
+        com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
+            .setCrashlyticsCollectionEnabled(isAnalyticsEnabled)
+
         setContent {
             JugglingTrackerTheme {
                 Surface(
@@ -210,8 +219,37 @@ class MainActivity : ComponentActivity() {
             if (!devices.isNullOrEmpty()) {
                 val device = devices[0]
                 iqDevice = device
-                viewModel.garminStatus = GarminConnectionStatus.READY
-                viewModel.statusMessage = "Connected to ${device.friendlyName}"
+                
+                // Register for device status changes (Bluetooth connection/disconnection)
+                connectIQ.registerForDeviceEvents(device) { _, status ->
+                    runOnUiThread {
+                        when (status) {
+                            IQDevice.IQDeviceStatus.CONNECTED -> {
+                                viewModel.garminStatus = GarminConnectionStatus.READY
+                                viewModel.statusMessage = "Connected to ${device.friendlyName}"
+                            }
+                            IQDevice.IQDeviceStatus.NOT_CONNECTED -> {
+                                viewModel.garminStatus = GarminConnectionStatus.DISCONNECTED
+                                viewModel.statusMessage = "Watch disconnected from phone"
+                            }
+                            else -> {
+                                viewModel.garminStatus = GarminConnectionStatus.SDK_ERROR
+                                viewModel.statusMessage = "Unknown device status: ${status.name}"
+                            }
+                        }
+                    }
+                }
+
+                // Initial status check
+                val initialStatus = connectIQ.getDeviceStatus(device)
+                if (initialStatus == IQDevice.IQDeviceStatus.CONNECTED) {
+                    viewModel.garminStatus = GarminConnectionStatus.READY
+                    viewModel.statusMessage = "Connected to ${device.friendlyName}"
+                } else {
+                    viewModel.garminStatus = GarminConnectionStatus.DISCONNECTED
+                    viewModel.statusMessage = "Watch disconnected from phone"
+                }
+
                 registerImuAppListener()
             } else {
                 viewModel.garminStatus = GarminConnectionStatus.NO_PAIRED_DEVICES

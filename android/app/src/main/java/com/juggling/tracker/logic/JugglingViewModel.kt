@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.juggling.tracker.model.SessionSummary
 import com.juggling.tracker.data.SessionRepository
 import com.juggling.tracker.data.RecordingRepository
+import com.juggling.tracker.data.SettingsManager
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
@@ -50,14 +51,36 @@ class JugglingViewModel(
     private val repository: SessionRepository? = null,
     private val recordingRepository: RecordingRepository? = null,
     private val analytics: FirebaseAnalytics? = null,
+    private val settings: SettingsManager? = null,
 ) : ViewModel() {
     // Garmin Status
     var garminStatus by mutableStateOf(GarminConnectionStatus.NOT_INITIALIZED)
     var statusMessage by mutableStateOf("")
 
     // Settings
-    var isVoiceEnabled by mutableStateOf(value = true)
-    var voiceInterval by mutableIntStateOf(10)
+    val isAnalyticsEnabled get() = settings?.isAnalyticsEnabled ?: true
+    val isVoiceEnabled get() = settings?.isVoiceEnabled ?: true
+    val voiceInterval get() = settings?.voiceInterval ?: 10
+
+    fun toggleAnalytics(enabled: Boolean) {
+        settings?.updateAnalyticsEnabled(enabled)
+        analytics?.setAnalyticsCollectionEnabled(enabled)
+        // Note: Crashlytics collection is usually set via MainActivity as it requires 
+        // a restart or is easier to manage there, but we can set it here too if possible.
+        try {
+            com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(enabled)
+        } catch (e: Exception) {
+            // Ignored in tests
+        }
+    }
+
+    fun toggleVoice(enabled: Boolean) {
+        settings?.updateVoiceEnabled(enabled)
+    }
+
+    fun setVoiceInterval(interval: Int) {
+        settings?.updateVoiceInterval(interval)
+    }
 
     // Event Flow
     private val _events = MutableSharedFlow<JugglingEvent>()
@@ -280,9 +303,25 @@ class JugglingViewModel(
         }
         phoneLastProcessedSampleMillis = sampleMs
 
+        val oldCount = detector.currentCount
         detector.processSample(ax, ay, az, sampleMs)
+        val newCount = detector.currentCount
         detector.checkAutoFinish(sampleMs)
+        
+        if (newCount > oldCount) {
+            checkVoiceAnnouncement(newCount)
+        }
+
         updatePhoneSessionStateFromDetector(sampleMs)
+    }
+
+    private fun checkVoiceAnnouncement(count: Int) {
+        if (!isVoiceEnabled) return
+        if (count > 0 && count % voiceInterval == 0) {
+            viewModelScope.launch {
+                _events.emit(JugglingEvent.Announcement(count.toString()))
+            }
+        }
     }
 
     fun stopPhoneSessionAndSave(stoppedAtMillis: Long = System.currentTimeMillis()): Boolean {
