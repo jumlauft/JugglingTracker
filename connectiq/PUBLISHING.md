@@ -16,6 +16,15 @@
     * Optimized for Performance: Low-power sensor monitoring ensures your battery lasts through even the longest practice sessions.
     * Seamless Sync: Transmits finished sessions to the Juggling Tracker Android app for long-term visualization and history. (It can also be used standalone).  
 
+- **Visual Assets**:
+    * **Cover Image**: 500x500 PNG (`connectiq/cover_image.png`)
+    * **Hero Image**: 1440x720 PNG (`android/garmin_hero_image.png`)
+    * **App Store Icon (64 Color)**: 128x128 PNG (`connectiq/app_store_icon_128_64color.png`)
+    * **App Store Icon (24-bit Color)**: 128x128 PNG (`connectiq/app_store_icon_128_24bit.png`)
+    * **Screenshots**:
+        * **Main Tracking Screen**: `connectiq/resources/images/screenshot_main.png`
+        * **Mode Selection Menu**: `connectiq/resources/images/screenshot_menu.png`
+
 ## Privacy Policy
 
 **Privacy Policy for Juggling Tracker (Garmin Watch App)**
