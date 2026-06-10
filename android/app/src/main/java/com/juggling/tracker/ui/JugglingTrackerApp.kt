@@ -3,6 +3,7 @@ package com.juggling.tracker.ui
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -51,6 +52,13 @@ fun JugglingTrackerApp(
 ) {
     var currentScreen by remember { mutableStateOf(Screen.Tracker) }
     val context = LocalContext.current
+
+    BackHandler(enabled = currentScreen != Screen.Tracker) {
+        if (currentScreen == Screen.PhoneSession) {
+            onCancelPhoneSession()
+        }
+        currentScreen = Screen.Tracker
+    }
 
     // TTS Setup
     val tts = remember {
