@@ -5,38 +5,59 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <path
-        android:fillColor="@android:color/transparent"
-        android:pathData="M31,40 C37,26 47,19 54,18 C61,19 71,26 77,40"
-        android:strokeWidth="4.2"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeLineCap="round" />
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M33,31 C29.13,31 26,34.13 26,38 C26,41.87 29.13,45 33,45 C36.87,45 40,41.87 40,38 C40,34.13 36.87,31 33,31 Z" />
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M54,10 C50.13,10 47,13.13 47,17 C47,20.87 50.13,24 54,24 C57.87,24 61,20.87 61,17 C61,13.13 57.87,10 54,10 Z" />
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M75,31 C71.13,31 68,34.13 68,38 C68,41.87 71.13,45 75,45 C78.87,45 82,41.87 82,38 C82,34.13 78.87,31 75,31 Z" />
-    <path
-        android:fillColor="@android:color/transparent"
-        android:pathData="M45,39 L63,39 C65.21,39 67,40.79 67,43 L67,52 M41,52 L41,43 C41,40.79 42.79,39 45,39 M41,82 L41,89 C41,91.21 42.79,93 45,93 L63,93 C65.21,93 67,91.21 67,89 L67,82"
-        android:strokeWidth="4"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <path
-        android:fillColor="@android:color/transparent"
-        android:pathData="M42,48 L66,48 C70.42,48 74,51.58 74,56 L74,80 C74,84.42 70.42,88 66,88 L42,88 C37.58,88 34,84.42 34,80 L34,56 C34,51.58 37.58,48 42,48 Z"
-        android:strokeWidth="5"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeLineJoin="round" />
-    <path
-        android:fillColor="@android:color/transparent"
-        android:pathData="M45,69 C48.5,64.5 59.5,64.5 63,69"
-        android:strokeWidth="3"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeLineCap="round" />
+    <group
+        android:translateX="54"
+        android:translateY="54">
+
+        <!-- Upward Trending Stats Line (Background) -->
+        <group android:translateY="22">
+            <path
+                android:strokeColor="#FF000000"
+                android:strokeWidth="2.5"
+                android:strokeAlpha="0.35"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:pathData="M-42,28 L-25,22 L-8,30 L10,10 L28,12 L42,-15" />
+
+            <!-- Data Points on the line -->
+            <path android:fillColor="#FF000000" android:fillAlpha="0.35" android:pathData="M-42,28m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
+            <path android:fillColor="#FF000000" android:fillAlpha="0.35" android:pathData="M-25,22m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
+            <path android:fillColor="#FF000000" android:fillAlpha="0.35" android:pathData="M-8,30m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
+            <path android:fillColor="#FF000000" android:fillAlpha="0.35" android:pathData="M10,10m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
+            <path android:fillColor="#FF000000" android:fillAlpha="0.35" android:pathData="M28,12m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
+            <path android:fillColor="#FF000000" android:fillAlpha="0.35" android:pathData="M42,-15m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
+
+            <!-- Arrowhead at the end of the trend line -->
+            <path
+                android:fillColor="#FF000000"
+                android:fillAlpha="0.35"
+                android:pathData="M48,-27 L46,-13 L38,-17 Z" />
+        </group>
+
+        <!-- Stick Figure (Foreground) -->
+        <!-- Head -->
+        <path
+            android:fillColor="#FF000000"
+            android:pathData="M0,-12m-6,0a6,6 0,1 1,12 0a6,6 0,1 1,-12 0" />
+
+        <!-- Body and Limbs -->
+        <path
+            android:strokeColor="#FF000000"
+            android:strokeWidth="4"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M0,-6 L0,12 M0,0 L-15,-10 M0,0 L15,-10 M0,12 L-10,25 M0,12 L10,25" />
+
+        <!-- Juggling Balls -->
+        <path
+            android:fillColor="#FF000000"
+            android:pathData="M-18,-25m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
+        <path
+            android:fillColor="#FF000000"
+            android:pathData="M0,-32m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
+        <path
+            android:fillColor="#FF000000"
+            android:pathData="M18,-25m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
+
+    </group>
 </vector>

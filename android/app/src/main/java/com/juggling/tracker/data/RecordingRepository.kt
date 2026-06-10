@@ -2,7 +2,7 @@ package com.juggling.tracker.data
 
 import android.content.Context
 import android.util.Log
-import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.juggling.tracker.util.CrashlyticsUtils
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -69,7 +69,7 @@ class RecordingRepository(private val recordingsDir: File) {
             file
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save recording", e)
-            FirebaseCrashlytics.getInstance().recordException(e)
+            CrashlyticsUtils.recordException(e)
             null
         }
     }

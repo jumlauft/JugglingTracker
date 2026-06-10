@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -51,13 +52,67 @@ fun JugglingTrackerApp(
     modifier: Modifier = Modifier,
 ) {
     var currentScreen by remember { mutableStateOf(Screen.Tracker) }
+    var showQuitConfirmation by remember { mutableStateOf(false) }
+    var showGarminLinkInstructions by remember { mutableStateOf(false) }
+    var showGarminSessionInstructions by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
+    if (showGarminLinkInstructions) {
+        GarminLinkDialog(onDismiss = { showGarminLinkInstructions = false })
+    }
+
+    if (showGarminSessionInstructions) {
+        GarminSessionDialog(onDismiss = { showGarminSessionInstructions = false })
+    }
+
     BackHandler(enabled = currentScreen != Screen.Tracker) {
-        if (currentScreen == Screen.PhoneSession) {
-            onCancelPhoneSession()
+        if (currentScreen == Screen.PhoneSession && viewModel.phoneSessionState.isRecording) {
+            showQuitConfirmation = true
+        } else {
+            currentScreen = Screen.Tracker
         }
-        currentScreen = Screen.Tracker
+    }
+
+    if (showQuitConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showQuitConfirmation = false },
+            title = { Text(stringResource(R.string.dialog_quit_session_title)) },
+            text = { Text(stringResource(R.string.dialog_quit_session_text)) },
+            confirmButton = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            onStopPhoneSession()
+                            showQuitConfirmation = false
+                            currentScreen = Screen.Tracker
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.action_save_and_quit))
+                    }
+                    Button(
+                        onClick = {
+                            onCancelPhoneSession()
+                            showQuitConfirmation = false
+                            currentScreen = Screen.Tracker
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text(stringResource(R.string.action_quit_without_saving))
+                    }
+                    TextButton(
+                        onClick = { showQuitConfirmation = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.action_continue_session))
+                    }
+                }
+            }
+        )
     }
 
     // TTS Setup
@@ -124,8 +179,12 @@ fun JugglingTrackerApp(
                     if (currentScreen != Screen.Tracker) {
                         IconButton(
                             onClick = {
-                                if (currentScreen == Screen.PhoneSession) onCancelPhoneSession()
-                                currentScreen = Screen.Tracker
+                                if (currentScreen == Screen.PhoneSession && viewModel.phoneSessionState.isRecording) {
+                                    showQuitConfirmation = true
+                                } else {
+                                    if (currentScreen == Screen.PhoneSession) onCancelPhoneSession()
+                                    currentScreen = Screen.Tracker
+                                }
                             },
                         ) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
@@ -148,6 +207,8 @@ fun JugglingTrackerApp(
                     viewModel = viewModel,
                     isWatchAppRunning = isWatchAppRunning,
                     onPhoneRecordClick = { currentScreen = Screen.PhoneSession },
+                    onGarminLinkClick = { showGarminLinkInstructions = true },
+                    onGarminSessionClick = { showGarminSessionInstructions = true },
                 ) { selectedSessionForDetails.value = it }
             } else if (currentScreen == Screen.PhoneSession) {
                 PhoneSessionScreen(
@@ -170,6 +231,8 @@ fun TrackerScreen(
     viewModel: JugglingViewModel,
     isWatchAppRunning: Boolean,
     onPhoneRecordClick: () -> Unit,
+    onGarminLinkClick: () -> Unit,
+    onGarminSessionClick: () -> Unit,
     onSessionClick: (SessionSummary) -> Unit,
 ) {
     var sessionToDelete by remember { mutableStateOf<SessionSummary?>(null) }
@@ -211,6 +274,8 @@ fun TrackerScreen(
             status = viewModel.garminStatus,
             message = viewModel.statusMessage,
             onPhoneRecordClick = onPhoneRecordClick,
+            onGarminLinkClick = onGarminLinkClick,
+            onGarminSessionClick = onGarminSessionClick,
         )
 
         if (viewModel.completedSessions.isNotEmpty()) {
@@ -317,11 +382,14 @@ fun TrackerScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GarminStatusHeader(
     status: GarminConnectionStatus,
     message: String,
     onPhoneRecordClick: () -> Unit,
+    onGarminLinkClick: () -> Unit,
+    onGarminSessionClick: () -> Unit,
 ) {
     val (backgroundColor, textColor, statusText) = when (status) {
         GarminConnectionStatus.READY -> Triple(
@@ -333,6 +401,11 @@ fun GarminStatusHeader(
             Color(0xFFFFF3E0), // Light Orange
             Color(0xFFEF6C00), // Dark Orange
             stringResource(R.string.garmin_receiving)
+        )
+        GarminConnectionStatus.CONNECT_IQ_MISSING -> Triple(
+            Color(0xFFFFEBEE), // Light Red
+            Color(0xFFC62828), // Dark Red
+            stringResource(R.string.garmin_missing)
         )
         GarminConnectionStatus.BLUETOOTH_DISABLED,
         GarminConnectionStatus.NO_PAIRED_DEVICES,
@@ -348,51 +421,95 @@ fun GarminStatusHeader(
         )
     }
 
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
+            .height(IntrinsicSize.Max)
             .animateContentSize(),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor)
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(
+        // Garmin Column
+        Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .weight(1f)
+                .fillMaxHeight(),
+            onClick = {
+                when (status) {
+                    GarminConnectionStatus.READY -> onGarminSessionClick()
+                    GarminConnectionStatus.RECEIVING,
+                    GarminConnectionStatus.NOT_INITIALIZED -> {}
+                    else -> onGarminLinkClick()
+                }
+            },
+            colors = CardDefaults.cardColors(containerColor = backgroundColor)
         ) {
             Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.Start,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp)
+                    .fillMaxHeight(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
+                Icon(
+                    imageVector = Icons.Default.Watch,
+                    contentDescription = null,
+                    tint = textColor
+                )
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = statusText,
+                    text = if (status == GarminConnectionStatus.READY || status == GarminConnectionStatus.RECEIVING) {
+                        statusText
+                    } else if (status == GarminConnectionStatus.NOT_INITIALIZED) {
+                        stringResource(R.string.label_record_with_garmin)
+                    } else {
+                        stringResource(R.string.garmin_missing)
+                    },
                     style = MaterialTheme.typography.titleSmall,
                     color = textColor,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
 
-                if (status == GarminConnectionStatus.BLUETOOTH_DISABLED ||
-                    status == GarminConnectionStatus.NO_PAIRED_DEVICES ||
-                    status == GarminConnectionStatus.SDK_ERROR) {
+                if (status == GarminConnectionStatus.RECEIVING) {
                     Spacer(modifier = Modifier.height(4.dp))
-                    val advice = if (status == GarminConnectionStatus.BLUETOOTH_DISABLED) {
-                        stringResource(R.string.garmin_bluetooth_advice)
-                    } else {
-                        stringResource(R.string.garmin_paired_advice)
-                    }
                     Text(
-                        text = stringResource(R.string.garmin_troubleshooting, advice),
+                        text = statusText,
                         style = MaterialTheme.typography.bodySmall,
-                        color = textColor.copy(alpha = 0.8f)
+                        color = textColor.copy(alpha = 0.8f),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
             }
+        }
 
-            FilledTonalButton(onClick = onPhoneRecordClick) {
+        // Phone Column
+        Card(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            onClick = onPhoneRecordClick,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp)
+                    .fillMaxHeight(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
                 Icon(Icons.Default.PhoneAndroid, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.action_phone))
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.action_start_phone_session),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
             }
         }
     }
@@ -472,6 +589,12 @@ fun PhoneSessionScreen(
                 }
             }
         } else {
+            Text(
+                text = stringResource(R.string.phone_session_instructions),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
             Text(
                 text = stringResource(R.string.section_ball_count),
                 style = MaterialTheme.typography.titleMedium,
@@ -640,6 +763,67 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             Text(stringResource(R.string.action_export_csv))
         }
     }
+}
+
+@Composable
+fun GarminSessionDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.dialog_garmin_session_title)) },
+        text = { Text(stringResource(R.string.dialog_garmin_session_text)) },
+        confirmButton = {
+            Button(onClick = onDismiss) {
+                Text(stringResource(R.string.action_close))
+            }
+        }
+    )
+}
+
+@Composable
+fun GarminLinkDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.dialog_garmin_link_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(R.string.dialog_garmin_link_intro),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(stringResource(R.string.dialog_garmin_condition_bluetooth))
+                Text(stringResource(R.string.dialog_garmin_condition_permissions))
+                Text(stringResource(R.string.dialog_garmin_condition_connect_app))
+                Text(stringResource(R.string.dialog_garmin_condition_ciq_app))
+                Text(stringResource(R.string.dialog_garmin_condition_open))
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    try {
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                            data = android.net.Uri.parse("market://details?id=com.garmin.android.apps.connectmobile")
+                        }
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                            data = android.net.Uri.parse("https://play.google.com/store/apps/details?id=com.garmin.android.apps.connectmobile")
+                        }
+                        context.startActivity(intent)
+                    }
+                }
+            ) {
+                Text(stringResource(R.string.action_open_play_store))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_close))
+            }
+        }
+    )
 }
 
 @Composable

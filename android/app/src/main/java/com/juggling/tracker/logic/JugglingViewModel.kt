@@ -26,6 +26,8 @@ enum class GarminConnectionStatus {
     NOT_INITIALIZED,
     BLUETOOTH_DISABLED,
     NO_PAIRED_DEVICES,
+    CONNECT_IQ_MISSING,
+    DISCONNECTED,
     SDK_ERROR
 }
 
@@ -255,7 +257,7 @@ class JugglingViewModel(
         phoneSessionState = PhoneSessionUiState(
             selectedBallCount = sanitizedBallCount,
             isRecording = true,
-            statusMessage = "Waiting for juggling input",
+            statusMessage = "Mount the phone to your wrist and start juggling",
         )
 
         analytics?.logEvent("start_phone_session", Bundle().apply {
@@ -336,7 +338,7 @@ class JugglingViewModel(
         val statusMessage = when {
             detector.currentCount > 0 || detector.isRunActive() -> "Run active"
             detector.sessionRuns() > 0 -> "Waiting for next run"
-            else -> "Waiting for juggling input"
+            else -> "Mount the phone to your wrist and start juggling"
         }
 
         phoneSessionState = phoneSessionState.copy(

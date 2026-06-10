@@ -36,6 +36,7 @@ import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.ui.JugglingTrackerApp
 import com.juggling.tracker.ui.theme.JugglingTrackerTheme
 import com.google.firebase.analytics.FirebaseAnalytics
+import com.juggling.tracker.util.CrashlyticsUtils
 
 class MainActivity : ComponentActivity() {
     companion object {
@@ -187,8 +188,13 @@ class MainActivity : ComponentActivity() {
                 }
 
                 override fun onInitializeError(status: ConnectIQ.IQSdkErrorStatus) {
-                    viewModel.garminStatus = GarminConnectionStatus.SDK_ERROR
-                    viewModel.statusMessage = "Garmin SDK error: ${status.name}. Please restart the app."
+                    if (status == ConnectIQ.IQSdkErrorStatus.GCM_NOT_INSTALLED) {
+                        viewModel.garminStatus = GarminConnectionStatus.CONNECT_IQ_MISSING
+                        viewModel.statusMessage = "Garmin Connect app not found. Please install it from the Play Store."
+                    } else {
+                        viewModel.garminStatus = GarminConnectionStatus.SDK_ERROR
+                        viewModel.statusMessage = "Garmin SDK error: ${status.name}. Please restart the app."
+                    }
                 }
 
                 override fun onSdkShutDown() {
@@ -213,7 +219,7 @@ class MainActivity : ComponentActivity() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error finding device", e)
-            FirebaseCrashlytics.getInstance().recordException(e)
+            CrashlyticsUtils.recordException(e)
             viewModel.garminStatus = GarminConnectionStatus.SDK_ERROR
             viewModel.statusMessage = "Error finding device. Ensure Bluetooth is active."
         }
@@ -232,7 +238,7 @@ class MainActivity : ComponentActivity() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error registering app listener", e)
-            FirebaseCrashlytics.getInstance().recordException(e)
+            CrashlyticsUtils.recordException(e)
         }
     }
 
@@ -288,7 +294,7 @@ class MainActivity : ComponentActivity() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error sending ACK", e)
-            FirebaseCrashlytics.getInstance().recordException(e)
+            CrashlyticsUtils.recordException(e)
         }
     }
 

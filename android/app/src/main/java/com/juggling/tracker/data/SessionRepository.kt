@@ -3,7 +3,7 @@ package com.juggling.tracker.data
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
-import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.juggling.tracker.util.CrashlyticsUtils
 import androidx.core.content.edit
 import com.juggling.tracker.model.SessionSummary
 import androidx.compose.runtime.mutableStateListOf
@@ -89,7 +89,7 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
             sharedPrefs.edit { putString(sessionsKey, "[$json]") }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save sessions to storage", e)
-            FirebaseCrashlytics.getInstance().recordException(e)
+            CrashlyticsUtils.recordException(e)
         }
     }
     
@@ -130,7 +130,7 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
             sessionsCache.addAll(sessions.sortedByDescending { it.timestamp })
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load sessions from storage", e)
-            FirebaseCrashlytics.getInstance().recordException(e)
+            CrashlyticsUtils.recordException(e)
         }
     }
     
@@ -151,7 +151,7 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
             json.toString()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to build session JSON", e)
-            FirebaseCrashlytics.getInstance().recordException(e)
+            CrashlyticsUtils.recordException(e)
             "{}"
         }
     }
@@ -167,7 +167,7 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
             val avgConsistency = json.optDouble("avgConsistency", 0.0)
             val bestRun = json.getInt("bestRun")
             val totalThrows = json.getInt("totalThrows")
-            val runHistory = json.getJSONArray("runHistory").toList()
+            val runHistory = readIntArray(json, "runHistory")
             val durationSeconds = json.optLong("durationSeconds", 0L)
             val runDurationsMillis = readLongArray(json, "runDurationsMillis")
             SessionSummary(
@@ -186,7 +186,7 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
             )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to parse session JSON", e)
-            FirebaseCrashlytics.getInstance().recordException(e)
+            CrashlyticsUtils.recordException(e)
             null
         }
     }
@@ -194,6 +194,11 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
     private fun readLongArray(obj: org.json.JSONObject, key: String): List<Long> {
         val array = obj.optJSONArray(key) ?: return emptyList()
         return List(array.length()) { index -> array.getLong(index).coerceAtLeast(0L) }
+    }
+
+    private fun readIntArray(obj: org.json.JSONObject, key: String): List<Int> {
+        val array = obj.optJSONArray(key) ?: return emptyList()
+        return List(array.length()) { index -> array.getInt(index) }
     }
 
     private fun normalizeRunDurations(runCount: Int, runDurationsMillis: List<Long>): List<Long> {

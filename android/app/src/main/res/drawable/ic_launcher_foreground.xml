@@ -10,21 +10,29 @@
         android:translateY="54">
 
         <!-- Upward Trending Stats Line (Background) -->
-        <path
-            android:strokeColor="#F59E0B"
-            android:strokeWidth="2.5"
-            android:strokeAlpha="0.35"
-            android:strokeLineCap="round"
-            android:strokeLineJoin="round"
-            android:pathData="M-42,28 L-25,22 L-8,30 L10,5 L28,12 L42,-15" />
+        <group android:translateY="22">
+            <path
+                android:strokeColor="#F59E0B"
+                android:strokeWidth="2.5"
+                android:strokeAlpha="0.35"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:pathData="M-42,28 L-25,22 L-8,30 L10,10 L28,12 L42,-15" />
 
-        <!-- Data Points on the line -->
-        <path android:fillColor="#F59E0B" android:fillAlpha="0.35" android:pathData="M-42,28m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
-        <path android:fillColor="#F59E0B" android:fillAlpha="0.35" android:pathData="M-25,22m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
-        <path android:fillColor="#F59E0B" android:fillAlpha="0.35" android:pathData="M-8,30m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
-        <path android:fillColor="#F59E0B" android:fillAlpha="0.35" android:pathData="M10,5m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
-        <path android:fillColor="#F59E0B" android:fillAlpha="0.35" android:pathData="M28,12m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
-        <path android:fillColor="#F59E0B" android:fillAlpha="0.35" android:pathData="M42,-15m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
+            <!-- Data Points on the line -->
+            <path android:fillColor="#F59E0B" android:fillAlpha="0.35" android:pathData="M-42,28m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
+            <path android:fillColor="#F59E0B" android:fillAlpha="0.35" android:pathData="M-25,22m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
+            <path android:fillColor="#F59E0B" android:fillAlpha="0.35" android:pathData="M-8,30m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
+            <path android:fillColor="#F59E0B" android:fillAlpha="0.35" android:pathData="M10,10m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
+            <path android:fillColor="#F59E0B" android:fillAlpha="0.35" android:pathData="M28,12m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
+            <path android:fillColor="#F59E0B" android:fillAlpha="0.35" android:pathData="M42,-15m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
+
+            <!-- Arrowhead at the end of the trend line -->
+            <path
+                android:fillColor="#F59E0B"
+                android:fillAlpha="0.35"
+                android:pathData="M48,-27 L46,-13 L38,-17 Z" />
+        </group>
 
         <!-- Stick Figure (Foreground) -->
         <!-- Head -->
@@ -46,7 +54,7 @@
             android:pathData="M-18,-25m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
         <path
             android:fillColor="#F59E0B"
-            android:pathData="M0,-35m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
+            android:pathData="M0,-32m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
         <path
             android:fillColor="#F59E0B"
             android:pathData="M18,-25m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
