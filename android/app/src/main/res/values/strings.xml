@@ -14,6 +14,8 @@
     <string name="action_phone">Phone</string>
     <string name="action_start_phone_session">Start Session with Phone</string>
     <string name="action_export_csv">Export History to CSV</string>
+    <string name="action_export_recordings">Export All Recordings</string>
+    <string name="action_clear_recordings">Delete All Recordings</string>
 
     <string name="dialog_delete_session_title">Delete Session</string>
     <string name="dialog_delete_session_text">Are you sure you want to delete this session from your history?</string>
@@ -94,4 +96,12 @@
 
     <string name="dialog_garmin_session_title">Start Garmin Session</string>
     <string name="dialog_garmin_session_text">Your setup is looking good. Download the \"Juggling Tracker\" app from the Connect IQ Store to your Garmin watch, and start the \"Juggling\" activity on your watch. \nTerminate the session while the phone is nearby to transfer the session data to the phone.</string>
+
+    <string name="section_raw_recording">Raw Data Recording</string>
+    <string name="action_start_raw_recording">Start Raw Recording</string>
+    <string name="dialog_raw_recording_title">Record Acceleration Data</string>
+    <string name="dialog_enter_catches_title">Recording Stopped</string>
+    <string name="dialog_enter_catches_text">How many catches did you make during this run?</string>
+    <string name="label_catches">Actual Catches</string>
+    <string name="label_samples_recorded">%1$d samples recorded</string>
 </resources>

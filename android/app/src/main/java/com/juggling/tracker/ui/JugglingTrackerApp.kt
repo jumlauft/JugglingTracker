@@ -50,6 +50,9 @@ fun JugglingTrackerApp(
     onStartPhoneSession: (Int) -> Boolean,
     onStopPhoneSession: () -> Boolean,
     onCancelPhoneSession: () -> Unit,
+    onStartRawRecording: (Int) -> Boolean,
+    onStopRawRecording: () -> Unit,
+    onCancelRawRecording: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var currentScreen by remember { mutableStateOf(Screen.Tracker) }
@@ -65,6 +68,13 @@ fun JugglingTrackerApp(
     if (showGarminSessionInstructions) {
         GarminSessionDialog(onDismiss = { showGarminSessionInstructions = false })
     }
+
+    RawRecordingFlow(
+        viewModel = viewModel,
+        onStart = onStartRawRecording,
+        onStop = onStopRawRecording,
+        onCancel = onCancelRawRecording,
+    )
 
     BackHandler(enabled = currentScreen != Screen.Tracker) {
         if (currentScreen == Screen.PhoneSession && viewModel.phoneSessionState.isRecording) {
@@ -740,7 +750,7 @@ private fun formatPhoneElapsedSeconds(totalSeconds: Long): String {
 @Composable
 fun SettingsScreen(viewModel: JugglingViewModel) {
     val context = LocalContext.current
-    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+    val sessionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv")
     ) { uri ->
         uri?.let {
@@ -750,6 +760,21 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
                 }
             } catch (e: Exception) {
                 Log.e("JugglingTrackerApp", "CSV export failed", e)
+                Toast.makeText(context, context.getString(R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val recordingLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        uri?.let {
+            try {
+                context.contentResolver.openOutputStream(it)?.use { outputStream ->
+                    outputStream.write(viewModel.getRecordingsCsv().toByteArray())
+                }
+            } catch (e: Exception) {
+                Log.e("JugglingTrackerApp", "Recording export failed", e)
                 Toast.makeText(context, context.getString(R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
             }
         }
@@ -821,12 +846,161 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
         Button(
             onClick = {
                 val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
-                launcher.launch("juggling_history_$ts.csv")
+                sessionLauncher.launch("juggling_history_$ts.csv")
             },
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(stringResource(R.string.action_export_csv))
         }
+
+        HorizontalDivider()
+
+        // Raw Data Recording
+        Text(text = stringResource(R.string.section_raw_recording), style = MaterialTheme.typography.titleLarge)
+        
+        Button(
+            onClick = { viewModel.startRawRecordingFlow() },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(stringResource(R.string.action_start_raw_recording))
+        }
+
+        if (viewModel.recordingCount > 0) {
+            Button(
+                onClick = {
+                    val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
+                    recordingLauncher.launch("juggling_recordings_$ts.csv")
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+            ) {
+                Text(stringResource(R.string.action_export_recordings))
+            }
+
+            OutlinedButton(
+                onClick = { viewModel.clearRecordings() },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text(stringResource(R.string.action_clear_recordings))
+            }
+        }
+    }
+}
+
+@Composable
+fun RawRecordingFlow(
+    viewModel: JugglingViewModel,
+    onStart: (Int) -> Boolean,
+    onStop: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val state = viewModel.rawRecordingState
+    
+    when (state.step) {
+        com.juggling.tracker.logic.RawRecordingStep.SELECT_BALLS -> {
+            var balls by remember { mutableIntStateOf(state.selectedBallCount) }
+            AlertDialog(
+                onDismissRequest = onCancel,
+                title = { Text(stringResource(R.string.section_ball_count)) },
+                text = {
+                    Column {
+                        Text(stringResource(R.string.phone_session_instructions))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            (3..9).forEach { b ->
+                                FilterChip(
+                                    selected = balls == b,
+                                    onClick = { balls = b },
+                                    label = { Text(b.toString()) }
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = { onStart(balls) }) {
+                        Text(stringResource(R.string.action_start))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = onCancel) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
+                }
+            )
+        }
+        com.juggling.tracker.logic.RawRecordingStep.RECORDING -> {
+            AlertDialog(
+                onDismissRequest = { /* No dismiss */ },
+                title = { Text(stringResource(R.string.dialog_raw_recording_title)) },
+                text = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = stringResource(R.string.label_samples_recorded, state.sampleCount),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Detected: ${viewModel.phoneSessionState.currentCount}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = onStop,
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("STOP")
+                    }
+                }
+            )
+        }
+        com.juggling.tracker.logic.RawRecordingStep.ENTER_CATCHES -> {
+            var catchesText by remember { mutableStateOf("") }
+            AlertDialog(
+                onDismissRequest = onCancel,
+                title = { Text(stringResource(R.string.dialog_enter_catches_title)) },
+                text = {
+                    Column {
+                        Text(stringResource(R.string.dialog_enter_catches_text))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = catchesText,
+                            onValueChange = { if (it.all { char -> char.isDigit() }) catchesText = it },
+                            label = { Text(stringResource(R.string.label_catches)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                            )
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { viewModel.saveRawRecording(catchesText.toIntOrNull() ?: 0) },
+                        enabled = catchesText.isNotEmpty()
+                    ) {
+                        Text(stringResource(R.string.action_save))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = onCancel) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
+                }
+            )
+        }
+        else -> {}
     }
 }
 

@@ -4,12 +4,12 @@ import kotlin.math.sqrt
 
 class PhoneJugglingDetector(val ballCount: Int) {
     companion object {
-        const val SAMPLE_RATE = 25
+        const val SAMPLE_RATE = 200
         const val SAMPLE_PERIOD_MS = 1000L / SAMPLE_RATE
-        const val WARMUP_SAMPLES = 25
+        const val WARMUP_SAMPLES = 200
 
-        const val GRAVITY_ALPHA_IDLE = 0.95
-        const val GRAVITY_ALPHA_ACTIVE = 0.99
+        const val GRAVITY_ALPHA_IDLE = 0.99
+        const val GRAVITY_ALPHA_ACTIVE = 0.999
 
         const val REFRACTORY_MS_3 = 80L
         const val REFRACTORY_MS_4 = 40L
@@ -21,11 +21,11 @@ class PhoneJugglingDetector(val ballCount: Int) {
 
         const val AUTO_FINISH_DELAY_MS = 2000L
 
-        const val HP_B0 = 0.883002
-        const val HP_B1 = -1.766004
-        const val HP_B2 = 0.883002
-        const val HP_A1 = -1.752268
-        const val HP_A2 = 0.779739
+        const val HP_B0 = 0.96716
+        const val HP_B1 = -1.93432
+        const val HP_B2 = 0.96716
+        const val HP_A1 = -1.93365
+        const val HP_A2 = 0.93547
 
         const val HP_THRESHOLD_3 = 2.0
         const val HP_THRESHOLD_4 = 4.0
@@ -72,6 +72,7 @@ class PhoneJugglingDetector(val ballCount: Int) {
     private var peakTimeMs = 0L
     private var peakRawMag = 0.0
     private var peakFiltered = 0.0
+    private var peakSamples = 0
 
     private var hasPendingPeak = false
     private var pendingPeakTimeMs = 0L
@@ -132,9 +133,23 @@ class PhoneJugglingDetector(val ballCount: Int) {
         val lx = ax - gravityX
         val ly = ay - gravityY
         val lz = az - gravityZ
-        val mag = sqrt(lx * lx + ly * ly + lz * lz)
+
+        // Directional Acceleration (Project onto Gravity Vector)
+        // Gravity vector points DOWN. The "shock" of a catch points UP.
+        // We calculate the component of linear acceleration that is directly opposing gravity.
+        // This isolates the vertical impact and ignores horizontal hand movement noise.
+        val gMagSq = gravityX * gravityX + gravityY * gravityY + gravityZ * gravityZ
+        val gMag = sqrt(gMagSq)
+        val upwardAccel = if (gMag > 1.0) {
+            -(lx * gravityX + ly * gravityY + lz * gravityZ) / gMag
+        } else {
+            // Fallback to magnitude if gravity estimation is unstable
+            sqrt(lx * lx + ly * ly + lz * lz)
+        }
 
         samplesSeen += 1
+        // We only care about positive (upward) shocks for catch detection
+        val mag = upwardAccel.coerceAtLeast(0.0)
         val filtered = applyHighpass(mag)
 
         if (samplesSeen <= WARMUP_SAMPLES) return
@@ -145,8 +160,10 @@ class PhoneJugglingDetector(val ballCount: Int) {
                 peakTimeMs = nowMs
                 peakFiltered = filtered
                 peakRawMag = mag
+                peakSamples = 1
             }
         } else {
+            peakSamples += 1
             if (filtered > peakFiltered) {
                 peakFiltered = filtered
                 peakTimeMs = nowMs
@@ -156,7 +173,13 @@ class PhoneJugglingDetector(val ballCount: Int) {
             }
             if (filtered < hpThreshold * HP_HYSTERESIS) {
                 above = false
-                if (peakTimeMs - lastCandidateTimeMs > refractoryMs && peakRawMag > minRawMag) {
+                // A catch is a physical impact, not a spike.
+                // At 200Hz, we expect it to last at least 3 samples (~15ms).
+                val isNotASpike = peakSamples >= 3
+
+                if (peakTimeMs - lastCandidateTimeMs > refractoryMs &&
+                    peakRawMag > minRawMag &&
+                    isNotASpike) {
                     addCandidate(peakTimeMs, peakFiltered, nowMs)
                     lastCandidateTimeMs = peakTimeMs
                 }

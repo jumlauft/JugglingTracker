@@ -45,14 +45,14 @@ class MainActivity : ComponentActivity() {
         private const val WATCH_APP_ID = "a77c0c66-f421-49f5-889f-0bf4a446dfea"
         private const val PERMISSION_REQUEST_CODE = 1001
         private const val HEARTBEAT_TIMEOUT_MS = 15000L
-        private const val PHONE_SAMPLE_PERIOD_US = 40_000
+        private const val PHONE_SAMPLE_PERIOD_US = 5_000
     }
 
     private val repository: SessionRepository by lazy { SessionRepository(this) }
     private val recordingRepository: RecordingRepository by lazy { RecordingRepository(this) }
     private val settingsManager: SettingsManager by lazy { SettingsManager(this) }
     private val analytics: FirebaseAnalytics by lazy { FirebaseAnalytics.getInstance(this) }
-    
+
     private val viewModel: JugglingViewModel by viewModels {
         object : androidx.lifecycle.ViewModelProvider.Factory {
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
@@ -114,6 +114,9 @@ class MainActivity : ComponentActivity() {
                         onStartPhoneSession = ::startPhoneRecording,
                         onStopPhoneSession = ::stopPhoneRecordingAndSave,
                         onCancelPhoneSession = ::cancelPhoneRecording,
+                        onStartRawRecording = ::startRawRecording,
+                        onStopRawRecording = ::stopRawRecording,
+                        onCancelRawRecording = ::cancelRawRecording,
                     )
                 }
             }
@@ -219,7 +222,7 @@ class MainActivity : ComponentActivity() {
             if (!devices.isNullOrEmpty()) {
                 val device = devices[0]
                 iqDevice = device
-                
+
                 // Register for device status changes (Bluetooth connection/disconnection)
                 connectIQ.registerForDeviceEvents(device) { _, status ->
                     runOnUiThread {
@@ -293,17 +296,17 @@ class MainActivity : ComponentActivity() {
         if (payload["type"] == "session" || payload["type"] == "recording") {
             @Suppress("UNCHECKED_CAST")
             val typed = payload as Map<String, Any>
-            
+
             // Briefly show receiving state
             viewModel.garminStatus = GarminConnectionStatus.RECEIVING
-            
+
             runOnUiThread {
                 if (payload["type"] == "session") {
                     viewModel.importSessionFromWatch(typed)
                 } else {
                     viewModel.importRecordingFromWatch(typed)
                 }
-                
+
                 // Return to ready after a short delay
                 handler.postDelayed({
                     if (viewModel.garminStatus == GarminConnectionStatus.RECEIVING) {
@@ -347,6 +350,25 @@ class MainActivity : ComponentActivity() {
         return true
     }
 
+    private fun startRawRecording(ballCount: Int): Boolean {
+        viewModel.confirmRawRecordingBalls(ballCount)
+        if (!registerPhoneSensorListener()) {
+            viewModel.cancelRawRecording()
+            return false
+        }
+        return true
+    }
+
+    private fun stopRawRecording() {
+        viewModel.stopRawRecording()
+        stopPhoneSensorListener()
+    }
+
+    private fun cancelRawRecording() {
+        viewModel.cancelRawRecording()
+        stopPhoneSensorListener()
+    }
+
     private fun stopPhoneRecordingAndSave(): Boolean {
         stopPhoneSensorListener()
         return viewModel.stopPhoneSessionAndSave()
@@ -379,9 +401,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (viewModel.phoneSessionState.isRecording && !phoneSensorRegistered) {
+        val isRecordingActive = viewModel.phoneSessionState.isRecording || 
+                viewModel.rawRecordingState.step == com.juggling.tracker.logic.RawRecordingStep.RECORDING
+        
+        if (isRecordingActive && !phoneSensorRegistered) {
             if (!registerPhoneSensorListener()) {
-                viewModel.markPhoneSensorUnavailable("Phone accelerometer unavailable")
+                if (viewModel.phoneSessionState.isRecording) {
+                    viewModel.markPhoneSensorUnavailable("Phone accelerometer unavailable")
+                } else {
+                    viewModel.cancelRawRecording()
+                }
             }
         }
     }

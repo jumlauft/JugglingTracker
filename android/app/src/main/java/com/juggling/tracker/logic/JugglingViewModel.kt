@@ -47,6 +47,19 @@ data class PhoneSessionUiState(
     val sensorError: String? = null,
 )
 
+data class RawRecordingUiState(
+    val step: RawRecordingStep = RawRecordingStep.IDLE,
+    val selectedBallCount: Int = 3,
+    val sampleCount: Int = 0,
+)
+
+enum class RawRecordingStep {
+    IDLE,
+    SELECT_BALLS,
+    RECORDING,
+    ENTER_CATCHES
+}
+
 class JugglingViewModel(
     private val repository: SessionRepository? = null,
     private val recordingRepository: RecordingRepository? = null,
@@ -92,6 +105,14 @@ class JugglingViewModel(
 
     var phoneSessionState by mutableStateOf(PhoneSessionUiState())
         private set
+
+    var rawRecordingState by mutableStateOf(RawRecordingUiState())
+        private set
+
+    private val rawAccelX = mutableListOf<Int>()
+    private val rawAccelY = mutableListOf<Int>()
+    private val rawAccelZ = mutableListOf<Int>()
+    private var rawRecordingStartedAtMillis: Long? = null
 
     private var phoneDetector: PhoneJugglingDetector? = null
     private var phoneSessionStartedAtMillis: Long? = null
@@ -264,6 +285,61 @@ class JugglingViewModel(
         recordingCount = 0
     }
 
+    // ── Raw Data Recording support ─────────────────────────────────────
+
+    fun startRawRecordingFlow() {
+        rawRecordingState = RawRecordingUiState(step = RawRecordingStep.SELECT_BALLS)
+    }
+
+    fun confirmRawRecordingBalls(balls: Int) {
+        rawRecordingState = rawRecordingState.copy(
+            step = RawRecordingStep.RECORDING,
+            selectedBallCount = balls
+        )
+        rawAccelX.clear()
+        rawAccelY.clear()
+        rawAccelZ.clear()
+        rawRecordingStartedAtMillis = System.currentTimeMillis()
+        
+        // Also start a detector just to show counts in UI if we want
+        phoneDetector = PhoneJugglingDetector(balls)
+        phoneSessionStartSampleMillis = null
+        phoneLastProcessedSampleMillis = null
+    }
+
+    fun stopRawRecording() {
+        if (rawRecordingState.step != RawRecordingStep.RECORDING) return
+        rawRecordingState = rawRecordingState.copy(step = RawRecordingStep.ENTER_CATCHES)
+    }
+
+    fun saveRawRecording(actualCatches: Int) {
+        val timestamp = rawRecordingStartedAtMillis ?: System.currentTimeMillis()
+        val detector = phoneDetector
+        val detected = detector?.currentCount ?: 0
+        
+        recordingRepository?.saveRecording(
+            balls = rawRecordingState.selectedBallCount,
+            catches = actualCatches,
+            detected = detected,
+            sampleRate = 200, // Phone target rate is 200Hz
+            timestamp = timestamp / 1000L, // store as epoch seconds to match watch
+            accelX = rawAccelX,
+            accelY = rawAccelY,
+            accelZ = rawAccelZ
+        )
+        
+        recordingCount = recordingRepository?.recordingCount() ?: 0
+        cancelRawRecording()
+    }
+
+    fun cancelRawRecording() {
+        rawRecordingState = RawRecordingUiState(step = RawRecordingStep.IDLE)
+        rawAccelX.clear()
+        rawAccelY.clear()
+        rawAccelZ.clear()
+        phoneDetector = null
+    }
+
     // ── Phone IMU session support ──────────────────────────────────────
 
     fun selectPhoneBallCount(ballCount: Int) {
@@ -289,8 +365,20 @@ class JugglingViewModel(
     }
 
     fun processPhoneSample(ax: Double, ay: Double, az: Double, timestampNanos: Long) {
+        // Handle raw recording capture
+        if (rawRecordingState.step == RawRecordingStep.RECORDING) {
+            // Convert m/s^2 to milli-g
+            val mx = (ax * 1000.0 / 9.80665).toInt()
+            val my = (ay * 1000.0 / 9.80665).toInt()
+            val mz = (az * 1000.0 / 9.80665).toInt()
+            rawAccelX.add(mx)
+            rawAccelY.add(my)
+            rawAccelZ.add(mz)
+            rawRecordingState = rawRecordingState.copy(sampleCount = rawAccelX.size)
+        }
+
         val detector = phoneDetector ?: return
-        if (!phoneSessionState.isRecording) return
+        if (!phoneSessionState.isRecording && rawRecordingState.step != RawRecordingStep.RECORDING) return
 
         val sampleMs = timestampNanos / 1_000_000L
         val lastProcessed = phoneLastProcessedSampleMillis
