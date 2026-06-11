@@ -42,7 +42,7 @@ import com.juggling.tracker.util.CrashlyticsUtils
 class MainActivity : ComponentActivity() {
     companion object {
         private const val TAG = "MainActivity"
-        private const val WATCH_APP_ID = "a77c0c66-f421-49f5-889f-0bf4a446dfea"
+        private const val WATCH_APP_ID = "88fa4344-0c76-40a9-83e7-e7fc21328822"
         private const val PERMISSION_REQUEST_CODE = 1001
         private const val HEARTBEAT_TIMEOUT_MS = 15000L
         private const val PHONE_SAMPLE_PERIOD_US = 5_000

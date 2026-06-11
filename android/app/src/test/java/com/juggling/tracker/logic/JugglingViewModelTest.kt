@@ -363,7 +363,7 @@ class JugglingViewModelTest {
         val state = viewModel.phoneSessionState
         assertTrue(state.isRecording)
         assertEquals(4, state.selectedBallCount)
-        assertEquals("Waiting for juggling input", state.statusMessage)
+        assertEquals("Mount the phone to your wrist and start juggling", state.statusMessage)
     }
 
     @Test
@@ -380,7 +380,7 @@ class JugglingViewModelTest {
     @Test
     fun `stop phone session saves detected runs in session history`() = runTest {
         viewModel.startPhoneSession(ballCount = 3, startedAtMillis = 100_000L)
-        var sampleMs = feedPhoneBaseline(0L, 30)
+        var sampleMs = feedPhoneBaseline(0L, PhoneJugglingDetector.WARMUP_SAMPLES + 30)
         sampleMs = feedPhoneBurst(sampleMs)
         sampleMs = feedPhoneBurst(sampleMs)
         feedPhoneBurst(sampleMs)
@@ -407,7 +407,7 @@ class JugglingViewModelTest {
         }
 
         viewModel.startPhoneSession(ballCount = 3, startedAtMillis = 100_000L)
-        var sampleMs = feedPhoneBaseline(0L, 30)
+        var sampleMs = feedPhoneBaseline(0L, PhoneJugglingDetector.WARMUP_SAMPLES + 30)
         feedPhoneBurst(sampleMs)
 
         viewModel.stopPhoneSessionAndSave(stoppedAtMillis = 105_000L)
@@ -451,7 +451,8 @@ class JugglingViewModelTest {
     ): Long {
         var nowMs = startMs
         repeat(pulseSamples) {
-            viewModel.processPhoneSample(amplitude, 0.0, GRAVITY, nowMs * 1_000_000L)
+            // Pulse Z-axis opposite gravity to create upward acceleration
+            viewModel.processPhoneSample(0.0, 0.0, GRAVITY - amplitude, nowMs * 1_000_000L)
             nowMs += PERIOD_MS
         }
         repeat(settleSamples) {

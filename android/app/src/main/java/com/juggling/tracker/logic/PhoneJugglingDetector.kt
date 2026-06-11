@@ -11,13 +11,13 @@ class PhoneJugglingDetector(val ballCount: Int) {
         const val GRAVITY_ALPHA_IDLE = 0.99
         const val GRAVITY_ALPHA_ACTIVE = 0.999
 
-        const val REFRACTORY_MS_3 = 80L
-        const val REFRACTORY_MS_4 = 40L
-        const val REFRACTORY_MS_5PLUS = 320L
+        const val REFRACTORY_MS_3 = 40L
+        const val REFRACTORY_MS_4 = 80L
+        const val REFRACTORY_MS_5PLUS = 40L
 
-        const val MERGE_WINDOW_MS_3 = 160L
-        const val MERGE_WINDOW_MS_4 = 80L
-        const val MERGE_WINDOW_MS_5PLUS = 160L
+        const val MERGE_WINDOW_MS_3 = 60L
+        const val MERGE_WINDOW_MS_4 = 60L
+        const val MERGE_WINDOW_MS_5PLUS = 60L
 
         const val AUTO_FINISH_DELAY_MS = 2000L
 
@@ -27,14 +27,14 @@ class PhoneJugglingDetector(val ballCount: Int) {
         const val HP_A1 = -1.93365
         const val HP_A2 = 0.93547
 
-        const val HP_THRESHOLD_3 = 2.0
-        const val HP_THRESHOLD_4 = 4.0
-        const val HP_THRESHOLD_5PLUS = 0.8
+        const val HP_THRESHOLD_3 = 2.5
+        const val HP_THRESHOLD_4 = 2.5
+        const val HP_THRESHOLD_5PLUS = 2.5
         const val HP_HYSTERESIS = 0.3
 
         const val MIN_RAW_MAG_3 = 7.0
-        const val MIN_RAW_MAG_4 = 0.0
-        const val MIN_RAW_MAG_5PLUS = 13.0
+        const val MIN_RAW_MAG_4 = 5.0
+        const val MIN_RAW_MAG_5PLUS = 11.0
     }
 
     var currentCount: Int = 0

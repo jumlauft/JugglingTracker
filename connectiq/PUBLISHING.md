@@ -26,7 +26,7 @@
     * Seamless Sync: Transmits finished sessions to the Juggling Tracker Android app for long-term visualization and history. (It can also be used standalone).  
 
 - **Privacy Policy URL**:
-    https://github.com/jumlauft/JugglingTracker/
+    https://github.com/jumlauft/JugglingTracker/blob/main/privacy_policy.md
 - **Visual Assets**:
     * **Cover Image**: 500x500 PNG (`connectiq/resources/images/cover_image.png`)
     * **App Store Icon (64 Color)**: 128x128 PNG (`connectiq/resources/images/app_store_icon_128_64color.png`)
