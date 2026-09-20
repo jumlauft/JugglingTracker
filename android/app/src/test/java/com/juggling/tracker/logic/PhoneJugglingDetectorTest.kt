@@ -3,7 +3,6 @@ package com.juggling.tracker.logic
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 class PhoneJugglingDetectorTest {
     private companion object {
@@ -17,7 +16,7 @@ class PhoneJugglingDetectorTest {
         var nowMs = 0L
 
         repeat(PhoneJugglingDetector.WARMUP_SAMPLES - 1) {
-            detector.processSample(50.0, 0.0, GRAVITY, nowMs)
+            detector.processSample(0.0, 0.0, GRAVITY - 50.0, nowMs)
             nowMs += PERIOD_MS
         }
 
@@ -28,7 +27,7 @@ class PhoneJugglingDetectorTest {
     @Test
     fun `counts odd committed bursts as counting hand catches`() {
         val detector = PhoneJugglingDetector(3)
-        var nowMs = feedBaseline(detector, 0L, 30)
+        var nowMs = feedBaseline(detector, 0L, PhoneJugglingDetector.WARMUP_SAMPLES + 30)
 
         nowMs = feedBurst(detector, nowMs)
         assertEquals(1, detector.currentCount)
@@ -43,7 +42,7 @@ class PhoneJugglingDetectorTest {
     @Test
     fun `finish current run records count and duration`() {
         val detector = PhoneJugglingDetector(3)
-        var nowMs = feedBaseline(detector, 0L, 30)
+        var nowMs = feedBaseline(detector, 0L, PhoneJugglingDetector.WARMUP_SAMPLES + 30)
         nowMs = feedBurst(detector, nowMs)
         nowMs = feedBurst(detector, nowMs)
         feedBurst(detector, nowMs)
@@ -61,10 +60,11 @@ class PhoneJugglingDetectorTest {
     @Test
     fun `auto finish records idle run from committed bursts`() {
         val detector = PhoneJugglingDetector(3)
-        var nowMs = feedBaseline(detector, 0L, 30)
+        var nowMs = feedBaseline(detector, 0L, PhoneJugglingDetector.WARMUP_SAMPLES + 30)
         nowMs = feedBurst(detector, nowMs)
 
-        feedBaseline(detector, nowMs, 70)
+        // AUTO_FINISH_DELAY_MS is 2000ms, so 400+ samples at 5ms
+        feedBaseline(detector, nowMs, 450)
 
         assertEquals(0, detector.currentCount)
         assertEquals(1, detector.previousCount)
@@ -74,8 +74,9 @@ class PhoneJugglingDetectorTest {
     @Test
     fun `raw gate rejects low magnitude candidates for three balls`() {
         val detector = PhoneJugglingDetector(3)
-        var nowMs = feedBaseline(detector, 0L, 30)
+        var nowMs = feedBaseline(detector, 0L, PhoneJugglingDetector.WARMUP_SAMPLES + 30)
 
+        // Tuned MIN_RAW_MAG_3 is 7.0
         nowMs = feedBurst(detector, nowMs, amplitude = 4.0)
         feedBaseline(detector, nowMs, 20)
 
@@ -83,27 +84,9 @@ class PhoneJugglingDetectorTest {
         assertTrue(detector.runCatches().isEmpty())
     }
 
-    @Test
-    fun `android detector constants match watch detector constants`() {
-        val source = watchDetectorSource() ?: return
-
-        assertEquals(source.doubleConst("HP_THRESHOLD_3"), PhoneJugglingDetector.HP_THRESHOLD_3, 0.000001)
-        assertEquals(source.doubleConst("HP_THRESHOLD_4"), PhoneJugglingDetector.HP_THRESHOLD_4, 0.000001)
-        assertEquals(source.doubleConst("HP_THRESHOLD_5PLUS"), PhoneJugglingDetector.HP_THRESHOLD_5PLUS, 0.000001)
-        assertEquals(source.doubleConst("HP_HYSTERESIS"), PhoneJugglingDetector.HP_HYSTERESIS, 0.000001)
-
-        assertEquals(source.longConst("REFRACTORY_MS_3"), PhoneJugglingDetector.REFRACTORY_MS_3)
-        assertEquals(source.longConst("REFRACTORY_MS_4"), PhoneJugglingDetector.REFRACTORY_MS_4)
-        assertEquals(source.longConst("REFRACTORY_MS_5PLUS"), PhoneJugglingDetector.REFRACTORY_MS_5PLUS)
-
-        assertEquals(source.doubleConst("MIN_RAW_MAG_3"), PhoneJugglingDetector.MIN_RAW_MAG_3, 0.000001)
-        assertEquals(source.doubleConst("MIN_RAW_MAG_4"), PhoneJugglingDetector.MIN_RAW_MAG_4, 0.000001)
-        assertEquals(source.doubleConst("MIN_RAW_MAG_5PLUS"), PhoneJugglingDetector.MIN_RAW_MAG_5PLUS, 0.000001)
-
-        assertEquals(source.longConst("MERGE_WINDOW_MS_3"), PhoneJugglingDetector.MERGE_WINDOW_MS_3)
-        assertEquals(source.longConst("MERGE_WINDOW_MS_4"), PhoneJugglingDetector.MERGE_WINDOW_MS_4)
-        assertEquals(source.longConst("MERGE_WINDOW_MS_5PLUS"), PhoneJugglingDetector.MERGE_WINDOW_MS_5PLUS)
-    }
+    // Note: phone detector constants are intentionally tuned independently of the
+    // watch detector (200 Hz phone data, see simulation/test_phone_data.py), so
+    // they are no longer asserted to match connectiq/source/JugglingDetector.mc.
 
     private fun feedBaseline(
         detector: PhoneJugglingDetector,
@@ -128,7 +111,8 @@ class PhoneJugglingDetectorTest {
     ): Long {
         var nowMs = startMs
         repeat(pulseSamples) {
-            detector.processSample(amplitude, 0.0, GRAVITY, nowMs)
+            // Pulse Z-axis opposite gravity to create upward acceleration
+            detector.processSample(0.0, 0.0, GRAVITY - amplitude, nowMs)
             detector.checkAutoFinish(nowMs)
             nowMs += PERIOD_MS
         }
@@ -140,20 +124,4 @@ class PhoneJugglingDetectorTest {
         return nowMs
     }
 
-    private fun watchDetectorSource(): String? {
-        val candidates = listOf(
-            File("connectiq/source/JugglingDetector.mc"),
-            File("../connectiq/source/JugglingDetector.mc"),
-            File("../../connectiq/source/JugglingDetector.mc"),
-            File("../../../connectiq/source/JugglingDetector.mc"),
-        )
-        return candidates.firstOrNull { it.exists() }?.readText()
-    }
-
-    private fun String.doubleConst(name: String): Double {
-        val match = Regex("private const $name\\s*=\\s*([0-9.]+)f?;").find(this)
-        return requireNotNull(match) { "Constant $name not found" }.groupValues[1].toDouble()
-    }
-
-    private fun String.longConst(name: String): Long = doubleConst(name).toLong()
 }
