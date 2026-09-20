@@ -80,3 +80,8 @@ android/.externalNativeBuild/
 # Python
 __pycache__/
 *.pyc
+
+# Simulation artifacts (datasets, trained models, generated plots/output)
+simulation/output/
+*.npz
+*.joblib
