@@ -99,7 +99,7 @@ def load_all_runs(data_dir=None):
     basename of the source CSV file.
     """
     if data_dir is None:
-        data_dir = os.path.join(os.path.dirname(__file__), '..', 'data')
+        data_dir = os.path.join(os.path.dirname(__file__), '..', 'connectiq', 'data')
     all_runs = []
     for csvfile in sorted(glob.glob(os.path.join(data_dir, '*.csv'))):
         runs = parse_runs(csvfile)
