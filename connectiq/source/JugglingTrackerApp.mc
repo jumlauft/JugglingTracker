@@ -3,7 +3,7 @@ import Toybox.Lang;
 import Toybox.WatchUi;
 
 class JugglingTrackerApp extends Application.AppBase {
-    private const ENABLE_RECORDING_MODE = false;
+    private const ENABLE_RECORDING_MODE = true;
 
     function initialize() {
         Application.AppBase.initialize();
