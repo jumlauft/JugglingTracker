@@ -74,7 +74,7 @@ MAX_TOTAL_OVERCOUNT = 5
 
 
 def _get_data_dir():
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data')
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'connectiq', 'data')
 
 
 def _load_runs_by_file():

@@ -40,7 +40,7 @@ class PhoneJugglingDetector(
 
         const val MIN_RAW_MAG_3 = 7.0
         const val MIN_RAW_MAG_4 = 5.0
-        const val MIN_RAW_MAG_5PLUS = 11.0
+        const val MIN_RAW_MAG_5PLUS = 7.0
 
         // ML Constants
         private const val WINDOW_SIZE = 40
