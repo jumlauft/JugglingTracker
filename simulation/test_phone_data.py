@@ -20,7 +20,7 @@ SAMPLE_PERIOD_MS = 5  # 200 Hz
 DEFAULT_PARAMS = {
     3: dict(hp_threshold=2.5, refractory_ms=40, min_raw_mag=7.0, merge_window_ms=60),
     4: dict(hp_threshold=2.5, refractory_ms=80, min_raw_mag=5.0, merge_window_ms=60),
-    5: dict(hp_threshold=2.5, refractory_ms=40, min_raw_mag=11.0, merge_window_ms=60),
+    5: dict(hp_threshold=2.5, refractory_ms=40, min_raw_mag=7.0, merge_window_ms=60),
 }
 
 WARMUP_SAMPLES = 200
