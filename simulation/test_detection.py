@@ -28,78 +28,79 @@ WATCH_PARAMS = {
 }
 
 # ── Expected detection counts per run ──────────────────────────────────────
-# Each entry: (csv_filename, run_index_in_file, balls, actual_watch_hand_catches, expected_detected)
-# Run index disambiguates multiple runs of the same ball count in one file.
+# Each entry: (run_id, balls, actual_watch_hand_catches, expected_detected)
+# run_id is the recording's stable identifier and file name, so entries never
+# depend on a run's position within a file.
 EXPECTED_RUNS = [
-    ("juggling_recordings_20260603_201546.csv", 0, 3, 6, 4),
-    ("juggling_recordings_20260603_201546.csv", 1, 3, 17, 18),
-    ("juggling_recordings_20260603_201546.csv", 2, 5, 4, 7),
-    ("juggling_recordings_20260603_201546.csv", 3, 5, 13, 14),
-    ("juggling_recordings_20260603_203008.csv", 0, 3, 20, 20),
-    ("juggling_recordings_20260603_223806.csv", 0, 3, 25, 23),
-    ("juggling_recordings_20260603_223806.csv", 1, 3, 26, 26),
-    ("juggling_recordings_20260603_223806.csv", 2, 3, 5, 4),
-    ("juggling_recordings_20260603_223806.csv", 3, 3, 7, 7),
-    ("juggling_recordings_20260603_223806.csv", 4, 3, 8, 7),
-    ("juggling_recordings_20260603_223806.csv", 5, 4, 13, 12),
-    ("juggling_recordings_20260603_223806.csv", 6, 4, 0, 0),
-    ("juggling_recordings_20260603_223806.csv", 7, 4, 8, 8),
-    ("juggling_recordings_20260603_223806.csv", 8, 4, 21, 20),
-    ("juggling_recordings_20260603_223806.csv", 9, 5, 4, 4),
-    ("juggling_recordings_20260603_223806.csv", 10, 5, 9, 9),
-    ("juggling_recordings_20260603_223806.csv", 11, 5, 9, 11),
-    ("juggling_recordings_20260609_103926.csv", 0, 5, 22, 42),
-    ("juggling_recordings_20260609_103926.csv", 1, 3, 19, 17),
-    ("juggling_recordings_20260609_103926.csv", 2, 4, 4, 4),
-    ("juggling_recordings_20260609_103926.csv", 3, 4, 26, 24),
-    ("juggling_recordings_20260609_114726.csv", 0, 3, 5, 5),
-    ("juggling_recordings_20260609_114726.csv", 1, 3, 15, 14),
-    ("juggling_recordings_20260609_114726.csv", 2, 3, 26, 25),
-    ("juggling_recordings_20260609_114726.csv", 3, 4, 25, 24),
-    ("juggling_recordings_20260609_114726.csv", 4, 4, 41, 38),
-    ("juggling_recordings_20260609_114726.csv", 5, 5, 4, 6),
-    ("juggling_recordings_20260609_114726.csv", 6, 5, 4, 5),
-    ("juggling_recordings_20260609_114726.csv", 7, 5, 5, 6),
-    ("juggling_recordings_20260609_114726.csv", 8, 5, 6, 8),
-    ("juggling_recordings_20260609_114726.csv", 9, 5, 10, 12),
-    ("juggling_recordings_20260609_114726.csv", 10, 5, 21, 19),
-    ("juggling_recordings_20260609_114726.csv", 11, 5, 10, 14),
-    ("juggling_recordings_20260609_114726.csv", 12, 5, 19, 18),
-    ("juggling_recordings_20260609_114726.csv", 13, 5, 21, 22),
-    ("juggling_recordings_20260609_114726.csv", 14, 5, 5, 8),
-    ("juggling_recordings_20260922_160142.csv", 0, 4, 31, 31),
-    ("juggling_recordings_20260922_160142.csv", 1, 4, 24, 25),
-    ("juggling_recordings_20260922_160142.csv", 2, 4, 0, 0),
-    ("juggling_recordings_20260922_160142.csv", 3, 3, 89, 88),
-    ("juggling_recordings_20260922_160142.csv", 4, 7, 6, 7),
-    ("juggling_recordings_20260922_160142.csv", 5, 7, 6, 8),
-    ("juggling_recordings_20260922_160142.csv", 6, 7, 8, 8),
-    ("juggling_recordings_20260922_160142.csv", 7, 7, 8, 9),
-    ("juggling_recordings_20260922_160142.csv", 8, 7, 7, 8),
-    ("juggling_recordings_20260922_160142.csv", 9, 7, 16, 14),
-    ("juggling_recordings_20260922_160142.csv", 10, 7, 10, 9),
-    ("juggling_recordings_20260922_160142.csv", 11, 7, 11, 9),
-    ("juggling_recordings_20260922_160142.csv", 12, 7, 10, 8),
-    ("juggling_recordings_20260922_160142.csv", 13, 7, 13, 13),
-    ("juggling_recordings_20260922_160142.csv", 14, 7, 9, 10),
-    ("juggling_recordings_20260922_160142.csv", 15, 5, 49, 41),
-    ("juggling_recordings_20260922_160142.csv", 16, 5, 39, 36),
-    ("juggling_recordings_20260922_160142.csv", 17, 5, 61, 60),
-    ("juggling_recordings_20260922_160142.csv", 18, 5, 85, 76),
-    ("juggling_recordings_20260922_160142.csv", 19, 5, 51, 47),
-    ("juggling_recordings_20260922_160142.csv", 20, 5, 66, 64),
-    ("juggling_recordings_20260922_160142.csv", 21, 5, 107, 90),
-    ("juggling_recordings_20260922_160142.csv", 22, 5, 94, 88),
-    ("juggling_recordings_20260922_160142.csv", 23, 5, 11, 13),
-    ("juggling_recordings_20260922_160142.csv", 24, 5, 24, 22),
-    ("juggling_recordings_20260922_160142.csv", 25, 4, 60, 58),
-    ("juggling_recordings_20260922_160142.csv", 26, 7, 11, 11),
-    ("juggling_recordings_20260922_160142.csv", 27, 7, 11, 10),
-    ("juggling_recordings_20260922_160142.csv", 28, 7, 10, 10),
-    ("juggling_recordings_20260922_160142.csv", 29, 7, 18, 17),
-    ("juggling_recordings_20260922_160142.csv", 30, 7, 21, 16),
-    ("juggling_recordings_20260922_160142.csv", 31, 7, 15, 13),
-    ("juggling_recordings_20260922_160142.csv", 32, 7, 15, 11),
+    ("20260603_201719", 3, 20, 20),
+    ("20260603_203220", 3, 6, 4),
+    ("20260603_203258", 3, 17, 18),
+    ("20260603_203431", 5, 4, 7),
+    ("20260603_203544", 5, 13, 14),
+    ("20260603_223012", 3, 25, 23),
+    ("20260603_223112", 3, 26, 26),
+    ("20260603_223207", 3, 5, 4),
+    ("20260603_223230", 3, 7, 7),
+    ("20260603_223252", 3, 8, 7),
+    ("20260603_223335", 4, 13, 12),
+    ("20260603_223404", 4, 0, 0),
+    ("20260603_223429", 4, 8, 8),
+    ("20260603_223524", 4, 21, 20),
+    ("20260603_223607", 5, 4, 4),
+    ("20260603_223631", 5, 9, 9),
+    ("20260603_223722", 5, 9, 11),
+    ("20260609_103255", 5, 22, 42),
+    ("20260609_103537", 3, 19, 17),
+    ("20260609_103633", 4, 4, 4),
+    ("20260609_103716", 4, 26, 24),
+    ("20260609_113823", 3, 5, 5),
+    ("20260609_113851", 3, 15, 14),
+    ("20260609_113926", 3, 26, 25),
+    ("20260609_114030", 4, 25, 24),
+    ("20260609_114116", 4, 41, 38),
+    ("20260609_114247", 5, 4, 6),
+    ("20260609_114309", 5, 4, 5),
+    ("20260609_114328", 5, 5, 6),
+    ("20260609_114344", 5, 6, 8),
+    ("20260609_114403", 5, 10, 12),
+    ("20260609_114430", 5, 21, 19),
+    ("20260609_114455", 5, 10, 14),
+    ("20260609_114524", 5, 19, 18),
+    ("20260609_114557", 5, 21, 22),
+    ("20260609_114620", 5, 5, 8),
+    ("20260922_143708", 4, 31, 31),
+    ("20260922_143912", 4, 24, 25),
+    ("20260922_144309", 4, 0, 0),
+    ("20260922_144802", 3, 89, 88),
+    ("20260922_151259", 7, 6, 7),
+    ("20260922_151339", 7, 6, 8),
+    ("20260922_151408", 7, 8, 8),
+    ("20260922_151455", 7, 8, 9),
+    ("20260922_151547", 7, 7, 8),
+    ("20260922_151715", 7, 16, 14),
+    ("20260922_151758", 7, 10, 9),
+    ("20260922_151910", 7, 11, 9),
+    ("20260922_151957", 7, 10, 8),
+    ("20260922_152032", 7, 13, 13),
+    ("20260922_152153", 7, 9, 10),
+    ("20260922_152424", 5, 49, 41),
+    ("20260922_152542", 5, 39, 36),
+    ("20260922_152712", 5, 61, 60),
+    ("20260922_152928", 5, 85, 76),
+    ("20260922_153051", 5, 51, 47),
+    ("20260922_153218", 5, 66, 64),
+    ("20260922_153408", 5, 107, 90),
+    ("20260922_153603", 5, 94, 88),
+    ("20260922_153715", 5, 11, 13),
+    ("20260922_153754", 5, 24, 22),
+    ("20260922_154055", 4, 60, 58),
+    ("20260922_154204", 7, 11, 11),
+    ("20260922_154237", 7, 11, 10),
+    ("20260922_154319", 7, 10, 10),
+    ("20260922_154408", 7, 18, 17),
+    ("20260922_154457", 7, 21, 16),
+    ("20260922_154640", 7, 15, 13),
+    ("20260922_154722", 7, 15, 11),
 ]
 
 # Maximum allowed total absolute error across all runs.
@@ -111,22 +112,28 @@ def _get_data_dir():
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'connectiq', 'data')
 
 
-def _load_runs_by_file():
-    """Load all runs grouped by CSV filename."""
+def _load_runs_by_id():
+    """Load every recording, keyed by its run id (one run per file)."""
     from data_utils import parse_runs
     import glob
 
-    data_dir = _get_data_dir()
-    by_file = {}
-    for path in sorted(glob.glob(os.path.join(data_dir, "juggling_recordings_*.csv"))):
-        fname = os.path.basename(path)
-        by_file[fname] = parse_runs(path)
-    return by_file
+    by_id = {}
+    for path in sorted(glob.glob(os.path.join(_get_data_dir(), "*.csv"))):
+        parsed = parse_runs(path)
+        assert len(parsed) == 1, f"{path} holds {len(parsed)} runs, expected one"
+        run = parsed[0]
+        run_id = run["meta"]["run"]
+        assert run_id == os.path.basename(path)[:-4], (
+            f"run id {run_id} does not match file name {os.path.basename(path)}"
+        )
+        assert run_id not in by_id, f"duplicate run id {run_id}"
+        by_id[run_id] = run
+    return by_id
 
 
 @pytest.fixture(scope="module")
-def runs_by_file():
-    return _load_runs_by_file()
+def runs_by_id():
+    return _load_runs_by_id()
 
 
 def _bucket(balls):
@@ -152,45 +159,41 @@ def _detect(run, balls):
 
 def _run_id(val):
     """Readable test ID for parametrize."""
-    fname, idx, balls, actual, expected = val
-    short = fname.split("_")[-1].replace(".csv", "")
-    return f"{short}_run{idx}_{balls}b_{actual}catches"
+    run_id, balls, actual, expected = val
+    return f"{run_id}_{balls}b_{actual}catches"
 
 
 @pytest.mark.parametrize("entry", EXPECTED_RUNS, ids=[_run_id(e) for e in EXPECTED_RUNS])
-def test_detection_count_per_run(runs_by_file, entry):
+def test_detection_count_per_run(runs_by_id, entry):
     """Each run's detection count must match the baseline exactly.
 
     If this test fails, the algorithm parameters have changed in a way that
     alters detection on real data. Update EXPECTED_RUNS only after verifying
     the new counts are acceptable.
     """
-    fname, run_idx, balls, actual_catches, expected_detected = entry
-    assert fname in runs_by_file, f"CSV file {fname} not found in data/"
-    runs = runs_by_file[fname]
-    assert run_idx < len(runs), f"Run index {run_idx} out of range (file has {len(runs)} runs)"
+    run_id, balls, actual_catches, expected_detected = entry
+    assert run_id in runs_by_id, f"recording {run_id}.csv not found in data/"
 
-    run = runs[run_idx]
+    run = runs_by_id[run_id]
     assert run["meta"]["balls"] == balls
     assert run["meta"]["catches"] == actual_catches
 
     detected = _detect(run, balls)
     assert detected == expected_detected, (
-        f"{fname} run {run_idx} ({balls}b, {actual_catches} actual): "
+        f"{run_id} ({balls}b, {actual_catches} actual): "
         f"detected {detected}, expected {expected_detected}"
     )
 
 
-def test_total_absolute_error(runs_by_file):
+def test_total_absolute_error(runs_by_id):
     """Total absolute error across all runs must not exceed the baseline.
 
     Current baseline: 148 total absolute error across 69 runs (1479 watch-hand catches).
     A regression means the algorithm is less accurate overall.
     """
     total_error = 0
-    for fname, run_idx, balls, actual_catches, _ in EXPECTED_RUNS:
-        run = runs_by_file[fname][run_idx]
-        detected = _detect(run, balls)
+    for run_id, balls, actual_catches, _ in EXPECTED_RUNS:
+        detected = _detect(runs_by_id[run_id], balls)
         total_error += abs(detected - actual_catches)
 
     assert total_error <= MAX_TOTAL_ERROR, (
@@ -198,16 +201,15 @@ def test_total_absolute_error(runs_by_file):
     )
 
 
-def test_total_overcount_error(runs_by_file):
+def test_total_overcount_error(runs_by_id):
     """Positive count error must stay low.
 
     The current watch issue is overcounting, so this protects the new detector's
     bias toward rejecting duplicate catch lobes.
     """
     total_overcount = 0
-    for fname, run_idx, balls, actual_catches, _ in EXPECTED_RUNS:
-        run = runs_by_file[fname][run_idx]
-        detected = _detect(run, balls)
+    for run_id, balls, actual_catches, _ in EXPECTED_RUNS:
+        detected = _detect(runs_by_id[run_id], balls)
         total_overcount += max(0, detected - actual_catches)
 
     assert total_overcount <= MAX_TOTAL_OVERCOUNT, (
@@ -215,18 +217,14 @@ def test_total_overcount_error(runs_by_file):
     )
 
 
-def test_all_csv_files_covered(runs_by_file):
-    """Every run in every CSV file must appear in EXPECTED_RUNS.
+def test_every_recording_is_covered(runs_by_id):
+    """Every recording on disk must appear in EXPECTED_RUNS.
 
     Ensures new recordings get added to the test suite.
     """
-    covered = {(e[0], e[1]) for e in EXPECTED_RUNS}
-    for fname, runs in runs_by_file.items():
-        for idx in range(len(runs)):
-            assert (fname, idx) in covered, (
-                f"Run {idx} in {fname} ({runs[idx]['meta']['balls']}b, "
-                f"{runs[idx]['meta']['catches']} catches) is not in EXPECTED_RUNS"
-            )
+    covered = {e[0] for e in EXPECTED_RUNS}
+    missing = sorted(set(runs_by_id) - covered)
+    assert not missing, f"recordings not in EXPECTED_RUNS: {missing}"
 
 
 def test_watch_params_match_detector_constants():
