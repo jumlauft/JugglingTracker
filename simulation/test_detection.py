@@ -6,8 +6,8 @@ datasets with the current JugglingDetector.mc parameters, asserting that
 detection performance does not regress.
 
 The expected detection counts come from the delayed burst-clustering algorithm
-with alternating watch-hand burst counting: total absolute error = 55 and
-positive overcount error = 5 across 36 runs (483 actual watch-hand catches).
+with alternating watch-hand burst counting: total absolute error = 59 and
+positive overcount error = 5 across 38 runs (596 actual watch-hand catches).
 """
 import os
 import sys
@@ -66,10 +66,12 @@ EXPECTED_RUNS = [
     ("juggling_recordings_20260609_114726.csv", 12, 5, 19, 13),
     ("juggling_recordings_20260609_114726.csv", 13, 5, 21, 16),
     ("juggling_recordings_20260609_114726.csv", 14, 5, 5, 7),
+    ("juggling_recordings_20260922_143912.csv", 0, 4, 24, 21),
+    ("juggling_recordings_20260922_144802.csv", 0, 3, 89, 88),
 ]
 
 # Maximum allowed total absolute error across all runs.
-MAX_TOTAL_ERROR = 55
+MAX_TOTAL_ERROR = 59
 MAX_TOTAL_OVERCOUNT = 5
 
 
@@ -141,7 +143,7 @@ def test_detection_count_per_run(runs_by_file, entry):
 def test_total_absolute_error(runs_by_file):
     """Total absolute error across all runs must not exceed the baseline.
 
-    Current baseline: 55 total absolute error across 36 runs (483 watch-hand catches).
+    Current baseline: 59 total absolute error across 38 runs (596 watch-hand catches).
     A regression means the algorithm is less accurate overall.
     """
     total_error = 0
