@@ -130,4 +130,49 @@ class RecordingRepositoryTest {
         assertEquals(0, repository.recordingCount())
         assertEquals("", repository.exportAllCsv())
     }
+
+    // ── listRecordings ──────────────────────────────────────────────────
+
+    @Test
+    fun `list recordings summarises watch and phone sources`() {
+        repository.saveRecording(
+            balls = 3, catches = 89, detected = 88, sampleRate = 25,
+            timestamp = 2000L,
+            accelX = List(50) { 1 }, accelY = List(50) { 2 }, accelZ = List(50) { 3 },
+        )
+        repository.saveRecording(
+            balls = 5, catches = 12, detected = 9, sampleRate = 200,
+            timestamp = 1000L,
+            accelX = List(400) { 1 }, accelY = List(400) { 2 }, accelZ = List(400) { 3 },
+        )
+
+        val all = repository.listRecordings()
+        assertEquals(2, all.size)
+
+        // newest first
+        val watch = all[0]
+        assertEquals(3, watch.balls)
+        assertEquals(89, watch.catches)
+        assertEquals(88, watch.detected)
+        assertEquals(25, watch.sampleRate)
+        assertEquals(50, watch.samples)
+        assertTrue(watch.fromWatch)
+        assertEquals(2.0, watch.durationSeconds, 0.001)
+
+        val phone = all[1]
+        assertEquals(200, phone.sampleRate)
+        assertFalse(phone.fromWatch)
+        assertEquals(2.0, phone.durationSeconds, 0.001)
+    }
+
+    @Test
+    fun `list recordings is empty when nothing stored`() {
+        assertTrue(repository.listRecordings().isEmpty())
+    }
+
+    @Test
+    fun `list recordings skips a file with no header`() {
+        File(tempDir, "broken.csv").writeText("x,y,z\n1,2,3\n")
+        assertTrue(repository.listRecordings().isEmpty())
+    }
 }

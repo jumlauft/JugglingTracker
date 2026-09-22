@@ -108,4 +108,12 @@
     <string name="section_advanced">Advanced Detection</string>
     <string name="label_ml_enabled">Use Machine Learning (BETA)</string>
     <string name="desc_ml_enabled">Uses a neural network for catch detection on the phone. Recommended for 5+ balls. If disabled, a traditional threshold algorithm is used.</string>
+    <string name="recordings_table_title">Stored recordings</string>
+    <string name="recordings_col_when">When</string>
+    <string name="recordings_col_source">Source</string>
+    <string name="recordings_col_balls">Balls</string>
+    <string name="recordings_col_catches">Catches</string>
+    <string name="recordings_col_duration">Length</string>
+    <string name="recordings_source_watch">Watch 25Hz</string>
+    <string name="recordings_source_phone">Phone %1$dHz</string>
 </resources>

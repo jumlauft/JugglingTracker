@@ -74,6 +74,64 @@ class RecordingRepository(private val recordingsDir: File) {
         }
     }
 
+    /** One stored recording, summarised from its header line. */
+    data class RecordingSummary(
+        val fileName: String,
+        val balls: Int,
+        val catches: Int,
+        val detected: Int,
+        val sampleRate: Int,
+        val timestamp: Long,
+        val samples: Int,
+    ) {
+        val durationSeconds: Double
+            get() = if (sampleRate > 0) samples.toDouble() / sampleRate else 0.0
+
+        /** The watch samples at 25 Hz, the phone at 200 Hz. */
+        val fromWatch: Boolean
+            get() = sampleRate <= 25
+    }
+
+    /** Summaries of every stored recording, newest first. */
+    fun listRecordings(): List<RecordingSummary> {
+        val files = recordingsDir.listFiles()?.filter { it.extension == "csv" } ?: return emptyList()
+        return files.mapNotNull { file ->
+            try {
+                var header: String? = null
+                var samples = 0
+                file.forEachLine { line ->
+                    when {
+                        line.startsWith("#") -> if (header == null) header = line
+                        line.isBlank() || line.startsWith("x,") -> Unit
+                        else -> samples++
+                    }
+                }
+                val fields = (header ?: return@mapNotNull null)
+                    .removePrefix("#")
+                    .trim()
+                    .split(",")
+                    .mapNotNull { part ->
+                        val kv = part.split("=", limit = 2)
+                        if (kv.size == 2) kv[0].trim() to kv[1].trim() else null
+                    }
+                    .toMap()
+
+                RecordingSummary(
+                    fileName = file.name,
+                    balls = fields["balls"]?.toIntOrNull() ?: return@mapNotNull null,
+                    catches = fields["catches"]?.toIntOrNull() ?: 0,
+                    detected = fields["detected"]?.toIntOrNull() ?: 0,
+                    sampleRate = fields["sampleRate"]?.toIntOrNull() ?: 0,
+                    timestamp = fields["timestamp"]?.toLongOrNull() ?: 0L,
+                    samples = samples,
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to read recording ${file.name}", e)
+                null
+            }
+        }.sortedByDescending { it.timestamp }
+    }
+
     /** Number of recording files stored. */
     fun recordingCount(): Int {
         return recordingsDir.listFiles()?.count { it.extension == "csv" } ?: 0

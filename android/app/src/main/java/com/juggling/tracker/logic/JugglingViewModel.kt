@@ -157,6 +157,8 @@ class JugglingViewModel(
     // Recording state
     var recordingCount by mutableIntStateOf(recordingRepository?.recordingCount() ?: 0)
         private set
+    var recordings by mutableStateOf(recordingRepository?.listRecordings() ?: emptyList())
+        private set
 
     var phoneSessionState by mutableStateOf(PhoneSessionUiState())
         private set
@@ -383,6 +385,7 @@ class JugglingViewModel(
             accelZ = run.z,
         )
         recordingCount = recordingRepository?.recordingCount() ?: 0
+        recordings = recordingRepository?.listRecordings() ?: emptyList()
         return true
     }
 
@@ -395,6 +398,7 @@ class JugglingViewModel(
     fun clearRecordings() {
         recordingRepository?.clearAll()
         recordingCount = 0
+        recordings = emptyList()
     }
 
     // ── Raw Data Recording support ─────────────────────────────────────
@@ -457,6 +461,7 @@ class JugglingViewModel(
         )
         
         recordingCount = recordingRepository?.recordingCount() ?: 0
+        recordings = recordingRepository?.listRecordings() ?: emptyList()
         cancelRawRecording()
     }
 
