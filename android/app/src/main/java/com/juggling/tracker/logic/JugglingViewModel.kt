@@ -292,41 +292,98 @@ class JugglingViewModel(
     // ── Recording support ──────────────────────────────────────────────
 
     /** Import a recording payload received from the Garmin watch. Catches are watch-hand catches. */
-    fun importRecordingFromWatch(payload: Map<String, Any>) {
-        val balls = (payload["balls"] as? Number)?.toInt() ?: return
-        val catches = (payload["catches"] as? Number)?.toInt() ?: return
-        val detected = (payload["detected"] as? Number)?.toInt() ?: 0
-        val sampleRate = (payload["sampleRate"] as? Number)?.toInt() ?: 25
-        val timestamp = (payload["timestamp"] as? Number)?.toLong() ?: return
+    // ── Chunked recording transfer ──────────────────────────────────────
+    //
+    // The watch cannot send a dictionary holding hundreds of numbers, so a run
+    // arrives as rec_start, a series of rec_chunk parts, then rec_end. Only
+    // rec_end is acknowledged, after the run has been written.
+
+    private class IncomingRecording(
+        val id: Long,
+        val balls: Int,
+        val catches: Int,
+        val detected: Int,
+        val sampleRate: Int,
+        val totalSamples: Int,
+        val totalChunks: Int,
+    ) {
+        val x = mutableListOf<Int>()
+        val y = mutableListOf<Int>()
+        val z = mutableListOf<Int>()
+        var nextChunk = 0
+    }
+
+    private var incoming: IncomingRecording? = null
+
+    fun startRecordingTransfer(payload: Map<String, Any>) {
+        val id = (payload["id"] as? Number)?.toLong() ?: return
+        incoming = IncomingRecording(
+            id = id,
+            balls = (payload["balls"] as? Number)?.toInt() ?: return,
+            catches = (payload["catches"] as? Number)?.toInt() ?: return,
+            detected = (payload["detected"] as? Number)?.toInt() ?: 0,
+            sampleRate = (payload["sampleRate"] as? Number)?.toInt() ?: 25,
+            totalSamples = (payload["samples"] as? Number)?.toInt() ?: 0,
+            totalChunks = (payload["chunks"] as? Number)?.toInt() ?: 0,
+        )
+    }
+
+    fun appendRecordingChunk(payload: Map<String, Any>) {
+        val run = incoming ?: return
+        if ((payload["id"] as? Number)?.toLong() != run.id) return
+
+        val index = (payload["i"] as? Number)?.toInt() ?: return
+        if (index < run.nextChunk) {
+            // Already have this one. The transport can deliver a message more
+            // than once, which must not be mistaken for corruption.
+            return
+        }
+        if (index > run.nextChunk) {
+            // A chunk was lost; the run would be corrupt, so drop it rather
+            // than write bad training data.
+            incoming = null
+            return
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        val xs = (payload["x"] as? List<Any>)?.mapNotNull { (it as? Number)?.toInt() } ?: return
+        @Suppress("UNCHECKED_CAST")
+        val ys = (payload["y"] as? List<Any>)?.mapNotNull { (it as? Number)?.toInt() } ?: return
+        @Suppress("UNCHECKED_CAST")
+        val zs = (payload["z"] as? List<Any>)?.mapNotNull { (it as? Number)?.toInt() } ?: return
+
+        run.x.addAll(xs)
+        run.y.addAll(ys)
+        run.z.addAll(zs)
+        run.nextChunk = index + 1
+    }
+
+    /** Returns true when a complete run was written. */
+    fun finishRecordingTransfer(payload: Map<String, Any>): Boolean {
+        val run = incoming ?: return false
+        incoming = null
+        if ((payload["id"] as? Number)?.toLong() != run.id) return false
+        if (run.nextChunk != run.totalChunks) return false
+        if (run.x.size != run.totalSamples) return false
 
         analytics?.logEvent("import_recording", Bundle().apply {
-            putInt("ball_count", balls)
-            putInt("catches", catches)
+            putInt("ball_count", run.balls)
+            putInt("catches", run.catches)
             putString("source", "garmin_watch")
         })
 
-        @Suppress("UNCHECKED_CAST")
-        val xRaw = payload["accelX"] as? List<Any> ?: return
-        @Suppress("UNCHECKED_CAST")
-        val yRaw = payload["accelY"] as? List<Any> ?: return
-        @Suppress("UNCHECKED_CAST")
-        val zRaw = payload["accelZ"] as? List<Any> ?: return
-
-        val xs = xRaw.mapNotNull { (it as? Number)?.toInt() }
-        val ys = yRaw.mapNotNull { (it as? Number)?.toInt() }
-        val zs = zRaw.mapNotNull { (it as? Number)?.toInt() }
-
         recordingRepository?.saveRecording(
-            balls = balls,
-            catches = catches,
-            detected = detected,
-            sampleRate = sampleRate,
-            timestamp = timestamp,
-            accelX = xs,
-            accelY = ys,
-            accelZ = zs,
+            balls = run.balls,
+            catches = run.catches,
+            detected = run.detected,
+            sampleRate = run.sampleRate,
+            timestamp = run.id,
+            accelX = run.x,
+            accelY = run.y,
+            accelZ = run.z,
         )
         recordingCount = recordingRepository?.recordingCount() ?: 0
+        return true
     }
 
     /** Merged CSV of all stored recordings for export. */
