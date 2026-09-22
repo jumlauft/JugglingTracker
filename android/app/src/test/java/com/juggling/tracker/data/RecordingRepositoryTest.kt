@@ -33,11 +33,13 @@ class RecordingRepositoryTest {
             accelX = listOf(100, 200, 300),
             accelY = listOf(400, 500, 600),
             accelZ = listOf(700, 800, 900),
+            source = RecordingRepository.SOURCE_WATCH,
         )
 
         assertNotNull(file)
         assertTrue(file!!.exists())
-        assertTrue(file.name.contains("3b_5c"))
+        // named by run id so it is stable if the labels are later corrected
+        assertTrue(file.name.matches(Regex("""\d{8}_\d{6}\.csv""")))
     }
 
     @Test
@@ -48,10 +50,16 @@ class RecordingRepositoryTest {
             accelX = listOf(10, 20),
             accelY = listOf(30, 40),
             accelZ = listOf(50, 60),
+            source = RecordingRepository.SOURCE_WATCH,
         )!!
 
         val lines = file.readLines()
-        assertEquals("# balls=3,catches=2,detected=2,sampleRate=25,timestamp=42,countMode=watch_hand", lines[0])
+        val runId = file.name.removeSuffix(".csv")
+        assertEquals(
+            "# run=$runId,timestamp=42,balls=3,catches=2,sampleRate=25" +
+                ",units=milli_g,source=watch,countMode=watch_hand,detectedAtCapture=2",
+            lines[0],
+        )
         assertEquals("x,y,z", lines[1])
         assertEquals("10,30,50", lines[2])
         assertEquals("20,40,60", lines[3])
@@ -65,6 +73,7 @@ class RecordingRepositoryTest {
             accelX = emptyList(),
             accelY = emptyList(),
             accelZ = emptyList(),
+            source = RecordingRepository.SOURCE_WATCH,
         )
 
         assertNull(file)
@@ -78,6 +87,7 @@ class RecordingRepositoryTest {
             accelX = listOf(1, 2, 3),
             accelY = listOf(4, 5),
             accelZ = listOf(7, 8, 9, 10),
+            source = RecordingRepository.SOURCE_WATCH,
         )!!
 
         val dataLines = file.readLines().drop(2)
@@ -93,8 +103,8 @@ class RecordingRepositoryTest {
 
     @Test
     fun `recording count increases after save`() {
-        repository.saveRecording(3, 5, 4, 25, 1L, listOf(1), listOf(2), listOf(3))
-        repository.saveRecording(3, 3, 3, 25, 2L, listOf(4), listOf(5), listOf(6))
+        repository.saveRecording(3, 5, 4, 25, 1L, listOf(1), listOf(2), listOf(3), RecordingRepository.SOURCE_WATCH)
+        repository.saveRecording(3, 3, 3, 25, 2L, listOf(4), listOf(5), listOf(6), RecordingRepository.SOURCE_WATCH)
 
         assertEquals(2, repository.recordingCount())
     }
@@ -108,8 +118,8 @@ class RecordingRepositoryTest {
 
     @Test
     fun `export all csv merges recordings`() {
-        repository.saveRecording(3, 1, 1, 25, 1L, listOf(10), listOf(20), listOf(30))
-        repository.saveRecording(5, 2, 2, 25, 2L, listOf(40), listOf(50), listOf(60))
+        repository.saveRecording(3, 1, 1, 25, 1L, listOf(10), listOf(20), listOf(30), RecordingRepository.SOURCE_WATCH)
+        repository.saveRecording(5, 2, 2, 25, 2L, listOf(40), listOf(50), listOf(60), RecordingRepository.SOURCE_WATCH)
 
         val csv = repository.exportAllCsv()
         assertTrue(csv.contains("balls=3"))
@@ -122,8 +132,8 @@ class RecordingRepositoryTest {
 
     @Test
     fun `clear all removes all recordings`() {
-        repository.saveRecording(3, 1, 1, 25, 1L, listOf(1), listOf(2), listOf(3))
-        repository.saveRecording(3, 2, 2, 25, 2L, listOf(4), listOf(5), listOf(6))
+        repository.saveRecording(3, 1, 1, 25, 1L, listOf(1), listOf(2), listOf(3), RecordingRepository.SOURCE_WATCH)
+        repository.saveRecording(3, 2, 2, 25, 2L, listOf(4), listOf(5), listOf(6), RecordingRepository.SOURCE_WATCH)
 
         repository.clearAll()
 
@@ -139,11 +149,13 @@ class RecordingRepositoryTest {
             balls = 3, catches = 89, detected = 88, sampleRate = 25,
             timestamp = 2000L,
             accelX = List(50) { 1 }, accelY = List(50) { 2 }, accelZ = List(50) { 3 },
+            source = RecordingRepository.SOURCE_WATCH,
         )
         repository.saveRecording(
             balls = 5, catches = 12, detected = 9, sampleRate = 200,
             timestamp = 1000L,
             accelX = List(400) { 1 }, accelY = List(400) { 2 }, accelZ = List(400) { 3 },
+            source = RecordingRepository.SOURCE_PHONE,
         )
 
         val all = repository.listRecordings()

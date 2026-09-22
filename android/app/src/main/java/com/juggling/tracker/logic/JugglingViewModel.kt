@@ -383,6 +383,7 @@ class JugglingViewModel(
             accelX = run.x,
             accelY = run.y,
             accelZ = run.z,
+            source = RecordingRepository.SOURCE_WATCH,
         )
         recordingCount = recordingRepository?.recordingCount() ?: 0
         recordings = recordingRepository?.listRecordings() ?: emptyList()
@@ -457,7 +458,8 @@ class JugglingViewModel(
             timestamp = timestamp / 1000L, // store as epoch seconds to match watch
             accelX = rawAccelX,
             accelY = rawAccelY,
-            accelZ = rawAccelZ
+            accelZ = rawAccelZ,
+            source = RecordingRepository.SOURCE_PHONE,
         )
         
         recordingCount = recordingRepository?.recordingCount() ?: 0
