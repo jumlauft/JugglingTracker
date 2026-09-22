@@ -6,8 +6,8 @@ datasets with the current JugglingDetector.mc parameters, asserting that
 detection performance does not regress.
 
 The expected detection counts come from the delayed burst-clustering algorithm
-with alternating watch-hand burst counting: total absolute error = 59 and
-positive overcount error = 5 across 38 runs (596 actual watch-hand catches).
+with alternating watch-hand burst counting: total absolute error = 382 and
+positive overcount error = 5 across 69 runs (1479 actual watch-hand catches).
 """
 import os
 import sys
@@ -66,12 +66,43 @@ EXPECTED_RUNS = [
     ("juggling_recordings_20260609_114726.csv", 12, 5, 19, 13),
     ("juggling_recordings_20260609_114726.csv", 13, 5, 21, 16),
     ("juggling_recordings_20260609_114726.csv", 14, 5, 5, 7),
-    ("juggling_recordings_20260922_143912.csv", 0, 4, 24, 21),
-    ("juggling_recordings_20260922_144802.csv", 0, 3, 89, 88),
+    ("juggling_recordings_20260922_160142.csv", 0, 4, 31, 29),
+    ("juggling_recordings_20260922_160142.csv", 1, 4, 24, 21),
+    ("juggling_recordings_20260922_160142.csv", 2, 4, 0, 0),
+    ("juggling_recordings_20260922_160142.csv", 3, 3, 89, 88),
+    ("juggling_recordings_20260922_160142.csv", 4, 7, 6, 6),
+    ("juggling_recordings_20260922_160142.csv", 5, 7, 6, 6),
+    ("juggling_recordings_20260922_160142.csv", 6, 7, 8, 7),
+    ("juggling_recordings_20260922_160142.csv", 7, 7, 8, 7),
+    ("juggling_recordings_20260922_160142.csv", 8, 7, 7, 7),
+    ("juggling_recordings_20260922_160142.csv", 9, 7, 16, 10),
+    ("juggling_recordings_20260922_160142.csv", 10, 7, 10, 8),
+    ("juggling_recordings_20260922_160142.csv", 11, 7, 11, 6),
+    ("juggling_recordings_20260922_160142.csv", 12, 7, 10, 7),
+    ("juggling_recordings_20260922_160142.csv", 13, 7, 13, 9),
+    ("juggling_recordings_20260922_160142.csv", 14, 7, 9, 9),
+    ("juggling_recordings_20260922_160142.csv", 15, 5, 49, 27),
+    ("juggling_recordings_20260922_160142.csv", 16, 5, 39, 22),
+    ("juggling_recordings_20260922_160142.csv", 17, 5, 61, 34),
+    ("juggling_recordings_20260922_160142.csv", 18, 5, 85, 47),
+    ("juggling_recordings_20260922_160142.csv", 19, 5, 51, 28),
+    ("juggling_recordings_20260922_160142.csv", 20, 5, 66, 38),
+    ("juggling_recordings_20260922_160142.csv", 21, 5, 107, 56),
+    ("juggling_recordings_20260922_160142.csv", 22, 5, 94, 49),
+    ("juggling_recordings_20260922_160142.csv", 23, 5, 11, 8),
+    ("juggling_recordings_20260922_160142.csv", 24, 5, 24, 15),
+    ("juggling_recordings_20260922_160142.csv", 25, 4, 60, 55),
+    ("juggling_recordings_20260922_160142.csv", 26, 7, 11, 9),
+    ("juggling_recordings_20260922_160142.csv", 27, 7, 11, 9),
+    ("juggling_recordings_20260922_160142.csv", 28, 7, 10, 8),
+    ("juggling_recordings_20260922_160142.csv", 29, 7, 18, 12),
+    ("juggling_recordings_20260922_160142.csv", 30, 7, 21, 13),
+    ("juggling_recordings_20260922_160142.csv", 31, 7, 15, 9),
+    ("juggling_recordings_20260922_160142.csv", 32, 7, 15, 10),
 ]
 
 # Maximum allowed total absolute error across all runs.
-MAX_TOTAL_ERROR = 59
+MAX_TOTAL_ERROR = 382
 MAX_TOTAL_OVERCOUNT = 5
 
 
@@ -143,7 +174,7 @@ def test_detection_count_per_run(runs_by_file, entry):
 def test_total_absolute_error(runs_by_file):
     """Total absolute error across all runs must not exceed the baseline.
 
-    Current baseline: 59 total absolute error across 38 runs (596 watch-hand catches).
+    Current baseline: 382 total absolute error across 69 runs (1479 watch-hand catches).
     A regression means the algorithm is less accurate overall.
     """
     total_error = 0
