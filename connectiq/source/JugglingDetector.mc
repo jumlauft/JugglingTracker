@@ -23,13 +23,15 @@ class JugglingDetector {
     // Per-ball-count refractory period (ms) between consecutive candidates.
     // Data-driven from delayed burst-clustering sweep for watch-hand catches.
     private const REFRACTORY_MS_3 = 80;
-    private const REFRACTORY_MS_4 = 40;
-    private const REFRACTORY_MS_5PLUS = 320;
+    private const REFRACTORY_MS_4 = 80;
+    private const REFRACTORY_MS_5PLUS = 40;
+    private const REFRACTORY_MS_7PLUS = 160;
 
     // Candidates closer than this are treated as lobes of one catch motion.
     private const MERGE_WINDOW_MS_3 = 160;
-    private const MERGE_WINDOW_MS_4 = 80;
+    private const MERGE_WINDOW_MS_4 = 160;
     private const MERGE_WINDOW_MS_5PLUS = 160;
+    private const MERGE_WINDOW_MS_7PLUS = 80;
 
     private const AUTO_FINISH_DELAY_MS = 2000;
 
@@ -47,8 +49,9 @@ class JugglingDetector {
     // labels that count catches by the watch-wearing hand only: total absolute
     // error 55 across 36 runs, positive overcount error 5.
     private const HP_THRESHOLD_3 = 2.0f;
-    private const HP_THRESHOLD_4 = 4.0f;
-    private const HP_THRESHOLD_5PLUS = 0.8f;
+    private const HP_THRESHOLD_4 = 3.0f;
+    private const HP_THRESHOLD_5PLUS = 3.0f;
+    private const HP_THRESHOLD_7PLUS = 3.0f;
     private const HP_HYSTERESIS = 0.3f;  // signal must drop below threshold * 0.3
 
     // Minimum raw (pre-highpass) magnitude for a candidate to count.
@@ -56,8 +59,9 @@ class JugglingDetector {
     // Per-ball-count: 3b and 5+b use gates to suppress arm-swing noise;
     // 4b disables the gate because threshold/cluster timing is selective enough.
     private const MIN_RAW_MAG_3 = 7.0f;
-    private const MIN_RAW_MAG_4 = 0.0f;  // disabled
+    private const MIN_RAW_MAG_4 = 11.0f;
     private const MIN_RAW_MAG_5PLUS = 13.0f;
+    private const MIN_RAW_MAG_7PLUS = 7.0f;
 
     // Number of balls being juggled (3-9), selected at startup.
     public var ballCount as Number;
@@ -170,11 +174,18 @@ class JugglingDetector {
             _refractoryMs = REFRACTORY_MS_4;
             _minRawMag = MIN_RAW_MAG_4;
             _mergeWindowMs = MERGE_WINDOW_MS_4;
-        } else {
+        } else if (balls <= 6) {
             _hpThreshold = HP_THRESHOLD_5PLUS;
             _refractoryMs = REFRACTORY_MS_5PLUS;
             _minRawMag = MIN_RAW_MAG_5PLUS;
             _mergeWindowMs = MERGE_WINDOW_MS_5PLUS;
+        } else {
+            // 7+ is a distinctly faster cadence than 5, and was previously run
+            // on parameters fitted entirely to 5-ball data.
+            _hpThreshold = HP_THRESHOLD_7PLUS;
+            _refractoryMs = REFRACTORY_MS_7PLUS;
+            _minRawMag = MIN_RAW_MAG_7PLUS;
+            _mergeWindowMs = MERGE_WINDOW_MS_7PLUS;
         }
     }
 

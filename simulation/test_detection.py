@@ -6,8 +6,8 @@ datasets with the current JugglingDetector.mc parameters, asserting that
 detection performance does not regress.
 
 The expected detection counts come from the delayed burst-clustering algorithm
-with alternating watch-hand burst counting: total absolute error = 382 and
-positive overcount error = 5 across 69 runs (1479 actual watch-hand catches).
+with alternating watch-hand burst counting: total absolute error = 148 and
+positive overcount error = 52 across 69 runs (1479 actual watch-hand catches).
 """
 import os
 import sys
@@ -22,8 +22,9 @@ from data_utils import load_all_runs
 # ── Current watch parameters (must match JugglingDetector.mc) ──────────────
 WATCH_PARAMS = {
     3: {"threshold": 2.0, "refractory_ms": 80, "raw_gate": 7.0, "merge_window_ms": 160},
-    4: {"threshold": 4.0, "refractory_ms": 40, "raw_gate": 0.0, "merge_window_ms": 80},
-    5: {"threshold": 0.8, "refractory_ms": 320, "raw_gate": 13.0, "merge_window_ms": 160},
+    4: {"threshold": 3.0, "refractory_ms": 80, "raw_gate": 11.0, "merge_window_ms": 160},
+    5: {"threshold": 3.0, "refractory_ms": 40, "raw_gate": 13.0, "merge_window_ms": 160},
+    7: {"threshold": 3.0, "refractory_ms": 160, "raw_gate": 7.0, "merge_window_ms": 80},
 }
 
 # ── Expected detection counts per run ──────────────────────────────────────
@@ -32,8 +33,8 @@ WATCH_PARAMS = {
 EXPECTED_RUNS = [
     ("juggling_recordings_20260603_201546.csv", 0, 3, 6, 4),
     ("juggling_recordings_20260603_201546.csv", 1, 3, 17, 18),
-    ("juggling_recordings_20260603_201546.csv", 2, 5, 4, 4),
-    ("juggling_recordings_20260603_201546.csv", 3, 5, 13, 9),
+    ("juggling_recordings_20260603_201546.csv", 2, 5, 4, 7),
+    ("juggling_recordings_20260603_201546.csv", 3, 5, 13, 14),
     ("juggling_recordings_20260603_203008.csv", 0, 3, 20, 20),
     ("juggling_recordings_20260603_223806.csv", 0, 3, 25, 23),
     ("juggling_recordings_20260603_223806.csv", 1, 3, 26, 26),
@@ -43,67 +44,67 @@ EXPECTED_RUNS = [
     ("juggling_recordings_20260603_223806.csv", 5, 4, 13, 12),
     ("juggling_recordings_20260603_223806.csv", 6, 4, 0, 0),
     ("juggling_recordings_20260603_223806.csv", 7, 4, 8, 8),
-    ("juggling_recordings_20260603_223806.csv", 8, 4, 21, 21),
-    ("juggling_recordings_20260603_223806.csv", 9, 5, 4, 3),
-    ("juggling_recordings_20260603_223806.csv", 10, 5, 9, 6),
-    ("juggling_recordings_20260603_223806.csv", 11, 5, 9, 6),
-    ("juggling_recordings_20260609_103926.csv", 0, 5, 22, 24),
+    ("juggling_recordings_20260603_223806.csv", 8, 4, 21, 20),
+    ("juggling_recordings_20260603_223806.csv", 9, 5, 4, 4),
+    ("juggling_recordings_20260603_223806.csv", 10, 5, 9, 9),
+    ("juggling_recordings_20260603_223806.csv", 11, 5, 9, 11),
+    ("juggling_recordings_20260609_103926.csv", 0, 5, 22, 42),
     ("juggling_recordings_20260609_103926.csv", 1, 3, 19, 17),
     ("juggling_recordings_20260609_103926.csv", 2, 4, 4, 4),
-    ("juggling_recordings_20260609_103926.csv", 3, 4, 26, 25),
+    ("juggling_recordings_20260609_103926.csv", 3, 4, 26, 24),
     ("juggling_recordings_20260609_114726.csv", 0, 3, 5, 5),
     ("juggling_recordings_20260609_114726.csv", 1, 3, 15, 14),
     ("juggling_recordings_20260609_114726.csv", 2, 3, 26, 25),
     ("juggling_recordings_20260609_114726.csv", 3, 4, 25, 24),
-    ("juggling_recordings_20260609_114726.csv", 4, 4, 41, 36),
-    ("juggling_recordings_20260609_114726.csv", 5, 5, 4, 4),
-    ("juggling_recordings_20260609_114726.csv", 6, 5, 4, 4),
-    ("juggling_recordings_20260609_114726.csv", 7, 5, 5, 5),
-    ("juggling_recordings_20260609_114726.csv", 8, 5, 6, 6),
-    ("juggling_recordings_20260609_114726.csv", 9, 5, 10, 9),
-    ("juggling_recordings_20260609_114726.csv", 10, 5, 21, 13),
-    ("juggling_recordings_20260609_114726.csv", 11, 5, 10, 9),
-    ("juggling_recordings_20260609_114726.csv", 12, 5, 19, 13),
-    ("juggling_recordings_20260609_114726.csv", 13, 5, 21, 16),
-    ("juggling_recordings_20260609_114726.csv", 14, 5, 5, 7),
-    ("juggling_recordings_20260922_160142.csv", 0, 4, 31, 29),
-    ("juggling_recordings_20260922_160142.csv", 1, 4, 24, 21),
+    ("juggling_recordings_20260609_114726.csv", 4, 4, 41, 38),
+    ("juggling_recordings_20260609_114726.csv", 5, 5, 4, 6),
+    ("juggling_recordings_20260609_114726.csv", 6, 5, 4, 5),
+    ("juggling_recordings_20260609_114726.csv", 7, 5, 5, 6),
+    ("juggling_recordings_20260609_114726.csv", 8, 5, 6, 8),
+    ("juggling_recordings_20260609_114726.csv", 9, 5, 10, 12),
+    ("juggling_recordings_20260609_114726.csv", 10, 5, 21, 19),
+    ("juggling_recordings_20260609_114726.csv", 11, 5, 10, 14),
+    ("juggling_recordings_20260609_114726.csv", 12, 5, 19, 18),
+    ("juggling_recordings_20260609_114726.csv", 13, 5, 21, 22),
+    ("juggling_recordings_20260609_114726.csv", 14, 5, 5, 8),
+    ("juggling_recordings_20260922_160142.csv", 0, 4, 31, 31),
+    ("juggling_recordings_20260922_160142.csv", 1, 4, 24, 25),
     ("juggling_recordings_20260922_160142.csv", 2, 4, 0, 0),
     ("juggling_recordings_20260922_160142.csv", 3, 3, 89, 88),
-    ("juggling_recordings_20260922_160142.csv", 4, 7, 6, 6),
-    ("juggling_recordings_20260922_160142.csv", 5, 7, 6, 6),
-    ("juggling_recordings_20260922_160142.csv", 6, 7, 8, 7),
-    ("juggling_recordings_20260922_160142.csv", 7, 7, 8, 7),
-    ("juggling_recordings_20260922_160142.csv", 8, 7, 7, 7),
-    ("juggling_recordings_20260922_160142.csv", 9, 7, 16, 10),
-    ("juggling_recordings_20260922_160142.csv", 10, 7, 10, 8),
-    ("juggling_recordings_20260922_160142.csv", 11, 7, 11, 6),
-    ("juggling_recordings_20260922_160142.csv", 12, 7, 10, 7),
-    ("juggling_recordings_20260922_160142.csv", 13, 7, 13, 9),
-    ("juggling_recordings_20260922_160142.csv", 14, 7, 9, 9),
-    ("juggling_recordings_20260922_160142.csv", 15, 5, 49, 27),
-    ("juggling_recordings_20260922_160142.csv", 16, 5, 39, 22),
-    ("juggling_recordings_20260922_160142.csv", 17, 5, 61, 34),
-    ("juggling_recordings_20260922_160142.csv", 18, 5, 85, 47),
-    ("juggling_recordings_20260922_160142.csv", 19, 5, 51, 28),
-    ("juggling_recordings_20260922_160142.csv", 20, 5, 66, 38),
-    ("juggling_recordings_20260922_160142.csv", 21, 5, 107, 56),
-    ("juggling_recordings_20260922_160142.csv", 22, 5, 94, 49),
-    ("juggling_recordings_20260922_160142.csv", 23, 5, 11, 8),
-    ("juggling_recordings_20260922_160142.csv", 24, 5, 24, 15),
-    ("juggling_recordings_20260922_160142.csv", 25, 4, 60, 55),
-    ("juggling_recordings_20260922_160142.csv", 26, 7, 11, 9),
-    ("juggling_recordings_20260922_160142.csv", 27, 7, 11, 9),
-    ("juggling_recordings_20260922_160142.csv", 28, 7, 10, 8),
-    ("juggling_recordings_20260922_160142.csv", 29, 7, 18, 12),
-    ("juggling_recordings_20260922_160142.csv", 30, 7, 21, 13),
-    ("juggling_recordings_20260922_160142.csv", 31, 7, 15, 9),
-    ("juggling_recordings_20260922_160142.csv", 32, 7, 15, 10),
+    ("juggling_recordings_20260922_160142.csv", 4, 7, 6, 7),
+    ("juggling_recordings_20260922_160142.csv", 5, 7, 6, 8),
+    ("juggling_recordings_20260922_160142.csv", 6, 7, 8, 8),
+    ("juggling_recordings_20260922_160142.csv", 7, 7, 8, 9),
+    ("juggling_recordings_20260922_160142.csv", 8, 7, 7, 8),
+    ("juggling_recordings_20260922_160142.csv", 9, 7, 16, 14),
+    ("juggling_recordings_20260922_160142.csv", 10, 7, 10, 9),
+    ("juggling_recordings_20260922_160142.csv", 11, 7, 11, 9),
+    ("juggling_recordings_20260922_160142.csv", 12, 7, 10, 8),
+    ("juggling_recordings_20260922_160142.csv", 13, 7, 13, 13),
+    ("juggling_recordings_20260922_160142.csv", 14, 7, 9, 10),
+    ("juggling_recordings_20260922_160142.csv", 15, 5, 49, 41),
+    ("juggling_recordings_20260922_160142.csv", 16, 5, 39, 36),
+    ("juggling_recordings_20260922_160142.csv", 17, 5, 61, 60),
+    ("juggling_recordings_20260922_160142.csv", 18, 5, 85, 76),
+    ("juggling_recordings_20260922_160142.csv", 19, 5, 51, 47),
+    ("juggling_recordings_20260922_160142.csv", 20, 5, 66, 64),
+    ("juggling_recordings_20260922_160142.csv", 21, 5, 107, 90),
+    ("juggling_recordings_20260922_160142.csv", 22, 5, 94, 88),
+    ("juggling_recordings_20260922_160142.csv", 23, 5, 11, 13),
+    ("juggling_recordings_20260922_160142.csv", 24, 5, 24, 22),
+    ("juggling_recordings_20260922_160142.csv", 25, 4, 60, 58),
+    ("juggling_recordings_20260922_160142.csv", 26, 7, 11, 11),
+    ("juggling_recordings_20260922_160142.csv", 27, 7, 11, 10),
+    ("juggling_recordings_20260922_160142.csv", 28, 7, 10, 10),
+    ("juggling_recordings_20260922_160142.csv", 29, 7, 18, 17),
+    ("juggling_recordings_20260922_160142.csv", 30, 7, 21, 16),
+    ("juggling_recordings_20260922_160142.csv", 31, 7, 15, 13),
+    ("juggling_recordings_20260922_160142.csv", 32, 7, 15, 11),
 ]
 
 # Maximum allowed total absolute error across all runs.
-MAX_TOTAL_ERROR = 382
-MAX_TOTAL_OVERCOUNT = 5
+MAX_TOTAL_ERROR = 148
+MAX_TOTAL_OVERCOUNT = 52
 
 
 def _get_data_dir():
@@ -128,9 +129,18 @@ def runs_by_file():
     return _load_runs_by_file()
 
 
+def _bucket(balls):
+    """Match JugglingDetector.mc: 3 / 4 / 5-6 / 7+."""
+    if balls <= 3:
+        return 3
+    if balls == 4:
+        return 4
+    return 5 if balls <= 6 else 7
+
+
 def _detect(run, balls):
     """Run the watch simulation with current parameters."""
-    p = WATCH_PARAMS[min(balls, 5)]
+    p = WATCH_PARAMS[_bucket(balls)]
     use_gate = p["raw_gate"] > 0
     count, _ = simulate_watch(
         run["x"], run["y"], run["z"], balls,
@@ -174,7 +184,7 @@ def test_detection_count_per_run(runs_by_file, entry):
 def test_total_absolute_error(runs_by_file):
     """Total absolute error across all runs must not exceed the baseline.
 
-    Current baseline: 382 total absolute error across 69 runs (1479 watch-hand catches).
+    Current baseline: 148 total absolute error across 69 runs (1479 watch-hand catches).
     A regression means the algorithm is less accurate overall.
     """
     total_error = 0
@@ -244,20 +254,27 @@ def test_watch_params_match_detector_constants():
     assert extract_const("HP_THRESHOLD_3") == pytest.approx(WATCH_PARAMS[3]["threshold"])
     assert extract_const("HP_THRESHOLD_4") == pytest.approx(WATCH_PARAMS[4]["threshold"])
     assert extract_const("HP_THRESHOLD_5PLUS") == pytest.approx(WATCH_PARAMS[5]["threshold"])
+    assert extract_const("HP_THRESHOLD_7PLUS") == pytest.approx(WATCH_PARAMS[7]["threshold"])
 
     assert int(extract_const("REFRACTORY_MS_3")) == WATCH_PARAMS[3]["refractory_ms"]
     assert int(extract_const("REFRACTORY_MS_4")) == WATCH_PARAMS[4]["refractory_ms"]
     assert int(extract_const("REFRACTORY_MS_5PLUS")) == WATCH_PARAMS[5]["refractory_ms"]
+    assert int(extract_const("REFRACTORY_MS_7PLUS")) == WATCH_PARAMS[7]["refractory_ms"]
 
     assert extract_const("MIN_RAW_MAG_3") == pytest.approx(WATCH_PARAMS[3]["raw_gate"])
     assert extract_const("MIN_RAW_MAG_4") == pytest.approx(WATCH_PARAMS[4]["raw_gate"])
     assert extract_const("MIN_RAW_MAG_5PLUS") == pytest.approx(WATCH_PARAMS[5]["raw_gate"])
+    assert extract_const("MIN_RAW_MAG_7PLUS") == pytest.approx(WATCH_PARAMS[7]["raw_gate"])
 
     assert int(extract_const("MERGE_WINDOW_MS_3")) == WATCH_PARAMS[3]["merge_window_ms"]
     assert int(extract_const("MERGE_WINDOW_MS_4")) == WATCH_PARAMS[4]["merge_window_ms"]
     assert int(extract_const("MERGE_WINDOW_MS_5PLUS")) == WATCH_PARAMS[5]["merge_window_ms"]
+    assert int(extract_const("MERGE_WINDOW_MS_7PLUS")) == WATCH_PARAMS[7]["merge_window_ms"]
 
     assert extract_const("HP_HYSTERESIS") == pytest.approx(0.3)
+
+    # 7+ must be selected separately from 5-6, not folded into it.
+    assert "balls <= 6" in source
 
 
 def test_watch_counts_alternating_bursts_as_watch_hand_catches():
