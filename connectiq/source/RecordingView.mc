@@ -590,8 +590,16 @@ class RecordingView extends WatchUi.View {
         var batchStartMs = now - (n - 1) * samplePeriodMs;
 
         for (var i = 0; i < n; i++) {
+            // A stream that came up short for the period is padded with nulls,
+            // and arithmetic on one throws inside the detector, killing the app.
+            var x = xs[i];
+            var y = ys[i];
+            var z = zs[i];
+            if (x == null || y == null || z == null) {
+                continue;
+            }
             var sampleMs = batchStartMs + i * samplePeriodMs;
-            processSample(xs[i], ys[i], zs[i], sampleMs);
+            processSample(x.toNumber(), y.toNumber(), z.toNumber(), sampleMs);
         }
 
         WatchUi.requestUpdate();
