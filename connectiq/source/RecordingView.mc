@@ -7,15 +7,23 @@ import Toybox.Time;
 import Toybox.Timer;
 import Toybox.WatchUi;
 
-// Recording mode: Back starts/stops each raw accelerometer run, then the user
+// Recording mode: Start starts/stops each raw accelerometer run, then the user
 // labels the actual watch-hand catch count. Data is transmitted to the phone
 // and also logged via System.println() in a parseable CSV format so it can be
 // used to tune the detection algorithm offline.
 class RecordingView extends WatchUi.View {
     private const SAMPLE_RATE = 25;
     private const PERIOD_SECONDS = 1;
-    private const MAX_RUN_SAMPLES = 750; // 30 seconds at 25 Hz
+    private const MAX_RUN_SAMPLES = 3000; // 120 seconds at 25 Hz
+    // A watchApp gets 128 KB on this device and each sample costs three boxed
+    // array entries, so a long run can exhaust memory. Stop cleanly instead.
+    private const MIN_FREE_MEMORY = 16384;
+    private const MEMORY_CHECK_EVERY = 25;
     private const SYNC_TIMEOUT_MS = 10000;
+    // Samples go over in batches. Measured throughput peaks here: per-message
+    // cost is flat up to ~150 integers, then climbs steeply, so 100 samples
+    // (300 integers) transfers ~25% slower overall than 50 does.
+    private const CHUNK_SAMPLES = 50;
 
     private const STATE_IDLE = 0;
     private const STATE_RECORDING = 1;
@@ -49,6 +57,15 @@ class RecordingView extends WatchUi.View {
     private var _errorMsg as String?;
     private var _listener as RecordingCommListener;
     private var _pendingPayload as Dictionary?;
+    private var _sensorActive as Boolean;
+    private var _failReason as String?;
+    private var _syncGeneration as Number;
+    private var _sessionId as Number;
+    private var _chunkIndex as Number;
+    private var _totalChunks as Number;
+    private var _headerSent as Boolean;
+    private var _transferDone as Boolean;
+    private var _nextPartTimer as Timer.Timer?;
 
     public function initialize(ballCount as Number) {
         WatchUi.View.initialize();
@@ -66,12 +83,31 @@ class RecordingView extends WatchUi.View {
         _syncDots = 0;
         _awaitingDecision = false;
         _errorMsg = null;
-        _listener = new RecordingCommListener(self);
+        _listener = new RecordingCommListener(self, 0);
         _pendingPayload = null;
+        _sensorActive = false;
+        _failReason = null;
+        _syncGeneration = 0;
+        _sessionId = 0;
+        _chunkIndex = 0;
+        _totalChunks = 0;
+        _headerSent = false;
+        _transferDone = false;
+        _nextPartTimer = null;
 
         // Listen for the phone's acknowledgement that a recording was received.
         Communications.registerForPhoneAppMessages(method(:onPhoneMessage));
 
+        startSensor();
+    }
+
+    // Pushing any view (sync retry, quit or discard confirmation) hides this
+    // one and drops the accelerometer listener, so it has to be re-acquired on
+    // every onShow or later runs record no samples at all.
+    private function startSensor() as Void {
+        if (_sensorActive) {
+            return;
+        }
         try {
             var options = {
                 :period => PERIOD_SECONDS,
@@ -81,9 +117,18 @@ class RecordingView extends WatchUi.View {
                 }
             };
             Sensor.registerSensorDataListener(self.method(:onSensor), options);
+            _sensorActive = true;
         } catch (ex) {
             System.println("Sensor registration error: " + ex.getErrorMessage());
         }
+    }
+
+    private function stopSensor() as Void {
+        if (!_sensorActive) {
+            return;
+        }
+        Sensor.unregisterSensorDataListener();
+        _sensorActive = false;
     }
 
     // ── State queries (used by RecordingDelegate) ──────────────────────
@@ -100,7 +145,7 @@ class RecordingView extends WatchUi.View {
         return _state == STATE_IDLE;
     }
 
-    public function handleBackButton() as Boolean {
+    public function handleStartButton() as Boolean {
         if (_state == STATE_IDLE) {
             startRun();
             WatchUi.requestUpdate();
@@ -111,7 +156,90 @@ class RecordingView extends WatchUi.View {
             WatchUi.requestUpdate();
             return true;
         }
+        if (_state == STATE_LABELING) {
+            confirmLabel();
+            return true;
+        }
+        return false;
+    }
+
+    public function handleBackButton() as Boolean {
+        if (_state == STATE_LABELING) {
+            promptDiscard();
+            return true;
+        }
+        if (_state == STATE_SYNCING) {
+            return false;
+        }
+        promptQuit();
         return true;
+    }
+
+    public function promptDiscard() as Void {
+        if (_awaitingDecision) {
+            return;
+        }
+        _awaitingDecision = true;
+        var menu = new WatchUi.Menu2({ :title => "Discard run?" });
+        menu.addItem(new WatchUi.MenuItem("Yes", null, :discard_confirm, null));
+        menu.addItem(new WatchUi.MenuItem("Continue", null, :discard_cancel, null));
+        WatchUi.pushView(
+            menu,
+            new RecordingDiscardDelegate(self),
+            WatchUi.SLIDE_IMMEDIATE
+        );
+    }
+
+    public function onDiscardConfirmed() as Void {
+        _awaitingDecision = false;
+        discardRun();
+    }
+
+    public function onDiscardCancelled() as Void {
+        _awaitingDecision = false;
+    }
+
+    // Drop the unlabelled run and return to idle. _runsCompleted is left alone
+    // because nothing was transmitted.
+    private function discardRun() as Void {
+        cancelNextPartTimer();
+        _pendingPayload = null;
+        _detector = new JugglingDetector(_ballCount);
+        _accelX = [];
+        _accelY = [];
+        _accelZ = [];
+        _labelCount = 0;
+        _detectedCount = 0;
+        _errorMsg = null;
+        _state = STATE_IDLE;
+        WatchUi.requestUpdate();
+    }
+
+    // Back always offers to leave the app. Start drives every run transition,
+    // so Back has no other job here.
+    public function promptQuit() as Void {
+        if (_awaitingDecision) {
+            return;
+        }
+        _awaitingDecision = true;
+        var title = (_state == STATE_RECORDING) ? "Quit? Lose run" : "Quit app?";
+        var menu = new WatchUi.Menu2({ :title => title });
+        menu.addItem(new WatchUi.MenuItem("Yes", null, :quit_confirm, null));
+        menu.addItem(new WatchUi.MenuItem("Continue", null, :quit_continue, null));
+        WatchUi.pushView(
+            menu,
+            new RecordingQuitDelegate(self),
+            WatchUi.SLIDE_IMMEDIATE
+        );
+    }
+
+    public function onQuitConfirmed() as Void {
+        _awaitingDecision = false;
+        endSession();
+    }
+
+    public function onQuitCancelled() as Void {
+        _awaitingDecision = false;
     }
 
     public function incrementLabel() as Void {
@@ -140,21 +268,58 @@ class RecordingView extends WatchUi.View {
         }
         System.println("RUN_DATA_END");
 
-        // ── Build payload and transmit to companion phone app ──
-        _pendingPayload = {
-            "type" => "recording",
-            "countMode" => "watch_hand",
-            "balls" => _ballCount,
-            "catches" => _labelCount,
-            "detected" => _detectedCount,
-            "sampleRate" => SAMPLE_RATE,
-            "accelX" => _accelX,
-            "accelY" => _accelY,
-            "accelZ" => _accelZ,
-            "timestamp" => Time.now().value()
-        };
+        // ── Transmit to the companion phone app, in chunks ──
+        _sessionId = Time.now().value();
+        _totalChunks = (_accelX.size() + CHUNK_SAMPLES - 1) / CHUNK_SAMPLES;
+        _chunkIndex = 0;
+        _headerSent = false;
+        _transferDone = false;
+        _pendingPayload = buildPart();
         _state = STATE_SYNCING;
         attemptSync();
+    }
+
+    // The part of the transfer that is due next: header, then one batch of
+    // samples per chunk, then an end marker the phone answers with an ACK.
+    private function buildPart() as Dictionary {
+        if (!_headerSent) {
+            return {
+                "type" => "rec_start",
+                "id" => _sessionId,
+                "countMode" => "watch_hand",
+                "balls" => _ballCount,
+                "catches" => _labelCount,
+                "detected" => _detectedCount,
+                "sampleRate" => SAMPLE_RATE,
+                "samples" => _accelX.size(),
+                "chunks" => _totalChunks,
+                "timestamp" => _sessionId
+            };
+        }
+        if (_chunkIndex < _totalChunks) {
+            var from = _chunkIndex * CHUNK_SAMPLES;
+            var to = from + CHUNK_SAMPLES;
+            if (to > _accelX.size()) {
+                to = _accelX.size();
+            }
+            var xs = [];
+            var ys = [];
+            var zs = [];
+            for (var i = from; i < to; i++) {
+                xs.add(_accelX[i]);
+                ys.add(_accelY[i]);
+                zs.add(_accelZ[i]);
+            }
+            return {
+                "type" => "rec_chunk",
+                "id" => _sessionId,
+                "i" => _chunkIndex,
+                "x" => xs,
+                "y" => ys,
+                "z" => zs
+            };
+        }
+        return { "type" => "rec_end", "id" => _sessionId };
     }
 
     public function endSession() as Void {
@@ -169,6 +334,12 @@ class RecordingView extends WatchUi.View {
         }
         _errorMsg = null;
         WatchUi.requestUpdate();
+
+        // Each attempt gets its own id. A transmit that is abandoned (skipped)
+        // still reports back later, and without this its onError() would land
+        // on whichever run is syncing by then and fail it instantly.
+        _syncGeneration += 1;
+        _listener = new RecordingCommListener(self, _syncGeneration);
 
         try {
             startSyncTimer();
@@ -220,6 +391,7 @@ class RecordingView extends WatchUi.View {
         _syncTimer = null;
         if (_state == STATE_SYNCING) {
             cancelStatusTimer();
+            _failReason = "no reply from phone";
             promptRetryOrQuit();
         }
     }
@@ -247,6 +419,7 @@ class RecordingView extends WatchUi.View {
         }
 
         // ── Reset for the next run ──
+        cancelNextPartTimer();
         _pendingPayload = null;
         _detector = new JugglingDetector(_ballCount);
         _accelX = [];
@@ -270,7 +443,13 @@ class RecordingView extends WatchUi.View {
         }
         _awaitingDecision = true;
 
-        var menu = new WatchUi.Menu2({ :title => "Sync failed" });
+        // The diagnostics live in the menu because the menu covers the view
+        // underneath it - anything drawn on the syncing screen is invisible here.
+        var title = (_failReason == null) ? "Sync failed" : _failReason;
+        var menu = new WatchUi.Menu2({ :title => title });
+        menu.addItem(new WatchUi.MenuItem(
+            (_pendingPayload == null ? "sent" : "queued") + " " + _accelX.size() + " smp",
+            null, :sync_info, null));
         menu.addItem(new WatchUi.MenuItem("Retry sync", null, :sync_retry, null));
         menu.addItem(new WatchUi.MenuItem("Skip (lose data)", null, :sync_skip, null));
         menu.addItem(new WatchUi.MenuItem("Quit", null, :sync_quit, null));
@@ -285,15 +464,56 @@ class RecordingView extends WatchUi.View {
     public function onSyncRetry() as Void {
         _awaitingDecision = false;
         _errorMsg = null;
-        attemptSync();
+        if (_pendingPayload == null) {
+            // The ACK landed after the timeout menu opened, so there is
+            // nothing left to send. Treat the run as delivered.
+            _failReason = null;
+            _state = STATE_IDLE;
+            _runsCompleted += 1;
+            WatchUi.requestUpdate();
+            return;
+        }
+        // Restart from the header: a partial transfer on the phone is discarded
+        // when a new rec_start for the same run arrives.
+        _headerSent = false;
+        _chunkIndex = 0;
+        _transferDone = false;
+        _pendingPayload = buildPart();
+        scheduleNextPart();
+    }
+
+    // Transmitting from inside a ConnectionListener callback wedges the single
+    // outstanding-transmit slot: the call never reports back. Hopping through a
+    // timer runs the next send on a clean stack.
+    private function scheduleNextPart() as Void {
+        cancelNextPartTimer();
+        _nextPartTimer = new Timer.Timer();
+        _nextPartTimer.start(method(:onNextPart), 50, false);
+    }
+
+    private function cancelNextPartTimer() as Void {
+        if (_nextPartTimer != null) {
+            _nextPartTimer.stop();
+            _nextPartTimer = null;
+        }
+    }
+
+    public function onNextPart() as Void {
+        _nextPartTimer = null;
+        if (_state == STATE_SYNCING) {
+            attemptSync();
+        }
     }
 
     public function onSyncSkip() as Void {
         _awaitingDecision = false;
+        _syncGeneration += 1;
+        _failReason = null;
         cancelSyncTimer();
         cancelStatusTimer();
 
         // Reset for the next run without waiting for ACK.
+        cancelNextPartTimer();
         _pendingPayload = null;
         _detector = new JugglingDetector(_ballCount);
         _accelX = [];
@@ -312,16 +532,38 @@ class RecordingView extends WatchUi.View {
         System.exit();
     }
 
-    public function onTransmitDone() as Void {
-        // No-op; waiting for the phone ACK.
+    public function onTransmitDone(generation as Number) as Void {
+        if (generation != _syncGeneration || _state != STATE_SYNCING) {
+            return;
+        }
+        cancelSyncTimer();
+
+        if (!_headerSent) {
+            _headerSent = true;
+        } else if (_chunkIndex < _totalChunks) {
+            _chunkIndex += 1;
+        } else {
+            // The end marker landed; the phone ACKs once it has written the run.
+            _transferDone = true;
+            startSyncTimer();
+            WatchUi.requestUpdate();
+            return;
+        }
+
+        _pendingPayload = buildPart();
+        scheduleNextPart();
     }
 
-    public function onTransmitError() as Void {
+    public function onTransmitError(generation as Number) as Void {
+        if (generation != _syncGeneration) {
+            return;   // late report from an abandoned attempt
+        }
         if (_state != STATE_SYNCING) {
             return;
         }
         cancelSyncTimer();
         cancelStatusTimer();
+        _failReason = "send failed";
         promptRetryOrQuit();
     }
 
@@ -362,6 +604,15 @@ class RecordingView extends WatchUi.View {
                 finishRun();
                 return;
             }
+            if (_accelX.size() % MEMORY_CHECK_EVERY == 0) {
+                var stats = System.getSystemStats();
+                if (stats != null && stats.freeMemory < MIN_FREE_MEMORY) {
+                    System.println("Low memory, ending run at " +
+                        _accelX.size() + " samples, free=" + stats.freeMemory);
+                    finishRun();
+                    return;
+                }
+            }
             _accelX.add(x);
             _accelY.add(y);
             _accelZ.add(z);
@@ -370,6 +621,8 @@ class RecordingView extends WatchUi.View {
     }
 
     private function startRun() as Void {
+        _failReason = null;
+        _errorMsg = null;
         _state = STATE_RECORDING;
         _accelX = [];
         _accelY = [];
@@ -412,17 +665,15 @@ class RecordingView extends WatchUi.View {
         var y = cy - blockH / 2;
 
         dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y, Graphics.FONT_TINY, "Recording", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, y, Graphics.FONT_TINY, "Ready to record", Graphics.TEXT_JUSTIFY_CENTER);
         y += labelH;
 
         dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y, Graphics.FONT_MEDIUM, "Ready", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, y, Graphics.FONT_MEDIUM, "Press Start", Graphics.TEXT_JUSTIFY_CENTER);
         y += medH;
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        var hint = _runsCompleted > 0
-            ? "Back start | Runs: " + _runsCompleted
-            : "Back to start";
+        var hint = _runsCompleted > 0 ? "Runs: " + _runsCompleted : "";
         dc.drawText(cx, y, Graphics.FONT_XTINY, hint, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
@@ -445,7 +696,7 @@ class RecordingView extends WatchUi.View {
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, y, Graphics.FONT_XTINY,
-            "Back stop | Hand: " + _detector.currentCount, Graphics.TEXT_JUSTIFY_CENTER);
+            "Start stops | Hand: " + _detector.currentCount, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     private function drawSyncingState(dc as Dc, cx as Number, cy as Number) as Void {
@@ -455,6 +706,9 @@ class RecordingView extends WatchUi.View {
         }
         dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
         var syncText = "Sync to phone" + dots;
+        if (_headerSent && !_transferDone && _totalChunks > 0) {
+            syncText = _chunkIndex + "/" + _totalChunks;
+        }
         var fontH = dc.getFontHeight(Graphics.FONT_MEDIUM);
         var y = cy - fontH / 2;
         dc.drawText(cx, y, Graphics.FONT_MEDIUM, syncText, Graphics.TEXT_JUSTIFY_CENTER);
@@ -462,39 +716,59 @@ class RecordingView extends WatchUi.View {
         if (_errorMsg != null) {
             dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
             var hintH = dc.getFontHeight(Graphics.FONT_XTINY);
-            dc.drawText(cx, dc.getHeight() - hintH * 2, Graphics.FONT_XTINY,
+            dc.drawText(cx, dc.getHeight() - hintH * 3, Graphics.FONT_XTINY,
                 _errorMsg, Graphics.TEXT_JUSTIFY_CENTER);
+            if (_failReason != null) {
+                dc.drawText(cx, dc.getHeight() - hintH * 2, Graphics.FONT_XTINY,
+                    _failReason, Graphics.TEXT_JUSTIFY_CENTER);
+            }
+            dc.drawText(cx, dc.getHeight() - hintH, Graphics.FONT_XTINY,
+                _pendingPayload == null ? "data: sent" : "data: pending",
+                Graphics.TEXT_JUSTIFY_CENTER);
         }
     }
 
     private function drawLabelingState(dc as Dc, cx as Number, cy as Number) as Void {
-        var labelH = dc.getFontHeight(Graphics.FONT_TINY);
-        var numberH = dc.getFontHeight(Graphics.FONT_NUMBER_THAI_HOT);
+        // Wrapped across short lines: the full sentences do not fit the round
+        // display at a legible font size.
         var hintH = dc.getFontHeight(Graphics.FONT_XTINY);
+        var numberH = dc.getFontHeight(Graphics.FONT_NUMBER_MEDIUM);
 
-        var blockH = labelH + numberH + hintH * 2;
+        var blockH = hintH * 5 + numberH;
         var y = cy - blockH / 2;
 
         dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y, Graphics.FONT_TINY, "Watch hand?", Graphics.TEXT_JUSTIFY_CENTER);
-        y += labelH;
+        dc.drawText(cx, y, Graphics.FONT_XTINY,
+            "Auto-detected " + _detectedCount, Graphics.TEXT_JUSTIFY_CENTER);
+        y += hintH;
+        dc.drawText(cx, y, Graphics.FONT_XTINY,
+            "catches, watch hand", Graphics.TEXT_JUSTIFY_CENTER);
+        y += hintH;
+
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_XTINY,
+            "Actual (Up/Down):", Graphics.TEXT_JUSTIFY_CENTER);
+        y += hintH;
 
         dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y, Graphics.FONT_NUMBER_THAI_HOT,
+        dc.drawText(cx, y, Graphics.FONT_NUMBER_MEDIUM,
             _labelCount.toString(), Graphics.TEXT_JUSTIFY_CENTER);
         y += numberH;
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, y, Graphics.FONT_XTINY,
-            "Detected hand: " + _detectedCount, Graphics.TEXT_JUSTIFY_CENTER);
+            "Start = confirm", Graphics.TEXT_JUSTIFY_CENTER);
         y += hintH;
-
         dc.drawText(cx, y, Graphics.FONT_XTINY,
-            "Up/Down, Start OK", Graphics.TEXT_JUSTIFY_CENTER);
+            "Back = discard", Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    public function onShow() as Void {
+        startSensor();
     }
 
     public function onHide() as Void {
-        Sensor.unregisterSensorDataListener();
+        stopSensor();
     }
 }
 
@@ -530,12 +804,7 @@ class RecordingDelegate extends WatchUi.BehaviorDelegate {
             return _view.handleBackButton();
         }
         if (key == WatchUi.KEY_ENTER) {
-            if (_view.isLabeling()) {
-                _view.confirmLabel();
-            } else if (_view.isIdle()) {
-                _view.endSession();
-            }
-            return true;
+            return _view.handleStartButton();
         }
         if (_view.isLabeling()) {
             if (key == WatchUi.KEY_UP) {
@@ -554,11 +823,7 @@ class RecordingDelegate extends WatchUi.BehaviorDelegate {
     }
 
     public function onSelect() as Boolean {
-        if (_view.isLabeling()) {
-            _view.confirmLabel();
-            return true;
-        }
-        return false;
+        return _view.handleStartButton();
     }
 }
 
@@ -566,20 +831,22 @@ class RecordingDelegate extends WatchUi.BehaviorDelegate {
 
 class RecordingCommListener extends Communications.ConnectionListener {
     private var _view as RecordingView;
+    private var _generation as Number;
 
-    function initialize(view as RecordingView) {
+    function initialize(view as RecordingView, generation as Number) {
         Communications.ConnectionListener.initialize();
         _view = view;
+        _generation = generation;
     }
 
     function onComplete() {
         System.println("Recording data transmitted");
-        _view.onTransmitDone();
+        _view.onTransmitDone(_generation);
     }
 
     function onError() {
         System.println("Recording data transmission failed");
-        _view.onTransmitError();
+        _view.onTransmitError(_generation);
     }
 }
 
@@ -594,14 +861,57 @@ class RecordingSyncDelegate extends WatchUi.Menu2InputDelegate {
     }
 
     public function onSelect(item as WatchUi.MenuItem) as Void {
-        WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
         var id = item.getId();
+        if (id == :sync_info) {
+            return;   // informational row, keep the menu open
+        }
+        WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
         if (id == :sync_retry) {
             _view.onSyncRetry();
         } else if (id == :sync_skip) {
             _view.onSyncSkip();
         } else if (id == :sync_quit) {
             _view.onSyncQuit();
+        }
+    }
+}
+
+// ── Menu delegate for the quit confirmation ────────────────────────────
+
+class RecordingQuitDelegate extends WatchUi.Menu2InputDelegate {
+    private var _view as RecordingView;
+
+    public function initialize(view as RecordingView) {
+        WatchUi.Menu2InputDelegate.initialize();
+        _view = view;
+    }
+
+    public function onSelect(item as WatchUi.MenuItem) as Void {
+        WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
+        if (item.getId() == :quit_confirm) {
+            _view.onQuitConfirmed();
+        } else {
+            _view.onQuitCancelled();
+        }
+    }
+}
+
+// ── Menu delegate for the discard confirmation ─────────────────────────
+
+class RecordingDiscardDelegate extends WatchUi.Menu2InputDelegate {
+    private var _view as RecordingView;
+
+    public function initialize(view as RecordingView) {
+        WatchUi.Menu2InputDelegate.initialize();
+        _view = view;
+    }
+
+    public function onSelect(item as WatchUi.MenuItem) as Void {
+        WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
+        if (item.getId() == :discard_confirm) {
+            _view.onDiscardConfirmed();
+        } else {
+            _view.onDiscardCancelled();
         }
     }
 }

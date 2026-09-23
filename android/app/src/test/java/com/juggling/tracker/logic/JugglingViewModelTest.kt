@@ -461,4 +461,73 @@ class JugglingViewModelTest {
         }
         return nowMs
     }
+
+    // ── Chunked recording transfer ──────────────────────────────────────
+
+    private fun startPayload(samples: Int, chunks: Int, id: Long = 42L) = mapOf(
+        "type" to "rec_start", "id" to id, "balls" to 5, "catches" to 12,
+        "detected" to 9, "sampleRate" to 25, "samples" to samples, "chunks" to chunks,
+    )
+
+    private fun chunkPayload(index: Int, values: List<Int>, id: Long = 42L) = mapOf(
+        "type" to "rec_chunk", "id" to id, "i" to index,
+        "x" to values, "y" to values, "z" to values,
+    )
+
+    @Test
+    fun `chunked transfer reassembles a complete run`() = runTest {
+        viewModel.startRecordingTransfer(startPayload(samples = 4, chunks = 2))
+        viewModel.appendRecordingChunk(chunkPayload(0, listOf(1, 2)))
+        viewModel.appendRecordingChunk(chunkPayload(1, listOf(3, 4)))
+
+        assertTrue(viewModel.finishRecordingTransfer(mapOf("type" to "rec_end", "id" to 42L)))
+    }
+
+    @Test
+    fun `out of order chunk drops the run`() = runTest {
+        viewModel.startRecordingTransfer(startPayload(samples = 4, chunks = 2))
+        viewModel.appendRecordingChunk(chunkPayload(1, listOf(3, 4)))
+
+        assertFalse(viewModel.finishRecordingTransfer(mapOf("type" to "rec_end", "id" to 42L)))
+    }
+
+    @Test
+    fun `missing chunk is not saved`() = runTest {
+        viewModel.startRecordingTransfer(startPayload(samples = 4, chunks = 2))
+        viewModel.appendRecordingChunk(chunkPayload(0, listOf(1, 2)))
+
+        assertFalse(viewModel.finishRecordingTransfer(mapOf("type" to "rec_end", "id" to 42L)))
+    }
+
+    @Test
+    fun `sample count mismatch is not saved`() = runTest {
+        viewModel.startRecordingTransfer(startPayload(samples = 99, chunks = 1))
+        viewModel.appendRecordingChunk(chunkPayload(0, listOf(1, 2)))
+
+        assertFalse(viewModel.finishRecordingTransfer(mapOf("type" to "rec_end", "id" to 42L)))
+    }
+
+    @Test
+    fun `chunk from a different run is ignored`() = runTest {
+        viewModel.startRecordingTransfer(startPayload(samples = 2, chunks = 1))
+        viewModel.appendRecordingChunk(chunkPayload(0, listOf(7, 8), id = 999L))
+
+        assertFalse(viewModel.finishRecordingTransfer(mapOf("type" to "rec_end", "id" to 42L)))
+    }
+
+    @Test
+    fun `rec_end without a start does nothing`() = runTest {
+        assertFalse(viewModel.finishRecordingTransfer(mapOf("type" to "rec_end", "id" to 42L)))
+    }
+
+    @Test
+    fun `duplicate chunk delivery is tolerated`() = runTest {
+        viewModel.startRecordingTransfer(startPayload(samples = 4, chunks = 2))
+        viewModel.appendRecordingChunk(chunkPayload(0, listOf(1, 2)))
+        viewModel.appendRecordingChunk(chunkPayload(0, listOf(1, 2)))  // redelivered
+        viewModel.appendRecordingChunk(chunkPayload(1, listOf(3, 4)))
+        viewModel.appendRecordingChunk(chunkPayload(1, listOf(3, 4)))  // redelivered
+
+        assertTrue(viewModel.finishRecordingTransfer(mapOf("type" to "rec_end", "id" to 42L)))
+    }
 }

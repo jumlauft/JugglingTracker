@@ -223,8 +223,15 @@ class MainActivity : ComponentActivity() {
         try {
             val devices = connectIQ.knownDevices
             if (!devices.isNullOrEmpty()) {
-                val device = devices[0]
+                // knownDevices can list several paired Garmins. Taking the first
+                // blindly can register the listener on a different watch, which
+                // then reports "connected" while receiving nothing.
+                val device = devices.firstOrNull {
+                    connectIQ.getDeviceStatus(it) == IQDevice.IQDeviceStatus.CONNECTED
+                } ?: devices[0]
                 iqDevice = device
+                Log.d(TAG, "knownDevices=" + devices.joinToString { it.friendlyName ?: "?" } +
+                    " -> using " + (device.friendlyName ?: "?"))
 
                 // Register for device status changes (Bluetooth connection/disconnection)
                 connectIQ.registerForDeviceEvents(device) { _, status ->
@@ -233,6 +240,12 @@ class MainActivity : ComponentActivity() {
                             IQDevice.IQDeviceStatus.CONNECTED -> {
                                 viewModel.garminStatus = GarminConnectionStatus.READY
                                 viewModel.statusMessage = "Connected to ${device.friendlyName}"
+                                // The app-event registration does not survive the
+                                // watch dropping off (USB mode, BLE drop). Without
+                                // re-arming it the phone reports "connected" while
+                                // nothing is listening, and the watch's transmit
+                                // fails instantly for want of a receiver.
+                                registerImuAppListener()
                             }
                             IQDevice.IQDeviceStatus.NOT_CONNECTED -> {
                                 viewModel.garminStatus = GarminConnectionStatus.DISCONNECTED
@@ -249,8 +262,9 @@ class MainActivity : ComponentActivity() {
                 // Initial status check
                 val initialStatus = connectIQ.getDeviceStatus(device)
                 if (initialStatus == IQDevice.IQDeviceStatus.CONNECTED) {
+                    val suffix = if (devices.size > 1) " (${devices.size} paired)" else ""
                     viewModel.garminStatus = GarminConnectionStatus.READY
-                    viewModel.statusMessage = "Connected to ${device.friendlyName}"
+                    viewModel.statusMessage = "Connected to ${device.friendlyName}$suffix"
                 } else {
                     viewModel.garminStatus = GarminConnectionStatus.DISCONNECTED
                     viewModel.statusMessage = "Watch disconnected from phone"
@@ -271,15 +285,47 @@ class MainActivity : ComponentActivity() {
 
     private fun registerImuAppListener() {
         val device = iqDevice ?: return
-        val app = IQApp(WATCH_APP_ID)
-        iqApp = app
+        // Reuse one IQApp instance for the lifetime of the activity. The SDK
+        // matches an existing registration by instance, so unregistering with a
+        // freshly built IQApp leaves the old listener in place and every
+        // message is then delivered once per surviving registration.
+        val app = iqApp ?: IQApp(WATCH_APP_ID).also { iqApp = it }
 
         try {
+            try {
+                connectIQ.unregisterForApplicationEvents(device, app)
+            } catch (e: Exception) {
+                Log.d(TAG, "No previous app listener to unregister")
+            }
             connectIQ.registerForAppEvents(device, app) { _, _, message, status ->
+                Log.d(TAG, "app event: status=$status size=${message?.size ?: -1}")
                 if ((status == ConnectIQ.IQMessageStatus.SUCCESS) && message.isNotEmpty()) {
                     onImuMessageReceived(message)
                 }
             }
+
+            // Does Garmin Connect itself know this watch app? If it does not,
+            // it will not route the watch's messages to us no matter what we
+            // register for, which is indistinguishable from a silent failure.
+            connectIQ.getApplicationInfo(
+                WATCH_APP_ID,
+                device,
+                object : ConnectIQ.IQApplicationInfoListener {
+                    override fun onApplicationInfoReceived(iqApp: IQApp?) {
+                        Log.d(
+                            TAG,
+                            "appInfo: Garmin Connect KNOWS the app" +
+                                " id=" + iqApp?.applicationId +
+                                " name=" + iqApp?.displayName +
+                                " status=" + iqApp?.status,
+                        )
+                    }
+
+                    override fun onApplicationNotInstalled(applicationId: String?) {
+                        Log.d(TAG, "appInfo: Garmin Connect does NOT know app $applicationId")
+                    }
+                },
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Error registering app listener", e)
             CrashlyticsUtils.recordException(e)
@@ -296,29 +342,47 @@ class MainActivity : ComponentActivity() {
 
         // The watch sends one payload per finished session containing the ball
         // count, a timestamp, and the watch-hand catch count of every run.
-        if (payload["type"] == "session" || payload["type"] == "recording") {
-            @Suppress("UNCHECKED_CAST")
-            val typed = payload as Map<String, Any>
+        val type = payload["type"] as? String ?: return
+        if (type != "session" && type != "rec_start" &&
+            type != "rec_chunk" && type != "rec_end"
+        ) {
+            return
+        }
 
-            // Briefly show receiving state
-            viewModel.garminStatus = GarminConnectionStatus.RECEIVING
+        @Suppress("UNCHECKED_CAST")
+        val typed = payload as Map<String, Any>
 
-            runOnUiThread {
-                if (payload["type"] == "session") {
-                    viewModel.importSessionFromWatch(typed)
-                } else {
-                    viewModel.importRecordingFromWatch(typed)
+        // Chunks are frequent and must not each repaint the UI or be acked:
+        // the watch chains them on delivery and only waits for an ack at the end.
+        if (type == "rec_chunk") {
+            runOnUiThread { viewModel.appendRecordingChunk(typed) }
+            return
+        }
+
+        viewModel.garminStatus = GarminConnectionStatus.RECEIVING
+
+        runOnUiThread {
+            when (type) {
+                "session" -> viewModel.importSessionFromWatch(typed)
+                "rec_start" -> viewModel.startRecordingTransfer(typed)
+                "rec_end" -> {
+                    val saved = viewModel.finishRecordingTransfer(typed)
+                    Log.d(TAG, "rec_end: run saved=$saved")
                 }
-
-                // Return to ready after a short delay
-                handler.postDelayed({
-                    if (viewModel.garminStatus == GarminConnectionStatus.RECEIVING) {
-                        viewModel.garminStatus = GarminConnectionStatus.READY
-                    }
-                }, 1500)
             }
 
+            // Return to ready after a short delay
+            handler.postDelayed({
+                if (viewModel.garminStatus == GarminConnectionStatus.RECEIVING) {
+                    viewModel.garminStatus = GarminConnectionStatus.READY
+                }
+            }, 1500)
+        }
+
+        // rec_start is not acked; the watch advances on delivery, not on ack.
+        if (type == "session" || type == "rec_end") {
             val ts = (payload["timestamp"] as? Number)?.toLong()
+                ?: (payload["id"] as? Number)?.toLong()
             sendAck(ts)
         }
     }

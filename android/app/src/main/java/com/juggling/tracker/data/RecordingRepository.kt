@@ -12,10 +12,11 @@ import java.util.Locale
  * Stores raw accelerometer recordings as individual CSV files in the app's
  * internal files directory under recordings/. Each run produces one file:
  *
- *   recordings/rec_<timestamp>_<balls>b_<catches>c.csv
+ *   recordings/<run_id>.csv        (run_id is yyyyMMdd_HHmmss of capture)
  *
  * The CSV format is:
- *   # balls=3,catches=12,detected=10,sampleRate=25,timestamp=1717430000,countMode=watch_hand
+ *   # run=20260922_144802,timestamp=1790081282,balls=3,catches=89,
+ *   sampleRate=25,units=milli_g,source=watch,countMode=watch_hand,detectedAtCapture=88
  *   x,y,z
  *   -123,456,987
  *   ...
@@ -29,6 +30,8 @@ class RecordingRepository(private val recordingsDir: File) {
     companion object {
         private const val TAG = "RecordingRepository"
         private const val DIR_NAME = "recordings"
+        const val SOURCE_WATCH = "watch"
+        const val SOURCE_PHONE = "phone"
     }
 
     constructor(context: Context) : this(File(context.filesDir, DIR_NAME))
@@ -37,7 +40,18 @@ class RecordingRepository(private val recordingsDir: File) {
         recordingsDir.mkdirs()
     }
 
-    /** Save one recording run to a CSV file. Catches are watch-hand catches. */
+    /** Identifier for a recording, also its file name. Derived from capture time. */
+    private fun runIdFor(timestamp: Long): String =
+        SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date(timestamp * 1000L))
+
+    /**
+     * Save one recording run to its own CSV file. Catches are watch-hand catches.
+     *
+     * One run per file, named by its run id, matching connectiq/data. detected
+     * is stored as detectedAtCapture because it is what the detector counted at
+     * the time rather than a property of the measurement, and goes stale
+     * whenever the detector changes.
+     */
     fun saveRecording(
         balls: Int,
         catches: Int,
@@ -47,16 +61,21 @@ class RecordingRepository(private val recordingsDir: File) {
         accelX: List<Int>,
         accelY: List<Int>,
         accelZ: List<Int>,
+        source: String,
     ): File? {
         if (accelX.isEmpty()) return null
         val n = minOf(accelX.size, accelY.size, accelZ.size)
 
-        val fileName = "rec_${timestamp}_${balls}b_${catches}c.csv"
-        val file = File(recordingsDir, fileName)
+        val runId = runIdFor(timestamp)
+        val file = File(recordingsDir, "$runId.csv")
 
         return try {
             file.bufferedWriter().use { w ->
-                w.write("# balls=$balls,catches=$catches,detected=$detected,sampleRate=$sampleRate,timestamp=$timestamp,countMode=watch_hand")
+                w.write(
+                    "# run=$runId,timestamp=$timestamp,balls=$balls,catches=$catches" +
+                        ",sampleRate=$sampleRate,units=milli_g,source=$source" +
+                        ",countMode=watch_hand,detectedAtCapture=$detected"
+                )
                 w.newLine()
                 w.write("x,y,z")
                 w.newLine()
@@ -72,6 +91,73 @@ class RecordingRepository(private val recordingsDir: File) {
             CrashlyticsUtils.recordException(e)
             null
         }
+    }
+
+    /** One stored recording, summarised from its header line. */
+    data class RecordingSummary(
+        val fileName: String,
+        val balls: Int,
+        val catches: Int,
+        val detected: Int,
+        val sampleRate: Int,
+        val timestamp: Long,
+        val samples: Int,
+        val source: String,
+    ) {
+        val durationSeconds: Double
+            get() = if (sampleRate > 0) samples.toDouble() / sampleRate else 0.0
+
+        val fromWatch: Boolean
+            get() = source == SOURCE_WATCH
+    }
+
+    /** Summaries of every stored recording, newest first. */
+    fun listRecordings(): List<RecordingSummary> {
+        val files = recordingsDir.listFiles()?.filter { it.extension == "csv" } ?: return emptyList()
+        return files.mapNotNull { file ->
+            try {
+                var header: String? = null
+                var samples = 0
+                file.forEachLine { line ->
+                    when {
+                        line.startsWith("#") -> if (header == null) header = line
+                        line.isBlank() || line.startsWith("x,") -> Unit
+                        else -> samples++
+                    }
+                }
+                val fields = (header ?: return@mapNotNull null)
+                    .removePrefix("#")
+                    .trim()
+                    .split(",")
+                    .mapNotNull { part ->
+                        val kv = part.split("=", limit = 2)
+                        if (kv.size == 2) kv[0].trim() to kv[1].trim() else null
+                    }
+                    .toMap()
+
+                RecordingSummary(
+                    fileName = file.name,
+                    balls = fields["balls"]?.toIntOrNull() ?: return@mapNotNull null,
+                    catches = fields["catches"]?.toIntOrNull() ?: 0,
+                    detected = (fields["detectedAtCapture"] ?: fields["detected"])
+                        ?.toIntOrNull() ?: 0,
+                    sampleRate = fields["sampleRate"]?.toIntOrNull() ?: 0,
+                    timestamp = fields["timestamp"]?.toLongOrNull() ?: 0L,
+                    samples = samples,
+                    // Recordings written before source was stored have only the
+                    // sample rate to go on: the watch runs at 25 Hz.
+                    source = fields["source"]
+                        ?: if ((fields["sampleRate"]?.toIntOrNull() ?: 0) <= 25) {
+                            SOURCE_WATCH
+                        } else {
+                            SOURCE_PHONE
+                        },
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to read recording ${file.name}", e)
+                null
+            }
+        }.sortedByDescending { it.timestamp }
     }
 
     /** Number of recording files stored. */

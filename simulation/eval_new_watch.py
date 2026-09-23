@@ -28,9 +28,21 @@ HP_HYSTERESIS = 0.3
 
 CURRENT_WATCH_PARAMS = {
     3: {'threshold': 2.0, 'refractory_ms': 80, 'raw_gate': 7.0, 'merge_window_ms': 160},
-    4: {'threshold': 4.0, 'refractory_ms': 40, 'raw_gate': 0.0, 'merge_window_ms': 80},
-    5: {'threshold': 0.8, 'refractory_ms': 320, 'raw_gate': 13.0, 'merge_window_ms': 160},
+    4: {'threshold': 3.0, 'refractory_ms': 80, 'raw_gate': 11.0, 'merge_window_ms': 160},
+    5: {'threshold': 3.0, 'refractory_ms': 40, 'raw_gate': 13.0, 'merge_window_ms': 160},
+    7: {'threshold': 3.0, 'refractory_ms': 160, 'raw_gate': 7.0, 'merge_window_ms': 80},
 }
+
+
+def params_for_balls(balls):
+    """Match JugglingDetector.mc: 3 / 4 / 5-6 / 7+."""
+    if balls <= 3:
+        return CURRENT_WATCH_PARAMS[3]
+    if balls == 4:
+        return CURRENT_WATCH_PARAMS[4]
+    if balls <= 6:
+        return CURRENT_WATCH_PARAMS[5]
+    return CURRENT_WATCH_PARAMS[7]
 
 
 def _distance_from_current(params, balls):

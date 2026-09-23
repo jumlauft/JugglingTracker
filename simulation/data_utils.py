@@ -19,11 +19,16 @@ GRAVITY_ALPHA_ACTIVE = 0.99
 def parse_runs(filepath):
     """Parse multi-run CSV into list of dicts with metadata and samples.
 
+    One run per file: 'run' in the header is the stable identifier and matches
+    the file name, so a run is never referred to by its position.
+
     Each run dict has:
-        'meta': dict with balls, catches, detected, sampleRate, timestamp.
+        'meta': dict with run, balls, catches, sampleRate, units, source,
+        timestamp, countMode and detectedAtCapture.
         catches is the watch-hand ground-truth label in current datasets.
-        detected is the detector output stored with the recording and may be
-        historical for older captures.
+        detectedAtCapture is what the detector counted when the run was
+        recorded. It is a historical result, not a property of the data, and
+        will not match the current detector.
         'x', 'y', 'z': lists of raw milli-g integers
     """
     runs = []
@@ -36,7 +41,9 @@ def parse_runs(filepath):
             if line.startswith('# '):
                 meta = {}
                 for part in line[2:].split(','):
-                    k, v = part.split('=')
+                    k, _, v = part.partition('=')
+                    k = k.strip()
+                    v = v.strip()
                     meta[k] = int(v) if v.lstrip('-').isdigit() else v
                 current_run = {'meta': meta, 'x': [], 'y': [], 'z': []}
                 runs.append(current_run)

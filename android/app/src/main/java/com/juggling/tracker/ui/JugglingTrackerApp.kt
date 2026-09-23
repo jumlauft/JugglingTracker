@@ -23,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -885,6 +886,8 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
         }
 
         if (viewModel.recordingCount > 0) {
+            RecordingsTable(viewModel.recordings)
+
             Button(
                 onClick = {
                     val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
@@ -1109,6 +1112,100 @@ fun SettingToggle(label: String, checked: Boolean, onCheckedChange: (Boolean) ->
                 modifier = Modifier.weight(weight = 1f),
             )
             Switch(checked = checked, onCheckedChange = null)
+        }
+    }
+}
+
+private val recordingTimeFormat =
+    java.text.SimpleDateFormat("dd.MM HH:mm", java.util.Locale.getDefault())
+
+@Composable
+private fun RecordingsTable(
+    recordings: List<com.juggling.tracker.data.RecordingRepository.RecordingSummary>,
+) {
+    if (recordings.isEmpty()) return
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = stringResource(R.string.recordings_table_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = stringResource(R.string.recordings_col_when),
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.weight(2.0f),
+                )
+                Text(
+                    text = stringResource(R.string.recordings_col_source),
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.weight(1.6f),
+                )
+                Text(
+                    text = stringResource(R.string.recordings_col_balls),
+                    style = MaterialTheme.typography.labelMedium,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.weight(0.8f),
+                )
+                Text(
+                    text = stringResource(R.string.recordings_col_catches),
+                    style = MaterialTheme.typography.labelMedium,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.weight(1.4f),
+                )
+                Text(
+                    text = stringResource(R.string.recordings_col_duration),
+                    style = MaterialTheme.typography.labelMedium,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.weight(1.0f),
+                )
+            }
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+            recordings.forEach { rec ->
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                    Text(
+                        text = if (rec.timestamp > 0L) {
+                            recordingTimeFormat.format(java.util.Date(rec.timestamp * 1000L))
+                        } else {
+                            "-"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(2.0f),
+                    )
+                    Text(
+                        text = if (rec.fromWatch) {
+                            stringResource(R.string.recordings_source_watch)
+                        } else {
+                            stringResource(R.string.recordings_source_phone, rec.sampleRate)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1.6f),
+                    )
+                    Text(
+                        text = rec.balls.toString(),
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.weight(0.8f),
+                    )
+                    Text(
+                        // actual, with what the detector found alongside it
+                        text = "${rec.catches} (${rec.detected})",
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.weight(1.4f),
+                    )
+                    Text(
+                        text = String.format(java.util.Locale.getDefault(), "%.0fs", rec.durationSeconds),
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.weight(1.0f),
+                    )
+                }
+            }
         }
     }
 }
