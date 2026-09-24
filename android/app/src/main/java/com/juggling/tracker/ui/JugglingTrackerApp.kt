@@ -424,6 +424,11 @@ fun GarminStatusHeader(
             Color(0xFFC62828), // Dark Red
             stringResource(R.string.garmin_missing)
         )
+        GarminConnectionStatus.WATCH_APP_MISSING -> Triple(
+            Color(0xFFFFEBEE), // Light Red
+            Color(0xFFC62828), // Dark Red
+            stringResource(R.string.garmin_watch_app_missing)
+        )
         GarminConnectionStatus.DISCONNECTED -> Triple(
             Color(0xFFFFEBEE), // Light Red
             Color(0xFFC62828), // Dark Red
@@ -480,7 +485,10 @@ fun GarminStatusHeader(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = if (status == GarminConnectionStatus.READY || status == GarminConnectionStatus.RECEIVING) {
+                    text = if (status == GarminConnectionStatus.READY ||
+                        status == GarminConnectionStatus.RECEIVING ||
+                        status == GarminConnectionStatus.WATCH_APP_MISSING
+                    ) {
                         statusText
                     } else if (status == GarminConnectionStatus.NOT_INITIALIZED) {
                         stringResource(R.string.label_record_with_garmin)

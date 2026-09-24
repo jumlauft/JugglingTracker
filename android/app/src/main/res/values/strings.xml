@@ -51,6 +51,7 @@
     <string name="garmin_ready">Ready to record with Garmin</string>
     <string name="garmin_disconnected">Watch is not connected via Bluetooth</string>
     <string name="garmin_missing">Watch is not linked correctly to phone</string>
+    <string name="garmin_watch_app_missing">Juggling app is not installed on the watch</string>
     <string name="garmin_install_advice">Install it from the Play Store to sync with your watch.</string>
     <string name="label_record_with_garmin">Record with Garmin watch</string>
     <string name="garmin_receiving">Receiving data...</string>

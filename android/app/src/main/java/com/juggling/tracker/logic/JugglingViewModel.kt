@@ -32,6 +32,7 @@ enum class GarminConnectionStatus {
     BLUETOOTH_DISABLED,
     NO_PAIRED_DEVICES,
     CONNECT_IQ_MISSING,
+    WATCH_APP_MISSING,
     DISCONNECTED,
     SDK_ERROR
 }

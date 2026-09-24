@@ -42,7 +42,11 @@ import com.juggling.tracker.util.CrashlyticsUtils
 class MainActivity : ComponentActivity() {
     companion object {
         private const val TAG = "MainActivity"
-        private const val WATCH_APP_ID = "88fa4344-0c76-40a9-83e7-e7fc21328822"
+        // The store build and the older beta build of the watch app carry
+        // different manifest ids, and a watch may have either one on it.
+        private const val WATCH_APP_ID = "fa298da6-29c7-46d2-9d76-e07f62d16539"
+        private const val WATCH_APP_ID_BETA = "88fa4344-0c76-40a9-83e7-e7fc21328822"
+        private val WATCH_APP_IDS = listOf(WATCH_APP_ID, WATCH_APP_ID_BETA)
         private const val PERMISSION_REQUEST_CODE = 1001
         private const val HEARTBEAT_TIMEOUT_MS = 15000L
         private const val PHONE_SAMPLE_PERIOD_US = 5_000
@@ -280,13 +284,56 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Registering for an app the watch does not actually have makes Garmin
+    // Connect answer with a payload-less broadcast. The SDK's receiver hands
+    // that null payload straight to its deserializer and the resulting NPE
+    // escapes onReceive, killing the app. So ask first, and only register for
+    // an id the watch is known to carry.
     private fun registerImuAppListener() {
         val device = iqDevice ?: return
+        probeWatchApp(device, 0)
+    }
+
+    private fun probeWatchApp(device: IQDevice, index: Int) {
+        if (index >= WATCH_APP_IDS.size) {
+            Log.d(TAG, "appInfo: no known watch app id is installed")
+            runOnUiThread {
+                viewModel.garminStatus = GarminConnectionStatus.WATCH_APP_MISSING
+                viewModel.statusMessage =
+                    "Install the Juggling Tracker watch app from the Connect IQ Store."
+            }
+            return
+        }
+
+        val candidateId = WATCH_APP_IDS[index]
+        try {
+            connectIQ.getApplicationInfo(
+                candidateId,
+                device,
+                object : ConnectIQ.IQApplicationInfoListener {
+                    override fun onApplicationInfoReceived(iqApp: IQApp?) {
+                        Log.d(TAG, "appInfo: watch has $candidateId (${iqApp?.displayName})")
+                        registerForWatchApp(device, candidateId)
+                    }
+
+                    override fun onApplicationNotInstalled(applicationId: String?) {
+                        Log.d(TAG, "appInfo: watch does not have $applicationId")
+                        probeWatchApp(device, index + 1)
+                    }
+                },
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error querying watch app info", e)
+            CrashlyticsUtils.recordException(e)
+        }
+    }
+
+    private fun registerForWatchApp(device: IQDevice, applicationId: String) {
         // Reuse one IQApp instance for the lifetime of the activity. The SDK
         // matches an existing registration by instance, so unregistering with a
         // freshly built IQApp leaves the old listener in place and every
         // message is then delivered once per surviving registration.
-        val app = iqApp ?: IQApp(WATCH_APP_ID).also { iqApp = it }
+        val app = iqApp ?: IQApp(applicationId).also { iqApp = it }
 
         try {
             try {
@@ -296,33 +343,10 @@ class MainActivity : ComponentActivity() {
             }
             connectIQ.registerForAppEvents(device, app) { _, _, message, status ->
                 Log.d(TAG, "app event: status=$status size=${message?.size ?: -1}")
-                if ((status == ConnectIQ.IQMessageStatus.SUCCESS) && message.isNotEmpty()) {
+                if ((status == ConnectIQ.IQMessageStatus.SUCCESS) && !message.isNullOrEmpty()) {
                     onImuMessageReceived(message)
                 }
             }
-
-            // Does Garmin Connect itself know this watch app? If it does not,
-            // it will not route the watch's messages to us no matter what we
-            // register for, which is indistinguishable from a silent failure.
-            connectIQ.getApplicationInfo(
-                WATCH_APP_ID,
-                device,
-                object : ConnectIQ.IQApplicationInfoListener {
-                    override fun onApplicationInfoReceived(iqApp: IQApp?) {
-                        Log.d(
-                            TAG,
-                            "appInfo: Garmin Connect KNOWS the app" +
-                                " id=" + iqApp?.applicationId +
-                                " name=" + iqApp?.displayName +
-                                " status=" + iqApp?.status,
-                        )
-                    }
-
-                    override fun onApplicationNotInstalled(applicationId: String?) {
-                        Log.d(TAG, "appInfo: Garmin Connect does NOT know app $applicationId")
-                    }
-                },
-            )
         } catch (e: Exception) {
             Log.e(TAG, "Error registering app listener", e)
             CrashlyticsUtils.recordException(e)
