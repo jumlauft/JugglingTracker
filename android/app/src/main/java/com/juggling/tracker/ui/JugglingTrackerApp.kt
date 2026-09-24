@@ -775,12 +775,12 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
     }
 
     val recordingLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv")
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/zip")
     ) { uri ->
         uri?.let {
             try {
                 context.contentResolver.openOutputStream(it)?.use { outputStream ->
-                    outputStream.write(viewModel.getRecordingsCsv().toByteArray())
+                    viewModel.writeRecordingsZip(outputStream)
                 }
             } catch (e: Exception) {
                 Log.e("JugglingTrackerApp", "Recording export failed", e)
@@ -880,7 +880,7 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             Button(
                 onClick = {
                     val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
-                    recordingLauncher.launch("juggling_recordings_$ts.csv")
+                    recordingLauncher.launch("juggling_recordings_$ts.zip")
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
@@ -889,7 +889,7 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             }
 
             Button(
-                onClick = { emailRecordings(context, viewModel.getRecordingsCsv()) },
+                onClick = { emailRecordings(context, viewModel) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
             ) {
@@ -1121,22 +1121,22 @@ private const val DEVELOPER_EMAIL = "jugglingtracker@gmail.com"
 
 // Write the merged recordings CSV to a shareable cache file and open an email
 // draft to the developer with it attached.
-private fun emailRecordings(context: android.content.Context, csv: String) {
-    if (csv.isBlank()) {
+private fun emailRecordings(context: android.content.Context, viewModel: JugglingViewModel) {
+    if (viewModel.recordingCount <= 0) {
         Toast.makeText(context, context.getString(R.string.toast_no_recordings), Toast.LENGTH_SHORT).show()
         return
     }
     try {
         val dir = java.io.File(context.cacheDir, "shared").apply { mkdirs() }
         val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
-        val file = java.io.File(dir, "juggling_recordings_$ts.csv")
-        file.writeText(csv)
+        val file = java.io.File(dir, "juggling_recordings_$ts.zip")
+        file.outputStream().use { viewModel.writeRecordingsZip(it) }
 
         val uri = androidx.core.content.FileProvider.getUriForFile(
             context, "${context.packageName}.fileprovider", file
         )
         val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-            type = "text/csv"
+            type = "application/zip"
             putExtra(android.content.Intent.EXTRA_EMAIL, arrayOf(DEVELOPER_EMAIL))
             putExtra(android.content.Intent.EXTRA_SUBJECT, context.getString(R.string.email_recordings_subject))
             putExtra(android.content.Intent.EXTRA_TEXT, context.getString(R.string.email_recordings_body))

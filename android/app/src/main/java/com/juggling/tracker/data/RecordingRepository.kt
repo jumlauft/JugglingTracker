@@ -4,9 +4,12 @@ import android.content.Context
 import android.util.Log
 import com.juggling.tracker.util.CrashlyticsUtils
 import java.io.File
+import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 /**
  * Stores raw accelerometer recordings as individual CSV files in the app's
@@ -24,7 +27,7 @@ import java.util.Locale
  * The catches and detected values are watch-hand catches: catches made by the
  * hand wearing the watch, not both-hands totals. All sample values are raw
  * milli-g integers as reported by the watch sensor.
- * Call [exportAllCsv] to produce a single merged CSV suitable for analysis.
+ * Call [exportAllZip] to produce a zip of every run for analysis.
  */
 class RecordingRepository(private val recordingsDir: File) {
     companion object {
@@ -165,25 +168,40 @@ class RecordingRepository(private val recordingsDir: File) {
         return recordingsDir.listFiles()?.count { it.extension == "csv" } ?: 0
     }
 
-    /**
-     * Merge all stored recordings into one CSV string for export.
-     * Each run is separated by a header comment line.
-     */
-    fun exportAllCsv(): String {
-        val files = recordingsDir.listFiles()
+    private fun csvFiles(): List<File> =
+        recordingsDir.listFiles()
             ?.filter { it.extension == "csv" }
             ?.sortedBy { it.name }
-            ?: return ""
+            ?: emptyList()
 
-        if (files.isEmpty()) return ""
-
+    /**
+     * Read one recording, keeping only the x,y,z columns. Runs captured during
+     * the abandoned gyroscope experiment carry three further columns that the
+     * watch only ever filled with zeros, and they have to be dropped so every
+     * exported run matches the three-column corpus format.
+     */
+    private fun normalizedCsv(file: File): String {
         val sb = StringBuilder()
-        files.forEach { file ->
-            sb.append(file.readText())
-            // Ensure trailing newline between files
-            if (!sb.endsWith('\n')) sb.append('\n')
+        file.forEachLine { line ->
+            if (line.isBlank()) return@forEachLine
+            val kept = if (line.startsWith("#")) line else line.split(",").take(3).joinToString(",")
+            sb.append(kept).append('\n')
         }
         return sb.toString()
+    }
+
+    /**
+     * Write every stored recording to [out] as a zip holding one CSV per run,
+     * named and formatted to drop straight into connectiq/data.
+     */
+    fun exportAllZip(out: OutputStream) {
+        ZipOutputStream(out.buffered()).use { zip ->
+            csvFiles().forEach { file ->
+                zip.putNextEntry(ZipEntry(file.name))
+                zip.write(normalizedCsv(file).toByteArray())
+                zip.closeEntry()
+            }
+        }
     }
 
     /** Delete all stored recording files. */

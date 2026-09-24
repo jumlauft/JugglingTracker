@@ -109,23 +109,58 @@ class RecordingRepositoryTest {
         assertEquals(2, repository.recordingCount())
     }
 
-    // ── exportAllCsv ────────────────────────────────────────────────────
+    // ── exportAllZip ────────────────────────────────────────────────────
 
-    @Test
-    fun `export all csv returns empty for no recordings`() {
-        assertEquals("", repository.exportAllCsv())
+    private fun zipEntries(): Map<String, String> {
+        val out = java.io.ByteArrayOutputStream()
+        repository.exportAllZip(out)
+        val entries = mutableMapOf<String, String>()
+        java.util.zip.ZipInputStream(out.toByteArray().inputStream()).use { zip ->
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                entries[entry.name] = zip.readBytes().toString(Charsets.UTF_8)
+            }
+        }
+        return entries
     }
 
     @Test
-    fun `export all csv merges recordings`() {
+    fun `export all zip is empty for no recordings`() {
+        assertTrue(zipEntries().isEmpty())
+    }
+
+    @Test
+    fun `export all zip holds one entry per recording`() {
         repository.saveRecording(3, 1, 1, 25, 1L, listOf(10), listOf(20), listOf(30), RecordingRepository.SOURCE_WATCH)
         repository.saveRecording(5, 2, 2, 25, 2L, listOf(40), listOf(50), listOf(60), RecordingRepository.SOURCE_WATCH)
 
-        val csv = repository.exportAllCsv()
-        assertTrue(csv.contains("balls=3"))
-        assertTrue(csv.contains("balls=5"))
-        assertTrue(csv.contains("10,20,30"))
-        assertTrue(csv.contains("40,50,60"))
+        val entries = zipEntries()
+        assertEquals(2, entries.size)
+        assertTrue(entries.keys.all { it.endsWith(".csv") })
+
+        val all = entries.values.joinToString("\n")
+        assertTrue(all.contains("balls=3"))
+        assertTrue(all.contains("balls=5"))
+        assertTrue(all.contains("10,20,30"))
+        assertTrue(all.contains("40,50,60"))
+    }
+
+    @Test
+    fun `export all zip drops the legacy gyroscope columns`() {
+        // Runs captured during the abandoned gyroscope experiment have three
+        // extra columns the watch only ever filled with zeros.
+        File(tempDir, "20260101_120000.csv").writeText(
+            "# run=20260101_120000,balls=3,catches=1,sampleRate=25\n" +
+                "x,y,z,gx,gy,gz\n" +
+                "10,20,30,0,0,0\n" +
+                "11,21,31,0,0,0\n"
+        )
+
+        val csv = zipEntries().values.single()
+        assertTrue(csv.contains("x,y,z\n"))
+        assertFalse(csv.contains("gx"))
+        assertTrue(csv.contains("10,20,30\n"))
+        assertFalse(csv.contains("10,20,30,0"))
     }
 
     // ── clearAll ────────────────────────────────────────────────────────
@@ -138,7 +173,7 @@ class RecordingRepositoryTest {
         repository.clearAll()
 
         assertEquals(0, repository.recordingCount())
-        assertEquals("", repository.exportAllCsv())
+        assertTrue(zipEntries().isEmpty())
     }
 
     // ── listRecordings ──────────────────────────────────────────────────

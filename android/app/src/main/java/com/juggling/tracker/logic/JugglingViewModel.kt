@@ -341,8 +341,8 @@ class JugglingViewModel(
     }
 
     /** Merged CSV of all stored recordings for export. */
-    fun getRecordingsCsv(): String {
-        return recordingRepository?.exportAllCsv() ?: ""
+    fun writeRecordingsZip(out: java.io.OutputStream) {
+        recordingRepository?.exportAllZip(out)
     }
 
     /** Delete all stored recordings. */
