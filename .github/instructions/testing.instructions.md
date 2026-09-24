@@ -37,4 +37,4 @@ cd simulation
 python -m pytest test_detection.py -v
 ```
 
-`simulation/test_detection.py` uses `simulation/eval_new_watch.py` as the watch-parity detector simulation and the labeled CSVs in `data/`. The `catches=` labels are watch-hand catches, not both-hands totals. Keep expected counts and performance limits synchronized with intentional detector changes only.
+`simulation/test_detection.py` uses `simulation/eval_new_watch.py` as the watch-parity detector simulation and the labeled CSVs in `connectiq/data/`, one run per file keyed by run id. Every recording on disk must have an `EXPECTED_RUNS` entry. The `catches=` labels are watch-hand catches, not both-hands totals. Keep expected counts and performance limits synchronized with intentional detector changes only.

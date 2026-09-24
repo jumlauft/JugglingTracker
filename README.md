@@ -20,7 +20,7 @@ Two-platform juggling tracker focused on a single counting hand. A Garmin Foreru
   - `data/RecordingRepository.kt` - raw recording CSV persistence/export.
   - `ui/` - Compose screens, session cards, charts, tracker/settings UI.
   - `model/` - session/run data classes.
-- `data/` - labeled accelerometer recordings used to tune and verify detection.
+- `connectiq/data/` - labeled accelerometer recordings used to tune and verify detection, one run per file named `YYYYMMDD_HHMMSS.csv`.
 - `simulation/` - Python analysis, plotting, tuning, and regression tests.
 
 ## How It Works
@@ -57,8 +57,11 @@ Current burst-clustering parameters:
 | Balls | HP threshold | Candidate refractory | Raw gate | Merge window |
 | --- | ---: | ---: | ---: | ---: |
 | 3 | 2.0 | 80 ms | 7.0 m/s² | 160 ms |
-| 4 | 4.0 | 40 ms | disabled | 80 ms |
-| 5+ | 0.8 | 320 ms | 13.0 m/s² | 160 ms |
+| 4 | 3.0 | 80 ms | 11.0 m/s² | 160 ms |
+| 5-6 | 3.0 | 40 ms | 13.0 m/s² | 160 ms |
+| 7+ | 3.0 | 160 ms | 7.0 m/s² | 80 ms |
+
+7+ has its own bucket because its cadence is distinctly faster than 5-ball, and it was previously run on parameters fitted entirely to 5-ball data.
 
 The Python simulator in `simulation/eval_new_watch.py` mirrors the watch detector. Keep it, `connectiq/source/JugglingDetector.mc`, `simulation/test_detection.py`, and `.github/instructions/connectiq-monkeyc.instructions.md` in sync when changing detector behavior or parameters.
 
@@ -70,15 +73,25 @@ Phone sessions are stored in the same `SessionSummary` history as watch sessions
 
 ### Recording Mode
 
-Recording mode is retained for detector tuning but hidden from customer watch startup while `ENABLE_RECORDING_MODE` is `false` in `connectiq/source/JugglingTrackerApp.mc`. When enabled for development, it captures raw accelerometer samples on the watch. Press Back to start a run, press Back again to stop it, then enter the actual watch-hand catch count. The watch sends a `recording` payload to the phone, and the Android app stores each recording as CSV through `RecordingRepository` so it can be exported for tuning in `simulation/`.
+Recording mode is retained for detector tuning and is hidden from customer watch startup while `ENABLE_RECORDING_MODE` is `false` in `connectiq/source/JugglingTrackerApp.mc`. **It is currently `true` for data collection and must be flipped back before any release** — `test_detection.py::test_customer_watch_startup_hides_recording_mode` fails while it is on, as a standing reminder.
 
-The labeled CSV format starts each run with metadata:
+Controls, once a ball count is chosen:
+
+- **Start** begins a run; **Start** again stops it. Runs are capped at 120 seconds, and end early if free memory runs low.
+- On the labeling screen, **Up/Down** adjust the detected count to the true watch-hand count, **Start** confirms and transmits, **Back** discards the run after a confirmation.
+- **Back** anywhere else offers to quit the app.
+
+A confirmed run transfers in chunks of 50 samples: a `rec_start` header, one `rec_chunk` per batch, then `rec_end`, which the phone acknowledges once it has written the file. A failed transfer offers retry, skip, or quit. The Android app writes each run through `RecordingRepository` in the same format as `connectiq/data/`, so files can be copied straight into the corpus.
+
+One run per file, named by its run id, starting with a metadata header:
 
 ```csv
-# balls=3,catches=17,detected=17,sampleRate=25,timestamp=1780511578,countMode=watch_hand
+# run=20260923_223144,timestamp=1790195504,balls=5,catches=94,sampleRate=25,units=milli_g,source=watch,countMode=watch_hand,detectedAtCapture=93
 x,y,z
 ...
 ```
+
+`catches` is the ground-truth label. `detectedAtCapture` is what the detector counted when the run was recorded — a historical result, not a property of the measurement, so it goes stale whenever the detector changes. `source` is `watch` (25 Hz) or `phone` (200 Hz).
 
 ## Communication Payloads
 
@@ -88,22 +101,15 @@ Finished sessions:
 { "type": "session", "countMode": "watch_hand", "balls": 3, "timestamp": 1780511578, "durationSeconds": 742, "runDurationsMillis": [8200, 5100, 10400], "runs": [17, 11, 21] }
 ```
 
-Raw recordings:
+Raw recordings, sent as a header, then one message per chunk of 50 samples, then an end marker:
 
 ```json
-{
-  "type": "recording",
-  "countMode": "watch_hand",
-  "balls": 3,
-  "catches": 17,
-  "detected": 17,
-  "sampleRate": 25,
-  "accelX": [],
-  "accelY": [],
-  "accelZ": [],
-  "timestamp": 1780511578
-}
+{ "type": "rec_start", "id": 1790195504, "countMode": "watch_hand", "balls": 5, "catches": 94, "detected": 93, "sampleRate": 25, "samples": 1500, "chunks": 30, "timestamp": 1790195504 }
+{ "type": "rec_chunk", "id": 1790195504, "i": 0, "x": [], "y": [], "z": [] }
+{ "type": "rec_end", "id": 1790195504 }
 ```
+
+Only `session` and `rec_end` are acknowledged. Chunks are not, because the watch advances on delivery — a duplicate chunk is ignored, but a gap aborts the run rather than writing corrupt training data.
 
 Acknowledgement from phone to watch:
 
@@ -134,7 +140,16 @@ python -m pytest test_detection.py -v
 python eval_new_watch.py
 ```
 
-`test_detection.py` locks the labeled-data detector baseline. The current watch-hand delayed burst-clustering baseline is 55 total absolute error and 5 total overcount error across 36 labeled runs / 483 watch-hand catches.
+`test_detection.py` locks the labeled-data detector baseline: 157 total absolute error and 58 total overcount error across 77 labeled runs / 1805 watch-hand catches. Every recording in `connectiq/data/` must have an entry in `EXPECTED_RUNS`, so adding data means adding its expected count there too.
+
+Per-ball-count accuracy on that corpus:
+
+| Balls | Runs | Catches | Absolute error |
+| --- | ---: | ---: | ---: |
+| 3 | 14 | 343 | 16 |
+| 4 | 13 | 291 | 11 |
+| 5-6 | 32 | 966 | 104 |
+| 7+ | 18 | 205 | 26 |
 
 ### Connect IQ Watch App
 
@@ -155,13 +170,32 @@ connectiq
 monkeydo connectiq/build/JugglingTracker.prg fr245
 ```
 
-Install on a real watch over USB by copying the built app to the mounted device:
+Install on a real watch over USB by copying the built app to the mounted device. On macOS:
+
+```sh
+cp connectiq/build/JugglingTracker.prg /Volumes/GARMIN/GARMIN/Apps/JugglingTracker.prg
+diskutil eject GARMIN
+```
+
+On Windows:
 
 ```powershell
 Copy-Item connectiq\build\JugglingTracker.prg D:\GARMIN\APPS\JugglingTracker.prg -Force
 ```
 
 Use the actual drive letter for the mounted Garmin volume, then safely eject the device before unplugging.
+
+### Debugging A Watch Crash
+
+When a watch app dies, the device shows the Connect IQ logo and writes the unhandled exception to `GARMIN/Apps/LOGS/CIQ_LOG.YML` on the watch's USB volume, with the previous log rotated to `CIQ_LOG.BAK`. The entries carry raw program counters rather than symbols:
+
+```yaml
+Error: Unhandled Exception
+Stack:
+  - pc: 0x10003c1e
+```
+
+Resolve them against the `.prg.debug.xml` produced alongside the build the watch was running — confirm it is the right one by comparing the `.prg` md5 with the copy on the device, since addresses shift with any code change. The `pcToLineNum` entries map each pc to a file, line and symbol; take the entry with the largest pc not exceeding the crash pc. The simulator cannot stand in for this: it delivers no data to `registerSensorDataListener` without a GUI-loaded data source, so sensor-path faults do not reproduce there.
 
 ## End-To-End Use
 
