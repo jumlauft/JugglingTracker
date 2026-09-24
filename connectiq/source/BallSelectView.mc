@@ -18,17 +18,13 @@ class BallSelectView extends WatchUi.View {
     }
 
     public function increment() as Void {
-        if (ballCount < MAX_BALLS) {
-            ballCount += 1;
-            WatchUi.requestUpdate();
-        }
+        ballCount = (ballCount < MAX_BALLS) ? ballCount + 1 : MIN_BALLS;
+        WatchUi.requestUpdate();
     }
 
     public function decrement() as Void {
-        if (ballCount > MIN_BALLS) {
-            ballCount -= 1;
-            WatchUi.requestUpdate();
-        }
+        ballCount = (ballCount > MIN_BALLS) ? ballCount - 1 : MAX_BALLS;
+        WatchUi.requestUpdate();
     }
 
     public function onUpdate(dc as Dc) as Void {

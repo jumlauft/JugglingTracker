@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <iq:manifest xmlns:iq="http://www.garmin.com/xml/connectiq" version="1">
-    <iq:application entry="JugglingTrackerApp" id="88fa4344-0c76-40a9-83e7-e7fc21328822" name="@Strings.app_name" type="watch-app" launcherIcon="@Drawables.LauncherIcon" minSdkVersion="3.3.0" version="1.0.0">
+    <iq:application entry="JugglingTrackerApp" id="88fa4344-0c76-40a9-83e7-e7fc21328822" name="@Strings.app_name" type="watch-app" launcherIcon="@Drawables.LauncherIcon" minSdkVersion="3.3.0" version="1.1.0">
         <iq:products>
             <iq:product id="approachs50"/>
             <iq:product id="approachs7042mm"/>

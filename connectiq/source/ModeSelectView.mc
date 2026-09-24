@@ -27,9 +27,10 @@ class ModeSelectView extends WatchUi.View {
 
         var labelH = dc.getFontHeight(Graphics.FONT_TINY);
         var medH = dc.getFontHeight(Graphics.FONT_MEDIUM);
+        var explainH = dc.getFontHeight(Graphics.FONT_XTINY);
         var hintH = dc.getFontHeight(Graphics.FONT_XTINY);
 
-        var blockH = labelH + medH + hintH;
+        var blockH = labelH + medH + explainH + hintH;
         var y = cy - blockH / 2;
 
         dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
@@ -42,6 +43,10 @@ class ModeSelectView extends WatchUi.View {
         y += medH;
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        var explainText = isRecordMode ? "Save raw sensor data" : "Track catches live";
+        dc.drawText(cx, y, Graphics.FONT_XTINY, explainText, Graphics.TEXT_JUSTIFY_CENTER);
+        y += explainH;
+
         dc.drawText(cx, y, Graphics.FONT_XTINY, "Up/Down then Start", Graphics.TEXT_JUSTIFY_CENTER);
     }
 }
