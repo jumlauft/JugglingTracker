@@ -47,12 +47,6 @@ android {
             if (System.getenv("KEYSTORE_FILE")?.isEmpty() == false) {
                 signingConfig signingConfigs.release
             }
-            ndk {
-                // Bundled dependencies (e.g. the Garmin SDK) ship native .so
-                // libraries; without this, Play crash reports for them show
-                // raw addresses instead of readable stack traces.
-                debugSymbolLevel 'FULL'
-            }
         }
     }
 
