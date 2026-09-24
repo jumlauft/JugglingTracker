@@ -12,18 +12,23 @@
 
 
 - **Ttitle**: (Max 50 chars)
-    Juggling Tracker
 - **Description**: (Max 4000 chars)
-    Track your juggling runs automatically based on the movements on your wrist. 
+Track your juggling runs automatically based on the movements on your wrist. 
 
-    How it works:
-    Using advanced accelerometer analysis, the app detects each catch made by the hand wearing the watch. It automatically groups catches into runs and sessions, allowing you to focus entirely on your patterns.
+How it works:
+Using advanced accelerometer analysis, the app detects each catch made by the hand wearing the watch. It automatically groups catches into runs and sessions, allowing you to focus entirely on your patterns.
 
-    Key Features:
-    * Automatic Catch Detection: High-precision tracking of your watch-hand catches.
-    * Live Feedback: See your current run count and session best at a glance.
-    * Optimized for Performance: Low-power sensor monitoring ensures your battery lasts through even the longest practice sessions.
-    * Seamless Sync: Transmits finished sessions to the Juggling Tracker Android app for long-term visualization and history. (It can also be used standalone).  
+Key Features:
+* Automatic run detection: Once you started your session, the app will automatically detect the start and finish of each run
+* Automatic catch detection: Catches in the hand wearing the watch will be detected automatically.
+* Live Feedback: See your current run count and session best at a glance.
+* Optimized for performance: Low-power sensor monitoring ensures your battery lasts through even the longest practice sessions.
+* Seamless Sync: Transmits finished sessions to the Juggling Tracker Android app for long-term visualization and history. (It can also be used standalone).  
+* Record labeled data and send to developers (via Android App) to detection precision in future releases.
+
+E-Mail Address: juggling.tracker@gmail.com
+Source Code URL (Optional): https://github.com/jumlauft/JugglingTracker
+
 
 - **Privacy Policy URL**:
     https://github.com/jumlauft/JugglingTracker/blob/main/privacy_policy.md
