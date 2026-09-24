@@ -26,12 +26,14 @@ class PhoneJugglingDetector(val ballCount: Int) {
 
         const val REFRACTORY_MS_3 = 80L
         const val REFRACTORY_MS_4 = 80L
-        const val REFRACTORY_MS_5PLUS = 40L
+        const val REFRACTORY_MS_5 = 40L
+        const val REFRACTORY_MS_6 = 40L
         const val REFRACTORY_MS_7PLUS = 160L
 
         const val MERGE_WINDOW_MS_3 = 160L
         const val MERGE_WINDOW_MS_4 = 160L
-        const val MERGE_WINDOW_MS_5PLUS = 160L
+        const val MERGE_WINDOW_MS_5 = 160L
+        const val MERGE_WINDOW_MS_6 = 120L
         const val MERGE_WINDOW_MS_7PLUS = 80L
 
         const val AUTO_FINISH_DELAY_MS = 2000L
@@ -45,13 +47,15 @@ class PhoneJugglingDetector(val ballCount: Int) {
 
         const val HP_THRESHOLD_3 = 2.0
         const val HP_THRESHOLD_4 = 3.0
-        const val HP_THRESHOLD_5PLUS = 3.0
+        const val HP_THRESHOLD_5 = 3.0
+        const val HP_THRESHOLD_6 = 5.0
         const val HP_THRESHOLD_7PLUS = 3.0
         const val HP_HYSTERESIS = 0.3
 
         const val MIN_RAW_MAG_3 = 7.0
         const val MIN_RAW_MAG_4 = 11.0
-        const val MIN_RAW_MAG_5PLUS = 13.0
+        const val MIN_RAW_MAG_5 = 13.0
+        const val MIN_RAW_MAG_6 = 17.0
         const val MIN_RAW_MAG_7PLUS = 7.0
     }
 
@@ -115,11 +119,19 @@ class PhoneJugglingDetector(val ballCount: Int) {
                 minRawMag = MIN_RAW_MAG_4
                 mergeWindowMs = MERGE_WINDOW_MS_4
             }
-            ballCount <= 6 -> {
-                hpThreshold = HP_THRESHOLD_5PLUS
-                refractoryMs = REFRACTORY_MS_5PLUS
-                minRawMag = MIN_RAW_MAG_5PLUS
-                mergeWindowMs = MERGE_WINDOW_MS_5PLUS
+            ballCount == 5 -> {
+                hpThreshold = HP_THRESHOLD_5
+                refractoryMs = REFRACTORY_MS_5
+                minRawMag = MIN_RAW_MAG_5
+                mergeWindowMs = MERGE_WINDOW_MS_5
+            }
+            ballCount == 6 -> {
+                // Six throws land harder and closer together than five, so the
+                // peak that marks a catch clears a higher bar.
+                hpThreshold = HP_THRESHOLD_6
+                refractoryMs = REFRACTORY_MS_6
+                minRawMag = MIN_RAW_MAG_6
+                mergeWindowMs = MERGE_WINDOW_MS_6
             }
             else -> {
                 // 7+ has a distinctly faster cadence than 5-ball.

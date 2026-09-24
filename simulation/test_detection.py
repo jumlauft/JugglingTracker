@@ -6,8 +6,8 @@ datasets with the current JugglingDetector.mc parameters, asserting that
 detection performance does not regress.
 
 The expected detection counts come from the delayed burst-clustering algorithm
-with alternating watch-hand burst counting: total absolute error = 195 and
-positive overcount error = 75 across 102 runs (2459 actual watch-hand catches).
+with alternating watch-hand burst counting: total absolute error = 189 and
+positive overcount error = 69 across 102 runs (2459 actual watch-hand catches).
 """
 import os
 import sys
@@ -24,6 +24,7 @@ WATCH_PARAMS = {
     3: {"threshold": 2.0, "refractory_ms": 80, "raw_gate": 7.0, "merge_window_ms": 160},
     4: {"threshold": 3.0, "refractory_ms": 80, "raw_gate": 11.0, "merge_window_ms": 160},
     5: {"threshold": 3.0, "refractory_ms": 40, "raw_gate": 13.0, "merge_window_ms": 160},
+    6: {"threshold": 5.0, "refractory_ms": 40, "raw_gate": 17.0, "merge_window_ms": 120},
     7: {"threshold": 3.0, "refractory_ms": 160, "raw_gate": 7.0, "merge_window_ms": 80},
 }
 
@@ -115,17 +116,17 @@ EXPECTED_RUNS = [
     ("20260924_170153", 5, 23, 21),
     ("20260924_170236", 5, 25, 28),
     ("20260924_170352", 5, 88, 87),
-    ("20260924_170632", 6, 9, 10),
-    ("20260924_170706", 6, 11, 15),
-    ("20260924_170736", 6, 26, 27),
+    ("20260924_170632", 6, 9, 9),
+    ("20260924_170706", 6, 11, 14),
+    ("20260924_170736", 6, 26, 26),
     ("20260924_170756", 6, 9, 9),
-    ("20260924_170818", 6, 14, 18),
-    ("20260924_170844", 6, 15, 15),
+    ("20260924_170818", 6, 14, 15),
+    ("20260924_170844", 6, 15, 16),
     ("20260924_170918", 6, 8, 9),
-    ("20260924_171031", 6, 44, 40),
+    ("20260924_171031", 6, 44, 39),
     ("20260924_171108", 6, 14, 14),
-    ("20260924_171239", 6, 32, 33),
-    ("20260924_171333", 6, 33, 32),
+    ("20260924_171239", 6, 32, 32),
+    ("20260924_171333", 6, 33, 33),
     ("20260924_171644", 7, 12, 12),
     ("20260924_171849", 7, 13, 11),
     ("20260924_171927", 7, 11, 13),
@@ -137,8 +138,8 @@ EXPECTED_RUNS = [
 ]
 
 # Maximum allowed total absolute error across all runs.
-MAX_TOTAL_ERROR = 195
-MAX_TOTAL_OVERCOUNT = 75
+MAX_TOTAL_ERROR = 189
+MAX_TOTAL_OVERCOUNT = 69
 
 
 def _get_data_dir():
@@ -170,12 +171,14 @@ def runs_by_id():
 
 
 def _bucket(balls):
-    """Match JugglingDetector.mc: 3 / 4 / 5-6 / 7+."""
+    """Match JugglingDetector.mc: 3 / 4 / 5 / 6 / 7+."""
     if balls <= 3:
         return 3
     if balls == 4:
         return 4
-    return 5 if balls <= 6 else 7
+    if balls == 5:
+        return 5
+    return 6 if balls == 6 else 7
 
 
 def _detect(run, balls):
@@ -284,28 +287,33 @@ def test_watch_params_match_detector_constants():
 
     assert extract_const("HP_THRESHOLD_3") == pytest.approx(WATCH_PARAMS[3]["threshold"])
     assert extract_const("HP_THRESHOLD_4") == pytest.approx(WATCH_PARAMS[4]["threshold"])
-    assert extract_const("HP_THRESHOLD_5PLUS") == pytest.approx(WATCH_PARAMS[5]["threshold"])
+    assert extract_const("HP_THRESHOLD_5") == pytest.approx(WATCH_PARAMS[5]["threshold"])
+    assert extract_const("HP_THRESHOLD_6") == pytest.approx(WATCH_PARAMS[6]["threshold"])
     assert extract_const("HP_THRESHOLD_7PLUS") == pytest.approx(WATCH_PARAMS[7]["threshold"])
 
     assert int(extract_const("REFRACTORY_MS_3")) == WATCH_PARAMS[3]["refractory_ms"]
     assert int(extract_const("REFRACTORY_MS_4")) == WATCH_PARAMS[4]["refractory_ms"]
-    assert int(extract_const("REFRACTORY_MS_5PLUS")) == WATCH_PARAMS[5]["refractory_ms"]
+    assert int(extract_const("REFRACTORY_MS_5")) == WATCH_PARAMS[5]["refractory_ms"]
+    assert int(extract_const("REFRACTORY_MS_6")) == WATCH_PARAMS[6]["refractory_ms"]
     assert int(extract_const("REFRACTORY_MS_7PLUS")) == WATCH_PARAMS[7]["refractory_ms"]
 
     assert extract_const("MIN_RAW_MAG_3") == pytest.approx(WATCH_PARAMS[3]["raw_gate"])
     assert extract_const("MIN_RAW_MAG_4") == pytest.approx(WATCH_PARAMS[4]["raw_gate"])
-    assert extract_const("MIN_RAW_MAG_5PLUS") == pytest.approx(WATCH_PARAMS[5]["raw_gate"])
+    assert extract_const("MIN_RAW_MAG_5") == pytest.approx(WATCH_PARAMS[5]["raw_gate"])
+    assert extract_const("MIN_RAW_MAG_6") == pytest.approx(WATCH_PARAMS[6]["raw_gate"])
     assert extract_const("MIN_RAW_MAG_7PLUS") == pytest.approx(WATCH_PARAMS[7]["raw_gate"])
 
     assert int(extract_const("MERGE_WINDOW_MS_3")) == WATCH_PARAMS[3]["merge_window_ms"]
     assert int(extract_const("MERGE_WINDOW_MS_4")) == WATCH_PARAMS[4]["merge_window_ms"]
-    assert int(extract_const("MERGE_WINDOW_MS_5PLUS")) == WATCH_PARAMS[5]["merge_window_ms"]
+    assert int(extract_const("MERGE_WINDOW_MS_5")) == WATCH_PARAMS[5]["merge_window_ms"]
+    assert int(extract_const("MERGE_WINDOW_MS_6")) == WATCH_PARAMS[6]["merge_window_ms"]
     assert int(extract_const("MERGE_WINDOW_MS_7PLUS")) == WATCH_PARAMS[7]["merge_window_ms"]
 
     assert extract_const("HP_HYSTERESIS") == pytest.approx(0.3)
 
-    # 7+ must be selected separately from 5-6, not folded into it.
-    assert "balls <= 6" in source
+    # 5, 6 and 7+ must each be selected separately, not folded together.
+    assert "balls == 5" in source
+    assert "balls == 6" in source
 
 
 def test_watch_counts_alternating_bursts_as_watch_hand_catches():
