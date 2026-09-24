@@ -14,12 +14,12 @@ def releaseVersionName = System.getenv("VERSION_NAME") ?: "1.1"
 
 android {
     namespace 'com.juggling.tracker'
-    compileSdk 35
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.juggling.tracker"
         minSdk 24
-        targetSdk 35
+        targetSdk 36
         versionCode releaseVersionCode
         versionName releaseVersionName
     }
