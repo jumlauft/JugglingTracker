@@ -19,9 +19,6 @@ class SettingsManager(context: Context) {
     var voiceInterval: Int by mutableIntStateOf(prefs.getInt(KEY_VOICE_INTERVAL, 10))
         private set
 
-    var isMlEnabled: Boolean by mutableStateOf(prefs.getBoolean(KEY_ML_ENABLED, true))
-        private set
-
     fun updateAnalyticsEnabled(enabled: Boolean) {
         isAnalyticsEnabled = enabled
         prefs.edit().putBoolean(KEY_ANALYTICS, enabled).apply()
@@ -37,15 +34,9 @@ class SettingsManager(context: Context) {
         prefs.edit().putInt(KEY_VOICE_INTERVAL, interval).apply()
     }
 
-    fun updateMlEnabled(enabled: Boolean) {
-        isMlEnabled = enabled
-        prefs.edit().putBoolean(KEY_ML_ENABLED, enabled).apply()
-    }
-
     companion object {
         private const val KEY_ANALYTICS = "analytics_enabled"
         private const val KEY_VOICE = "voice_enabled"
         private const val KEY_VOICE_INTERVAL = "voice_interval"
-        private const val KEY_ML_ENABLED = "ml_enabled"
     }
 }

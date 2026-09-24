@@ -13,8 +13,6 @@ import kotlinx.coroutines.launch
 import kotlin.math.sqrt
 import android.os.Bundle
 import com.google.firebase.analytics.FirebaseAnalytics
-import org.tensorflow.lite.Interpreter
-import org.json.JSONObject
 import java.io.FileInputStream
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
@@ -72,15 +70,6 @@ class JugglingViewModel(
     private val analytics: FirebaseAnalytics? = null,
     private val settings: SettingsManager? = null,
 ) : ViewModel() {
-    // ML State
-    private var interpreter3: Interpreter? = null
-    private var interpreter4: Interpreter? = null
-    private var interpreter5: Interpreter? = null
-    
-    private var norm3: Pair<FloatArray, FloatArray>? = null
-    private var norm4: Pair<FloatArray, FloatArray>? = null
-    private var norm5: Pair<FloatArray, FloatArray>? = null
-
     // Garmin Status
     var garminStatus by mutableStateOf(GarminConnectionStatus.NOT_INITIALIZED)
     var statusMessage by mutableStateOf("")
@@ -89,7 +78,6 @@ class JugglingViewModel(
     val isAnalyticsEnabled get() = settings?.isAnalyticsEnabled ?: true
     val isVoiceEnabled get() = settings?.isVoiceEnabled ?: true
     val voiceInterval get() = settings?.voiceInterval ?: 10
-    val isMlEnabled get() = settings?.isMlEnabled ?: true
 
     fun toggleAnalytics(enabled: Boolean) {
         settings?.updateAnalyticsEnabled(enabled)
@@ -111,48 +99,9 @@ class JugglingViewModel(
         settings?.updateVoiceInterval(interval)
     }
 
-    fun toggleMl(enabled: Boolean) {
-        settings?.updateMlEnabled(enabled)
-    }
-
     // Event Flow
     private val _events = MutableSharedFlow<JugglingEvent>()
     val events = _events.asSharedFlow()
-
-    fun initML(context: android.content.Context) {
-        try {
-            interpreter3 = Interpreter(loadModelFile(context, "catch_detector_3.tflite"))
-            interpreter4 = Interpreter(loadModelFile(context, "catch_detector_4.tflite"))
-            interpreter5 = Interpreter(loadModelFile(context, "catch_detector_5.tflite"))
-
-            norm3 = loadNormParams(context, "norm_params_3.json")
-            norm4 = loadNormParams(context, "norm_params_4.json")
-            norm5 = loadNormParams(context, "norm_params_5.json")
-            
-            statusMessage = "Specialized ML models ready"
-        } catch (e: Exception) {
-            android.util.Log.e("JugglingViewModel", "Failed to init specialized ML detectors", e)
-        }
-    }
-
-    private fun loadNormParams(context: android.content.Context, fileName: String): Pair<FloatArray, FloatArray> {
-        val jsonString = context.assets.open(fileName).bufferedReader().use { it.readText() }
-        val json = JSONObject(jsonString)
-        val meanArray = json.getJSONArray("mean")
-        val stdArray = json.getJSONArray("std")
-        val mean = FloatArray(meanArray.length()) { i -> meanArray.getDouble(i).toFloat() }
-        val std = FloatArray(stdArray.length()) { i -> stdArray.getDouble(i).toFloat() }
-        return Pair(mean, std)
-    }
-
-    private fun loadModelFile(context: android.content.Context, modelName: String): java.nio.MappedByteBuffer {
-        val fileDescriptor = context.assets.openFd(modelName)
-        val inputStream = java.io.FileInputStream(fileDescriptor.fileDescriptor)
-        val fileChannel = inputStream.channel
-        val startOffset = fileDescriptor.startOffset
-        val declaredLength = fileDescriptor.declaredLength
-        return fileChannel.map(java.nio.channels.FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
-    }
 
     // Recording state
     var recordingCount by mutableIntStateOf(recordingRepository?.recordingCount() ?: 0)
@@ -417,27 +366,11 @@ class JugglingViewModel(
         rawAccelY.clear()
         rawAccelZ.clear()
         rawRecordingStartedAtMillis = System.currentTimeMillis()
-        
-        // Also start a detector just to show counts in UI if we want
-        val useMl = isMlEnabled
-        val (interpreter, norm) = getMLAssets(balls)
-        
-        phoneDetector = PhoneJugglingDetector(
-            balls, 
-            if (useMl) interpreter else null, 
-            if (useMl) norm?.first else null, 
-            if (useMl) norm?.second else null
-        )
+
+        // Run the detector during capture so the UI can show a live count.
+        phoneDetector = PhoneJugglingDetector(balls)
         phoneSessionStartSampleMillis = null
         phoneLastProcessedSampleMillis = null
-    }
-
-    private fun getMLAssets(balls: Int): Pair<Interpreter?, Pair<FloatArray, FloatArray>?> {
-        return when {
-            balls <= 3 -> Pair(interpreter3, norm3)
-            balls == 4 -> Pair(interpreter4, norm4)
-            else -> Pair(interpreter5, norm5)
-        }
     }
 
     fun stopRawRecording() {
@@ -484,15 +417,8 @@ class JugglingViewModel(
 
     fun startPhoneSession(ballCount: Int, startedAtMillis: Long = System.currentTimeMillis()) {
         val sanitizedBallCount = ballCount.coerceIn(3, 9)
-        val useMl = isMlEnabled
-        val (interpreter, norm) = getMLAssets(sanitizedBallCount)
-        
-        phoneDetector = PhoneJugglingDetector(
-            sanitizedBallCount, 
-            if (useMl) interpreter else null, 
-            if (useMl) norm?.first else null, 
-            if (useMl) norm?.second else null
-        )
+
+        phoneDetector = PhoneJugglingDetector(sanitizedBallCount)
         phoneSessionStartedAtMillis = startedAtMillis
         phoneSessionStartSampleMillis = null
         phoneLastProcessedSampleMillis = null

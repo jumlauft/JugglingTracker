@@ -96,9 +96,6 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
 
-        // Initialize ML Detector
-        viewModel.initML(this)
-
         // Apply privacy settings to Firebase on startup
         val isAnalyticsEnabled = settingsManager.isAnalyticsEnabled
         analytics.setAnalyticsCollectionEnabled(isAnalyticsEnabled)

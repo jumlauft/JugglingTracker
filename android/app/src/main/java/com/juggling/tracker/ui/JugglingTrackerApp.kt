@@ -822,25 +822,6 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
 
         HorizontalDivider()
 
-        // ML Settings
-        Text(text = stringResource(R.string.section_advanced), style = MaterialTheme.typography.titleLarge)
-        
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            SettingToggle(
-                label = stringResource(R.string.label_ml_enabled),
-                checked = viewModel.isMlEnabled,
-                onCheckedChange = { viewModel.toggleMl(it) }
-            )
-            Text(
-                text = stringResource(R.string.desc_ml_enabled),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
-        }
-
-        HorizontalDivider()
-
         // Privacy Settings
         Text(text = stringResource(R.string.section_privacy), style = MaterialTheme.typography.titleLarge)
         

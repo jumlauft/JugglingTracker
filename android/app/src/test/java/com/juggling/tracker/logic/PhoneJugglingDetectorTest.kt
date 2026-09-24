@@ -84,9 +84,9 @@ class PhoneJugglingDetectorTest {
         assertTrue(detector.runCatches().isEmpty())
     }
 
-    // Note: phone detector constants are intentionally tuned independently of the
-    // watch detector (200 Hz phone data, see simulation/test_phone_data.py), so
-    // they are no longer asserted to match connectiq/source/JugglingDetector.mc.
+    // The phone detector is a port of connectiq/source/JugglingDetector.mc and
+    // runs at the same 25 Hz. Its constants must match the watch detector; keep
+    // both plus simulation/eval_new_watch.py in sync.
 
     private fun feedBaseline(
         detector: PhoneJugglingDetector,
