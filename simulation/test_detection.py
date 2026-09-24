@@ -6,8 +6,8 @@ datasets with the current JugglingDetector.mc parameters, asserting that
 detection performance does not regress.
 
 The expected detection counts come from the delayed burst-clustering algorithm
-with alternating watch-hand burst counting: total absolute error = 148 and
-positive overcount error = 52 across 69 runs (1479 actual watch-hand catches).
+with alternating watch-hand burst counting: total absolute error = 195 and
+positive overcount error = 75 across 102 runs (2459 actual watch-hand catches).
 """
 import os
 import sys
@@ -109,11 +109,36 @@ EXPECTED_RUNS = [
     ("20260923_223403", 5, 15, 15),
     ("20260923_223542", 3, 75, 79),
     ("20260923_224723", 4, 38, 38),
+    ("20260924_165934", 5, 12, 12),
+    ("20260924_170001", 5, 12, 11),
+    ("20260924_170059", 5, 49, 47),
+    ("20260924_170153", 5, 23, 21),
+    ("20260924_170236", 5, 25, 28),
+    ("20260924_170352", 5, 88, 87),
+    ("20260924_170632", 6, 9, 10),
+    ("20260924_170706", 6, 11, 15),
+    ("20260924_170736", 6, 26, 27),
+    ("20260924_170756", 6, 9, 9),
+    ("20260924_170818", 6, 14, 18),
+    ("20260924_170844", 6, 15, 15),
+    ("20260924_170918", 6, 8, 9),
+    ("20260924_171031", 6, 44, 40),
+    ("20260924_171108", 6, 14, 14),
+    ("20260924_171239", 6, 32, 33),
+    ("20260924_171333", 6, 33, 32),
+    ("20260924_171644", 7, 12, 12),
+    ("20260924_171849", 7, 13, 11),
+    ("20260924_171927", 7, 11, 13),
+    ("20260924_172053", 7, 13, 12),
+    ("20260924_172136", 7, 11, 11),
+    ("20260924_172333", 5, 25, 25),
+    ("20260924_172451", 5, 77, 71),
+    ("20260924_172608", 5, 68, 67),
 ]
 
 # Maximum allowed total absolute error across all runs.
-MAX_TOTAL_ERROR = 157
-MAX_TOTAL_OVERCOUNT = 58
+MAX_TOTAL_ERROR = 195
+MAX_TOTAL_OVERCOUNT = 75
 
 
 def _get_data_dir():
@@ -389,8 +414,14 @@ def test_watch_transfers_run_durations():
     assert '"runDurationsMillis" => _detector.runDurationsMillis()' in main_view_source
 
 
-def test_customer_watch_startup_hides_recording_mode():
-    """Customer builds should start directly in normal tracking setup."""
+def test_watch_startup_offers_recording_mode():
+    """Startup opens the mode picker so users can contribute raw recordings.
+
+    Recording mode ships enabled: the recordings users capture and send back
+    are what grows the corpus these tests run against. Setting
+    ENABLE_RECORDING_MODE to false must still skip straight to ball select,
+    so both branches have to stay in place.
+    """
     app_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
         "..", "connectiq", "source", "JugglingTrackerApp.mc",
@@ -401,6 +432,6 @@ def test_customer_watch_startup_hides_recording_mode():
     with open(app_path, "r") as f:
         source = f.read()
 
-    assert "private const ENABLE_RECORDING_MODE = false;" in source
-    assert "new BallSelectView(:juggle)" in source
+    assert "private const ENABLE_RECORDING_MODE = true;" in source
     assert "new ModeSelectView()" in source
+    assert "new BallSelectView(:juggle)" in source
