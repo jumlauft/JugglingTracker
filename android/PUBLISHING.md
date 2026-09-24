@@ -65,3 +65,54 @@ In the Play Console, you will need to declare:
 2. Create a new app and follow the "Initial setup" tasks.
 3. Upload the `.aab` file to the "Internal Testing" or "Production" track.
 4. Complete the Store Listing and Content Rating questionnaires.
+
+## 6. Automated Release (CI)
+
+`.github/workflows/release-android.yml` builds a signed App Bundle and uploads
+it to the Play **internal testing** track whenever a tag matching `v*` is pushed.
+Promote a build from internal to production by hand in the Play Console.
+
+### Cutting a release
+
+```sh
+git tag v1.2        # versionName is taken from the tag (the leading "v" is stripped)
+git push origin v1.2
+```
+
+`versionCode` is derived automatically from the git commit count, so it always
+increases. Nothing else needs editing in `build.gradle` for a release.
+
+### One-time setup
+
+**a. Upload keystore.** Generate it once (see section 1) and keep the file
+safe outside the repo. Base64-encode it for the CI secret:
+
+```sh
+base64 -i main.keystore | tr -d '\n' | pbcopy   # macOS; paste into the secret
+```
+
+**b. First upload must be manual.** Google requires the very first release of a
+new app to be uploaded through the Play Console by hand. The API — and therefore
+this workflow — only works once the app already has one release on the track.
+
+**c. Play service account.** In the Google Play Console under *Setup → API
+access*, link a Google Cloud project and create a service account with the
+*Release manager* role, then download its JSON key. This is the
+`PLAY_SERVICE_ACCOUNT_JSON` secret.
+
+### Required repository secrets
+
+Add these under *Settings → Secrets and variables → Actions*:
+
+| Secret | What it is |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | Base64 of the upload keystore (step a). |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password. |
+| `ANDROID_KEY_ALIAS` | Key alias (e.g. `main`). |
+| `ANDROID_KEY_PASSWORD` | Key password. |
+| `PLAY_SERVICE_ACCOUNT_JSON` | Service-account JSON key contents (step c). |
+
+### Garmin
+
+The Connect IQ store has no publishing API, so the watch app is **not** part of
+this pipeline. Build and submit it by hand following `connectiq/PUBLISHING.md`.
