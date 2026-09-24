@@ -443,13 +443,8 @@ class RecordingView extends WatchUi.View {
         }
         _awaitingDecision = true;
 
-        // The diagnostics live in the menu because the menu covers the view
-        // underneath it - anything drawn on the syncing screen is invisible here.
         var title = (_failReason == null) ? "Sync failed" : _failReason;
         var menu = new WatchUi.Menu2({ :title => title });
-        menu.addItem(new WatchUi.MenuItem(
-            (_pendingPayload == null ? "sent" : "queued") + " " + _accelX.size() + " smp",
-            null, :sync_info, null));
         menu.addItem(new WatchUi.MenuItem("Retry sync", null, :sync_retry, null));
         menu.addItem(new WatchUi.MenuItem("Skip (lose data)", null, :sync_skip, null));
         menu.addItem(new WatchUi.MenuItem("Quit", null, :sync_quit, null));
@@ -870,9 +865,6 @@ class RecordingSyncDelegate extends WatchUi.Menu2InputDelegate {
 
     public function onSelect(item as WatchUi.MenuItem) as Void {
         var id = item.getId();
-        if (id == :sync_info) {
-            return;   // informational row, keep the menu open
-        }
         WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
         if (id == :sync_retry) {
             _view.onSyncRetry();
