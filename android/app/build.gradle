@@ -9,7 +9,7 @@ plugins {
 // Release CI overrides these via env vars; local builds fall back to the
 // checked-in defaults. VERSION_CODE must increase for every Play upload, so CI
 // derives it from the git commit count.
-def releaseVersionCode = (System.getenv("VERSION_CODE") ?: "2").toInteger()
+def releaseVersionCode = (System.getenv("VERSION_CODE") ?: "3").toInteger()
 def releaseVersionName = System.getenv("VERSION_NAME") ?: "1.1"
 
 android {
@@ -46,6 +46,12 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             if (System.getenv("KEYSTORE_FILE")?.isEmpty() == false) {
                 signingConfig signingConfigs.release
+            }
+            ndk {
+                // Bundled dependencies (e.g. the Garmin SDK) ship native .so
+                // libraries; without this, Play crash reports for them show
+                // raw addresses instead of readable stack traces.
+                debugSymbolLevel 'FULL'
             }
         }
     }
