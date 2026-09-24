@@ -174,8 +174,16 @@ class MainView extends WatchUi.View {
         var samplePeriodMs = 1000 / SAMPLE_RATE;
         var batchStartMs = now - (n - 1) * samplePeriodMs;
         for (var i = 0; i < n; i++) {
+            // A stream that came up short for the period is padded with nulls,
+            // and arithmetic on one throws inside the detector, killing the app.
+            var x = xs[i];
+            var y = ys[i];
+            var z = zs[i];
+            if (x == null || y == null || z == null) {
+                continue;
+            }
             var sampleMs = batchStartMs + i * samplePeriodMs;
-            _detector.processSample(xs[i], ys[i], zs[i], sampleMs);
+            _detector.processSample(x.toNumber(), y.toNumber(), z.toNumber(), sampleMs);
         }
 
         // Vibrate every 10 watch-hand catches as tactile feedback.
