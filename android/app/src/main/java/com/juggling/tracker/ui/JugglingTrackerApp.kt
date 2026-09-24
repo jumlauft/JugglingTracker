@@ -880,6 +880,14 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
                 Text(stringResource(R.string.action_export_recordings))
             }
 
+            Button(
+                onClick = { emailRecordings(context, viewModel.getRecordingsCsv()) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+            ) {
+                Text(stringResource(R.string.action_email_recordings))
+            }
+
             OutlinedButton(
                 onClick = { viewModel.clearRecordings() },
                 modifier = Modifier.fillMaxWidth(),
@@ -1099,6 +1107,47 @@ fun SettingToggle(label: String, checked: Boolean, onCheckedChange: (Boolean) ->
 
 private val recordingTimeFormat =
     java.text.SimpleDateFormat("dd.MM HH:mm", java.util.Locale.getDefault())
+
+// The developer collects recordings to tune the detector offline.
+private const val DEVELOPER_EMAIL = "jugglingtracker@gmail.com"
+
+// Write the merged recordings CSV to a shareable cache file and open an email
+// draft to the developer with it attached.
+private fun emailRecordings(context: android.content.Context, csv: String) {
+    if (csv.isBlank()) {
+        Toast.makeText(context, context.getString(R.string.toast_no_recordings), Toast.LENGTH_SHORT).show()
+        return
+    }
+    try {
+        val dir = java.io.File(context.cacheDir, "shared").apply { mkdirs() }
+        val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
+        val file = java.io.File(dir, "juggling_recordings_$ts.csv")
+        file.writeText(csv)
+
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            context, "${context.packageName}.fileprovider", file
+        )
+        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "text/csv"
+            putExtra(android.content.Intent.EXTRA_EMAIL, arrayOf(DEVELOPER_EMAIL))
+            putExtra(android.content.Intent.EXTRA_SUBJECT, context.getString(R.string.email_recordings_subject))
+            putExtra(android.content.Intent.EXTRA_TEXT, context.getString(R.string.email_recordings_body))
+            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = android.content.Intent.createChooser(
+            intent, context.getString(R.string.email_recordings_chooser)
+        )
+        try {
+            context.startActivity(chooser)
+        } catch (e: android.content.ActivityNotFoundException) {
+            Toast.makeText(context, context.getString(R.string.toast_no_email_app), Toast.LENGTH_SHORT).show()
+        }
+    } catch (e: Exception) {
+        Log.e("JugglingTrackerApp", "Email recordings failed", e)
+        Toast.makeText(context, context.getString(R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
+    }
+}
 
 @Composable
 private fun RecordingsTable(

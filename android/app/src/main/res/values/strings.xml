@@ -15,7 +15,13 @@
     <string name="action_start_phone_session">Start Session with Phone</string>
     <string name="action_export_csv">Export History to CSV</string>
     <string name="action_export_recordings">Export All Recordings</string>
+    <string name="action_email_recordings">Email Recordings to Developer</string>
     <string name="action_clear_recordings">Delete All Recordings</string>
+    <string name="email_recordings_subject">JugglingTracker recordings</string>
+    <string name="email_recordings_body">Attached are my juggling recordings for detector tuning.</string>
+    <string name="email_recordings_chooser">Send recordings via</string>
+    <string name="toast_no_recordings">No recordings to send</string>
+    <string name="toast_no_email_app">No email app found</string>
 
     <string name="dialog_delete_session_title">Delete Session</string>
     <string name="dialog_delete_session_text">Are you sure you want to delete this session from your history?</string>
