@@ -1,0 +1,4 @@
+# Build variant that compiles the unit tests in test/ alongside the app.
+# Kept separate from monkey.jungle so test code never ships in a release build.
+project.manifest = manifest.xml
+base.sourcePath = source;test
