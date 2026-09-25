@@ -482,3 +482,44 @@ def test_back_button_offers_a_menu_instead_of_exiting_silently():
     menu_body = m.group(1)
     for item_id in (":back_end", ":back_discard", ":back_continue"):
         assert item_id in menu_body, f"back menu is missing the {item_id} option"
+
+
+def test_short_runs_are_ignored_as_false_starts():
+    """A run under MIN_RUN_CATCHES catches must never reach session stats.
+
+    Below any real ball count, fewer than three catches before a drop is a
+    false start, not a run -- recording it just pollutes Prev/Avg/Max and the
+    per-run list synced to the phone. recordRun() must bail out before it
+    touches any of previousCount, _sessionRuns, _sessionTotal, sessionMax,
+    _runCatches or _runDurationsMillis.
+    """
+    source = _read_source("connectiq", "source", "JugglingDetector.mc")
+
+    m = re.search(r"private const MIN_RUN_CATCHES\s*=\s*(\d+);", source)
+    assert m, "MIN_RUN_CATCHES constant not found in JugglingDetector.mc"
+    assert int(m.group(1)) == 3
+
+    m = re.search(
+        r"private function recordRun\(catches as Number\) as Void \{(.*?)\n    \}",
+        source, re.DOTALL,
+    )
+    assert m, "recordRun() not found in JugglingDetector.mc"
+    body = m.group(1)
+
+    guard = re.search(r"if \(catches < MIN_RUN_CATCHES\) \{(.*?)\}", body, re.DOTALL)
+    assert guard, "recordRun() does not guard on MIN_RUN_CATCHES"
+    assert "return;" in guard.group(1), "the MIN_RUN_CATCHES guard must return early"
+
+    # The guard has to come before any of the state it must not touch, or an
+    # early return added later in the function would silently stop protecting
+    # some of these.
+    guard_pos = body.find("if (catches < MIN_RUN_CATCHES)")
+    for stat in (
+        "previousCount = catches", "_sessionRuns +=", "_sessionTotal +=",
+        "sessionMax = catches", "_runCatches.add", "_runDurationsMillis.add",
+    ):
+        stat_pos = body.find(stat)
+        assert stat_pos == -1 or guard_pos < stat_pos, (
+            f"{stat!r} in recordRun() is not protected by the MIN_RUN_CATCHES guard"
+        )
+

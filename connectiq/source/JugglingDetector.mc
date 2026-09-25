@@ -14,6 +14,13 @@ import Toybox.System;
 class JugglingDetector {
     private const MILLI_G_TO_MS2 = 9.80665f / 1000.0f;
 
+    // A run of fewer than this many watch-hand catches is treated as a false
+    // start rather than a real run -- at any ball count, catching fewer than
+    // three times before dropping isn't a run someone was actually juggling.
+    // Applies uniformly at recordRun(), so it covers both a manual stop and
+    // an auto-finish (idle timeout) the same way.
+    private const MIN_RUN_CATCHES = 3;
+
     // Gravity low-pass filter coefficient.
     // During active juggling the filter slows down (_ACTIVE) to prevent gravity
     // drift from absorbing the sustained arm motion and attenuating the signal.
@@ -212,6 +219,13 @@ class JugglingDetector {
     // Fold a finished run's watch-hand catch count into the session stats and
     // per-run list. Shared by auto-finish and manual session end.
     private function recordRun(catches as Number) as Void {
+        if (catches < MIN_RUN_CATCHES) {
+            // False start: too short to be a real run. Leave previousCount and
+            // every session statistic untouched, exactly as if it never
+            // happened -- the caller still resets currentCount for the next
+            // attempt regardless of this early return.
+            return;
+        }
         previousCount = catches;
         _sessionRuns += 1;
         _sessionTotal += catches;
