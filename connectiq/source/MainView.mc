@@ -20,6 +20,14 @@ class MainView extends WatchUi.View {
     private var _sending as Boolean;
     private var _detector as JugglingDetector;
     private var _errorMsg as String?;
+    // Pushing any view on top of this one (the session-end menu, the back
+    // menu, a sync-retry menu) hides this view and, on real hardware, drops
+    // the accelerometer listener with it -- the same lifecycle gotcha
+    // RecordingView already works around. Without re-registering in onShow,
+    // popping back to MainView leaves the screen frozen forever at whatever
+    // was last drawn, with detection silently stopped: pressing Start/Stop
+    // then Continue, or Start/Stop mid-run, both routed through such a menu.
+    private var _sensorActive as Boolean;
 
     // Timer that fires if a sync attempt does not complete within SYNC_TIMEOUT_MS.
     private var _syncTimer as Timer.Timer?;
@@ -59,6 +67,18 @@ class MainView extends WatchUi.View {
         // Listen for the phone's acknowledgement that a session was received.
         Communications.registerForPhoneAppMessages(method(:onPhoneMessage));
 
+        _sensorActive = false;
+        startSensor();
+    }
+
+    // Registers the accelerometer if it is not already active. Idempotent so
+    // it is safe to call from both initialize() and onShow() -- the latter
+    // fires every time this view is re-shown after a menu is popped, which
+    // is the only path that actually needs it after the first time.
+    private function startSensor() as Void {
+        if (_sensorActive) {
+            return;
+        }
         try {
             var options = {
                 :period => PERIOD_SECONDS,
@@ -68,9 +88,16 @@ class MainView extends WatchUi.View {
                 }
             };
             Sensor.registerSensorDataListener(self.method(:onSensor), options);
+            _sensorActive = true;
         } catch (ex) {
             System.println("Sensor registration error: " + ex.getErrorMessage());
         }
+    }
+
+    // Re-acquire the sensor listener every time this view becomes visible
+    // again -- see the comment on _sensorActive for why this is necessary.
+    public function onShow() as Void {
+        startSensor();
     }
 
     public function onUpdate(dc as Dc) as Void {
@@ -432,6 +459,7 @@ class MainView extends WatchUi.View {
 
     public function onHide() as Void {
         Sensor.unregisterSensorDataListener();
+        _sensorActive = false;
     }
 
     public function isSessionEmpty() as Boolean {

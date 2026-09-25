@@ -523,3 +523,33 @@ def test_short_runs_are_ignored_as_false_starts():
             f"{stat!r} in recordRun() is not protected by the MIN_RUN_CATCHES guard"
         )
 
+
+
+def test_main_view_reacquires_sensor_after_any_menu():
+    """Pushing a menu over MainView must not permanently freeze the screen.
+
+    On real hardware, pushing any view on top of MainView (the session-end
+    menu, the back-press menu) hides it and drops the accelerometer listener
+    with it. Without re-registering in onShow(), popping back to MainView
+    left the screen frozen forever and detection silently stopped -- whether
+    the menu was reached via Start/Stop with no run active (frozen at
+    "WAITING", count 0) or mid-run (frozen at whatever count it showed).
+    """
+    source = _read_source("connectiq", "source", "MainView.mc")
+
+    assert re.search(r"public function onShow\(\) as Void \{\s*startSensor\(\);\s*\}", source), (
+        "onShow() must re-acquire the sensor by calling startSensor()"
+    )
+
+    m = re.search(r"public function onHide\(\) as Void \{(.*?)\}", source, re.DOTALL)
+    assert m, "onHide() not found in MainView.mc"
+    assert "Sensor.unregisterSensorDataListener();" in m.group(1)
+    assert "_sensorActive = false;" in m.group(1), (
+        "onHide() must clear _sensorActive so the next onShow() re-registers"
+    )
+
+    # startSensor() has to be idempotent: onShow() fires every time the view
+    # is (re-)shown, including right after initialize()'s own call.
+    m = re.search(r"private function startSensor\(\) as Void \{(.*?)\n    \}", source, re.DOTALL)
+    assert m, "startSensor() not found in MainView.mc"
+    assert "if (_sensorActive) {\n            return;" in m.group(1)
