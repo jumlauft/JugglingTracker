@@ -481,9 +481,15 @@ def test_back_button_confirms_discarding_a_run_instead_of_exiting():
     assert m, "promptDiscardRun() not found in MainView.mc"
     prompt_body = m.group(1)
 
-    # It must ask, not act: a Confirmation view, wired to the delegate below.
-    assert "new WatchUi.Confirmation(" in prompt_body, (
-        "back press must open a yes/no Confirmation before discarding anything"
+    # It must ask, not act, and ask with our own labels: WatchUi.Confirmation
+    # renders its yes/no in the watch's system language, which put German
+    # "Ja"/"Nein" in the middle of an otherwise English app.
+    assert "new WatchUi.Confirmation(" not in source, (
+        "WatchUi.Confirmation localises its yes/no labels to the watch language; "
+        "use a Menu2 with our own English labels instead"
+    )
+    assert ":discard_yes" in prompt_body and ":discard_no" in prompt_body, (
+        "back press must offer an explicit discard/keep choice before discarding"
     )
     assert "new DiscardRunDelegate(self)" in prompt_body
 
@@ -514,17 +520,36 @@ def test_back_button_confirms_discarding_a_run_instead_of_exiting():
         "discardLastRun() must only run inside the if (confirmed) branch"
     )
 
-    # The system pops a Confirmation itself; popping again would take MainView
-    # down with it and exit the app -- the exact bug this whole path prevents.
-    m = re.search(
-        r"class DiscardRunDelegate extends WatchUi\.ConfirmationDelegate \{(.*?)\n\}",
-        source, re.DOTALL,
-    )
-    assert m, "DiscardRunDelegate not found in MainView.mc"
-    assert "WatchUi.popView" not in m.group(1), (
-        "DiscardRunDelegate must not popView: the system already pops the Confirmation"
-    )
-    assert "WatchUi.CONFIRM_YES" in m.group(1)
+    assert re.search(r'MenuItem\("Discard"', prompt_body), "the discard label must be English"
+    assert re.search(r'MenuItem\("Keep"', prompt_body), "the keep label must be English"
+
+
+def test_menus_over_main_view_clear_the_pending_decision_flag_on_back():
+    """Backing out of a menu must not wedge MainView's _awaitingDecision flag.
+
+    Menu2InputDelegate's default onBack pops the menu without telling the
+    view, so _awaitingDecision stayed true forever: every later START/STOP
+    press became a no-op and the session could no longer be ended or synced
+    at all. Both menus pushed over MainView must override onBack and route it
+    to the benign choice.
+    """
+    source = _read_source("connectiq", "source", "MainView.mc")
+
+    for cls, handler in (
+        ("DiscardRunDelegate", "onDiscardResponse(false)"),
+        ("SessionEndDelegate", "onContinueSession()"),
+    ):
+        m = re.search(
+            r"class %s extends WatchUi\.Menu2InputDelegate \{(.*?)\n\}" % cls,
+            source, re.DOTALL,
+        )
+        assert m, f"{cls} not found in MainView.mc"
+        body = m.group(1)
+        back = re.search(r"public function onBack\(\) as Void \{(.*?)\n    \}", body, re.DOTALL)
+        assert back, f"{cls} must override onBack()"
+        # Overriding replaces the default pop, so it has to pop itself.
+        assert "WatchUi.popView" in back.group(1), f"{cls}.onBack must pop the menu itself"
+        assert handler in back.group(1), f"{cls}.onBack must call _view.{handler}"
 
 
 def test_short_runs_are_ignored_as_false_starts():

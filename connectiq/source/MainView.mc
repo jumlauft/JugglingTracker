@@ -480,11 +480,14 @@ class MainView extends WatchUi.View {
             return;  // Already showing a confirmation dialog.
         }
 
-        var prompt;
+        var title;
+        var detail;
         if (_detector.isRunActive()) {
-            prompt = Lang.format("Discard this run? ($1$ catches)", [_detector.currentCount.toString()]);
+            title = "Discard this run?";
+            detail = Lang.format("$1$ catches", [_detector.currentCount.toString()]);
         } else if (_detector.sessionRuns() > 0) {
-            prompt = Lang.format("Discard last run? ($1$ catches)", [_detector.previousCount.toString()]);
+            title = "Discard last run?";
+            detail = Lang.format("$1$ catches", [_detector.previousCount.toString()]);
         } else {
             // Nothing recorded yet, so there is nothing to confirm. Swallow the
             // press anyway: letting it reach the system would exit the app,
@@ -493,8 +496,17 @@ class MainView extends WatchUi.View {
         }
 
         _awaitingDecision = true;
+        // A Menu2 rather than WatchUi.Confirmation: the system supplies a
+        // Confirmation's yes/no labels in the *watch's* language, so on a
+        // German watch this came up as "Ja"/"Nein" in the middle of an
+        // otherwise English app. These labels are ours, so they stay English
+        // whatever the watch is set to.
+        var menu = new WatchUi.Menu2({ :title => title });
+        menu.addItem(new WatchUi.MenuItem("Discard", detail, :discard_yes, null));
+        menu.addItem(new WatchUi.MenuItem("Keep", null, :discard_no, null));
+
         WatchUi.pushView(
-            new WatchUi.Confirmation(prompt),
+            menu,
             new DiscardRunDelegate(self),
             WatchUi.SLIDE_IMMEDIATE
         );
@@ -514,20 +526,26 @@ class MainView extends WatchUi.View {
     }
 }
 
-class DiscardRunDelegate extends WatchUi.ConfirmationDelegate {
+class DiscardRunDelegate extends WatchUi.Menu2InputDelegate {
     private var _view as MainView;
 
     public function initialize(view as MainView) {
-        WatchUi.ConfirmationDelegate.initialize();
+        WatchUi.Menu2InputDelegate.initialize();
         _view = view;
     }
 
-    // Unlike a Menu2 delegate, this must not popView: the system pops the
-    // Confirmation itself once a response is picked, and a second pop would
-    // take MainView down with it and exit the app.
-    public function onResponse(response as WatchUi.Confirm) as Boolean {
-        _view.onDiscardResponse(response == WatchUi.CONFIRM_YES);
-        return true;
+    public function onSelect(item as WatchUi.MenuItem) as Void {
+        WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
+        _view.onDiscardResponse(item.getId() == :discard_yes);
+    }
+
+    // Backing out of the prompt means "keep the run". Overriding this replaces
+    // the default pop, so it has to pop itself -- and it must tell the view,
+    // or _awaitingDecision stays set and locks out every later menu, including
+    // the session-end one.
+    public function onBack() as Void {
+        WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
+        _view.onDiscardResponse(false);
     }
 }
 
@@ -551,6 +569,15 @@ class SessionEndDelegate extends WatchUi.Menu2InputDelegate {
         } else if (itemId == :continue_session) {
             _view.onContinueSession();
         }
+    }
+
+    // Backing out of this menu is the same as picking "Continue". Without
+    // this, the default pop dismissed the menu but left _awaitingDecision
+    // set, which then made every later START/STOP press a no-op -- no way
+    // left to end or sync the session at all.
+    public function onBack() as Void {
+        WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
+        _view.onContinueSession();
     }
 }
 
