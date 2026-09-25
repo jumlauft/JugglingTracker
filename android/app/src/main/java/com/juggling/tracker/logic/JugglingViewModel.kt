@@ -126,6 +126,18 @@ class JugglingViewModel(
     private var phoneSessionStartSampleMillis: Long? = null
     private var phoneLastProcessedSampleMillis: Long? = null
 
+    // A wedged accelerometer keeps delivering events at full rate, but every
+    // one carries the identical vector. The detector then sees zero linear
+    // acceleration and counts nothing, which looked exactly like "the user has
+    // not started juggling yet": the session sat on "Ready" forever with no
+    // hint that anything was wrong. Consecutive byte-identical samples are the
+    // signature -- a genuinely still phone still jitters in the low bits, so
+    // this cannot fire just because the phone is resting.
+    private var phoneFrozenSamples = 0
+    private var phoneLastRawX = Double.NaN
+    private var phoneLastRawY = Double.NaN
+    private var phoneLastRawZ = Double.NaN
+
     val completedSessions = mutableStateListOf<SessionSummary>()
 
     init {
@@ -423,6 +435,7 @@ class JugglingViewModel(
         phoneSessionStartedAtMillis = startedAtMillis
         phoneSessionStartSampleMillis = null
         phoneLastProcessedSampleMillis = null
+        resetFrozenSensorTracking()
         phoneSessionState = PhoneSessionUiState(
             selectedBallCount = sanitizedBallCount,
             isRecording = true,
@@ -461,6 +474,13 @@ class JugglingViewModel(
         }
         phoneLastProcessedSampleMillis = sampleMs
 
+        if (phoneSessionState.isRecording && isSensorStreamFrozen(ax, ay, az)) {
+            markPhoneSensorUnavailable(
+                "Accelerometer is not responding. Restart the phone and try again."
+            )
+            return
+        }
+
         val oldCount = detector.currentCount
         detector.processSample(ax, ay, az, sampleMs)
         val newCount = detector.currentCount
@@ -471,6 +491,24 @@ class JugglingViewModel(
         }
 
         updatePhoneSessionStateFromDetector(sampleMs)
+    }
+
+    /**
+     * True once the accelerometer has repeated the exact same vector for
+     * [FROZEN_SENSOR_SECONDS] of throttled samples. Compared bit-for-bit on
+     * purpose: real readings always jitter, so only a stuck sensor can hold
+     * all three axes identical for seconds at a time.
+     */
+    private fun isSensorStreamFrozen(ax: Double, ay: Double, az: Double): Boolean {
+        if (ax == phoneLastRawX && ay == phoneLastRawY && az == phoneLastRawZ) {
+            phoneFrozenSamples += 1
+        } else {
+            phoneFrozenSamples = 0
+            phoneLastRawX = ax
+            phoneLastRawY = ay
+            phoneLastRawZ = az
+        }
+        return phoneFrozenSamples >= FROZEN_SENSOR_SAMPLES
     }
 
     private fun checkVoiceAnnouncement(count: Int) {
@@ -558,9 +596,24 @@ class JugglingViewModel(
         phoneSessionStartedAtMillis = null
         phoneSessionStartSampleMillis = null
         phoneLastProcessedSampleMillis = null
+        resetFrozenSensorTracking()
         phoneSessionState = PhoneSessionUiState(
             selectedBallCount = selectedBallCount,
             statusMessage = statusMessage,
         )
+    }
+
+    private fun resetFrozenSensorTracking() {
+        phoneFrozenSamples = 0
+        phoneLastRawX = Double.NaN
+        phoneLastRawY = Double.NaN
+        phoneLastRawZ = Double.NaN
+    }
+
+    companion object {
+        /** Seconds of an unchanging accelerometer before calling it broken. */
+        const val FROZEN_SENSOR_SECONDS = 5L
+        const val FROZEN_SENSOR_SAMPLES =
+            (FROZEN_SENSOR_SECONDS * PhoneJugglingDetector.SAMPLE_RATE).toInt()
     }
 }
