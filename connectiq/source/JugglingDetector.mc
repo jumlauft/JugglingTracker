@@ -14,6 +14,13 @@ import Toybox.System;
 class JugglingDetector {
     private const MILLI_G_TO_MS2 = 9.80665f / 1000.0f;
 
+    // A run of fewer than this many watch-hand catches is treated as a false
+    // start rather than a real run -- at any ball count, catching fewer than
+    // three times before dropping isn't a run someone was actually juggling.
+    // Applies uniformly at recordRun(), so it covers both a manual stop and
+    // an auto-finish (idle timeout) the same way.
+    private const MIN_RUN_CATCHES = 3;
+
     // Gravity low-pass filter coefficient.
     // During active juggling the filter slows down (_ACTIVE) to prevent gravity
     // drift from absorbing the sustained arm motion and attenuating the signal.
@@ -212,6 +219,13 @@ class JugglingDetector {
     // Fold a finished run's watch-hand catch count into the session stats and
     // per-run list. Shared by auto-finish and manual session end.
     private function recordRun(catches as Number) as Void {
+        if (catches < MIN_RUN_CATCHES) {
+            // False start: too short to be a real run. Leave previousCount and
+            // every session statistic untouched, exactly as if it never
+            // happened -- the caller still resets currentCount for the next
+            // attempt regardless of this early return.
+            return;
+        }
         previousCount = catches;
         _sessionRuns += 1;
         _sessionTotal += catches;
@@ -320,6 +334,46 @@ class JugglingDetector {
             return finished;
         }
         return 0;
+    }
+
+    // Discards the most recent run so the user can keep juggling without it
+    // counting toward the session. If a run is still in progress, that run is
+    // dropped without ever being recorded. Otherwise the last *completed* run
+    // this session is removed retroactively, and session totals/max/previous
+    // are recomputed to match. Returns true if something was discarded.
+    public function discardLastRun() as Boolean {
+        if (hasActiveRun()) {
+            currentCount = 0;
+            clearRunDetectionState();
+            return true;
+        }
+
+        var n = _runCatches.size();
+        if (n == 0) {
+            return false;
+        }
+
+        var removed = _runCatches[n - 1];
+        // Array has no index-based remove, only by-value (which would drop the
+        // wrong run if an earlier run happened to have the same catch count),
+        // so drop the last element via slice instead.
+        _runCatches = _runCatches.slice(0, n - 1);
+        _runDurationsMillis = _runDurationsMillis.slice(0, n - 1);
+        _sessionRuns -= 1;
+        _sessionTotal -= removed;
+
+        // sessionMax and previousCount both depend on which runs remain, so
+        // they are recomputed from scratch rather than patched incrementally.
+        var newMax = 0;
+        for (var i = 0; i < _runCatches.size(); i++) {
+            if (_runCatches[i] > newMax) {
+                newMax = _runCatches[i];
+            }
+        }
+        sessionMax = newMax;
+        previousCount = _runCatches.size() > 0 ? _runCatches[_runCatches.size() - 1] : 0;
+
+        return true;
     }
 
     // Apply the IIR highpass filter to one sample of the magnitude signal.

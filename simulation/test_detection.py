@@ -10,6 +10,7 @@ with alternating watch-hand burst counting: total absolute error = 189 and
 positive overcount error = 69 across 102 runs (2459 actual watch-hand catches).
 """
 import os
+import re
 import sys
 import pytest
 
@@ -443,3 +444,180 @@ def test_watch_startup_offers_recording_mode():
     assert "private const ENABLE_RECORDING_MODE = true;" in source
     assert "new ModeSelectView()" in source
     assert "new BallSelectView(:juggle)" in source
+
+
+def _read_source(*rel_parts):
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", *rel_parts)
+    if not os.path.exists(path):
+        pytest.skip(f"{os.path.join(*rel_parts)} not found")
+    with open(path, "r") as f:
+        return f.read()
+
+
+def test_back_button_confirms_discarding_a_run_instead_of_exiting():
+    """BACK during a juggling session must discard a run, never exit.
+
+    Before this fix, MainDelegate had no handler for the back button at all,
+    so it fell through to the system default: pop the only view on the
+    stack, which exits the app and discards whatever had been juggled with no
+    warning. Both onKey(KEY_ESC) and onBack() (different devices route the
+    back gesture through different callbacks) must now prompt instead, and
+    that prompt must be a yes/no confirmation -- the discard is destructive
+    and a single button press away.
+    """
+    source = _read_source("connectiq", "source", "MainView.mc")
+
+    m = re.search(r"class MainDelegate extends WatchUi\.BehaviorDelegate \{(.*)", source, re.DOTALL)
+    assert m, "MainDelegate not found in MainView.mc"
+    delegate_source = m.group(1)
+
+    assert "WatchUi.KEY_ESC" in delegate_source, "MainDelegate.onKey must handle KEY_ESC"
+    assert re.search(r"onKey\(evt as WatchUi\.KeyEvent\) as Boolean \{.*promptDiscardRun\(\)",
+                      delegate_source, re.DOTALL)
+    assert re.search(r"public function onBack\(\) as Boolean \{\s*_view\.promptDiscardRun\(\)",
+                      delegate_source)
+
+    m = re.search(r"public function promptDiscardRun\(\) as Void \{(.*?)\n    \}", source, re.DOTALL)
+    assert m, "promptDiscardRun() not found in MainView.mc"
+    prompt_body = m.group(1)
+
+    # It must ask, not act, and ask with our own labels: WatchUi.Confirmation
+    # renders its yes/no in the watch's system language, which put German
+    # "Ja"/"Nein" in the middle of an otherwise English app.
+    assert "new WatchUi.Confirmation(" not in source, (
+        "WatchUi.Confirmation localises its yes/no labels to the watch language; "
+        "use a Menu2 with our own English labels instead"
+    )
+    assert ":discard_yes" in prompt_body and ":discard_no" in prompt_body, (
+        "back press must offer an explicit discard/keep choice before discarding"
+    )
+    assert "new DiscardRunDelegate(self)" in prompt_body
+
+    # The prompt must name which run is at stake, because the two cases remove
+    # different things: an active run is stopped and dropped, otherwise the
+    # last completed run of the session is removed retroactively.
+    assert "_detector.isRunActive()" in prompt_body
+    assert "_detector.sessionRuns() > 0" in prompt_body
+
+    # Nothing recorded yet means nothing to confirm -- but the press still has
+    # to be swallowed, or it reaches the system and exits the app.
+    assert re.search(r"\} else \{.*?\n\s*return;\n\s*\}", prompt_body, re.DOTALL), (
+        "promptDiscardRun() must return early (not fall through) when there is "
+        "no run to discard"
+    )
+
+    # Only a "yes" may touch session state.
+    m = re.search(
+        r"public function onDiscardResponse\(confirmed as Boolean\) as Void \{(.*?)\n    \}",
+        source, re.DOTALL,
+    )
+    assert m, "onDiscardResponse() not found in MainView.mc"
+    body = m.group(1)
+    guarded = re.search(r"if \(confirmed\) \{(.*?)\n        \}", body, re.DOTALL)
+    assert guarded, "onDiscardResponse() must guard the discard on the answer"
+    assert "_detector.discardLastRun();" in guarded.group(1)
+    assert "_detector.discardLastRun();" not in body.replace(guarded.group(0), ""), (
+        "discardLastRun() must only run inside the if (confirmed) branch"
+    )
+
+    assert re.search(r'MenuItem\("Discard"', prompt_body), "the discard label must be English"
+    assert re.search(r'MenuItem\("Keep"', prompt_body), "the keep label must be English"
+
+
+def test_menus_over_main_view_clear_the_pending_decision_flag_on_back():
+    """Backing out of a menu must not wedge MainView's _awaitingDecision flag.
+
+    Menu2InputDelegate's default onBack pops the menu without telling the
+    view, so _awaitingDecision stayed true forever: every later START/STOP
+    press became a no-op and the session could no longer be ended or synced
+    at all. Both menus pushed over MainView must override onBack and route it
+    to the benign choice.
+    """
+    source = _read_source("connectiq", "source", "MainView.mc")
+
+    for cls, handler in (
+        ("DiscardRunDelegate", "onDiscardResponse(false)"),
+        ("SessionEndDelegate", "onContinueSession()"),
+    ):
+        m = re.search(
+            r"class %s extends WatchUi\.Menu2InputDelegate \{(.*?)\n\}" % cls,
+            source, re.DOTALL,
+        )
+        assert m, f"{cls} not found in MainView.mc"
+        body = m.group(1)
+        back = re.search(r"public function onBack\(\) as Void \{(.*?)\n    \}", body, re.DOTALL)
+        assert back, f"{cls} must override onBack()"
+        # Overriding replaces the default pop, so it has to pop itself.
+        assert "WatchUi.popView" in back.group(1), f"{cls}.onBack must pop the menu itself"
+        assert handler in back.group(1), f"{cls}.onBack must call _view.{handler}"
+
+
+def test_short_runs_are_ignored_as_false_starts():
+    """A run under MIN_RUN_CATCHES catches must never reach session stats.
+
+    Below any real ball count, fewer than three catches before a drop is a
+    false start, not a run -- recording it just pollutes Prev/Avg/Max and the
+    per-run list synced to the phone. recordRun() must bail out before it
+    touches any of previousCount, _sessionRuns, _sessionTotal, sessionMax,
+    _runCatches or _runDurationsMillis.
+    """
+    source = _read_source("connectiq", "source", "JugglingDetector.mc")
+
+    m = re.search(r"private const MIN_RUN_CATCHES\s*=\s*(\d+);", source)
+    assert m, "MIN_RUN_CATCHES constant not found in JugglingDetector.mc"
+    assert int(m.group(1)) == 3
+
+    m = re.search(
+        r"private function recordRun\(catches as Number\) as Void \{(.*?)\n    \}",
+        source, re.DOTALL,
+    )
+    assert m, "recordRun() not found in JugglingDetector.mc"
+    body = m.group(1)
+
+    guard = re.search(r"if \(catches < MIN_RUN_CATCHES\) \{(.*?)\}", body, re.DOTALL)
+    assert guard, "recordRun() does not guard on MIN_RUN_CATCHES"
+    assert "return;" in guard.group(1), "the MIN_RUN_CATCHES guard must return early"
+
+    # The guard has to come before any of the state it must not touch, or an
+    # early return added later in the function would silently stop protecting
+    # some of these.
+    guard_pos = body.find("if (catches < MIN_RUN_CATCHES)")
+    for stat in (
+        "previousCount = catches", "_sessionRuns +=", "_sessionTotal +=",
+        "sessionMax = catches", "_runCatches.add", "_runDurationsMillis.add",
+    ):
+        stat_pos = body.find(stat)
+        assert stat_pos == -1 or guard_pos < stat_pos, (
+            f"{stat!r} in recordRun() is not protected by the MIN_RUN_CATCHES guard"
+        )
+
+
+
+def test_main_view_reacquires_sensor_after_any_menu():
+    """Pushing a menu over MainView must not permanently freeze the screen.
+
+    On real hardware, pushing any view on top of MainView (the session-end
+    menu, the back-press menu) hides it and drops the accelerometer listener
+    with it. Without re-registering in onShow(), popping back to MainView
+    left the screen frozen forever and detection silently stopped -- whether
+    the menu was reached via Start/Stop with no run active (frozen at
+    "WAITING", count 0) or mid-run (frozen at whatever count it showed).
+    """
+    source = _read_source("connectiq", "source", "MainView.mc")
+
+    assert re.search(r"public function onShow\(\) as Void \{\s*startSensor\(\);\s*\}", source), (
+        "onShow() must re-acquire the sensor by calling startSensor()"
+    )
+
+    m = re.search(r"public function onHide\(\) as Void \{(.*?)\}", source, re.DOTALL)
+    assert m, "onHide() not found in MainView.mc"
+    assert "Sensor.unregisterSensorDataListener();" in m.group(1)
+    assert "_sensorActive = false;" in m.group(1), (
+        "onHide() must clear _sensorActive so the next onShow() re-registers"
+    )
+
+    # startSensor() has to be idempotent: onShow() fires every time the view
+    # is (re-)shown, including right after initialize()'s own call.
+    m = re.search(r"private function startSensor\(\) as Void \{(.*?)\n    \}", source, re.DOTALL)
+    assert m, "startSensor() not found in MainView.mc"
+    assert "if (_sensorActive) {\n            return;" in m.group(1)
