@@ -73,7 +73,7 @@ Phone sessions are stored in the same `SessionSummary` history as watch sessions
 
 ### Recording Mode
 
-Recording mode is retained for detector tuning and is hidden from customer watch startup while `ENABLE_RECORDING_MODE` is `false` in `connectiq/source/JugglingTrackerApp.mc`. **It is currently `true` for data collection and must be flipped back before any release** — `test_detection.py::test_customer_watch_startup_hides_recording_mode` fails while it is on, as a standing reminder.
+Recording mode is retained for detector tuning and is hidden from customer watch startup while `ENABLE_RECORDING_MODE` is `false` in `connectiq/source/JugglingTrackerApp.mc`. **It is currently `true` for data collection and must be flipped back before any release.** `test_detection.py::test_watch_startup_offers_recording_mode` pins the current state, so flipping the flag fails that test and forces the change to be deliberate — but note it pins the flag as `true`, so nothing currently *blocks* a release while it is on. See requirement APP-1.
 
 Controls, once a ball count is chosen:
 
@@ -130,6 +130,23 @@ cd android
 ./gradlew installDebug        # install on connected phone
 ```
 
+### Garmin Watch
+
+The watch app's behaviour is specified in `connectiq/REQUIREMENTS.md`, and the
+unit tests in `connectiq/test/` compile and execute the real Monkey C against
+it in the simulator:
+
+```sh
+cd connectiq
+./run_tests.sh                # all tests on fr245
+./run_tests.sh fenix6xpro     # or any other supported device
+```
+
+Every requirement names the test that secures it, and `test_detection.py`
+fails if a requirement cites a test that no longer exists or if a watch unit
+test is not claimed by any requirement — so the spec cannot drift from the
+tests unnoticed.
+
 ### Detection Simulation
 
 Run from the repository root or from `simulation/`:
@@ -140,7 +157,7 @@ python -m pytest test_detection.py -v
 python eval_new_watch.py
 ```
 
-`test_detection.py` locks the labeled-data detector baseline: 157 total absolute error and 58 total overcount error across 77 labeled runs / 1805 watch-hand catches. Every recording in `connectiq/data/` must have an entry in `EXPECTED_RUNS`, so adding data means adding its expected count there too.
+`test_detection.py` locks the labeled-data detector baseline: 189 total absolute error and 69 total overcount error across 102 labeled runs / 2459 watch-hand catches. Every recording in `connectiq/data/` must have an entry in `EXPECTED_RUNS`, so adding data means adding its expected count there too.
 
 Per-ball-count accuracy on that corpus:
 

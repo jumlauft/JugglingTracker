@@ -621,3 +621,81 @@ def test_main_view_reacquires_sensor_after_any_menu():
     m = re.search(r"private function startSensor\(\) as Void \{(.*?)\n    \}", source, re.DOTALL)
     assert m, "startSensor() not found in MainView.mc"
     assert "if (_sensorActive) {\n            return;" in m.group(1)
+
+
+# ── Requirements traceability ──────────────────────────────────────────────
+#
+# connectiq/REQUIREMENTS.md is the written specification of the watch app.
+# These tests keep it honest: a requirement that cites a test which no longer
+# exists, or a watch unit test that no requirement claims, both fail here.
+
+
+def _requirement_verifications():
+    """Every requirement ID in REQUIREMENTS.md with the tests it cites."""
+    doc = _read_source("connectiq", "REQUIREMENTS.md")
+
+    found = {}
+    current = None
+    for line in doc.splitlines():
+        m = re.match(r"\*\*((?:APP|DET|RUN|JUG|SENS|SYNC|REC)-\d+)\.\*\*", line)
+        if m:
+            current = m.group(1)
+            found.setdefault(current, [])
+        elif line.startswith("*Verified by:*") and current is not None:
+            if "not automatically tested" in line:
+                found[current] = None  # explicitly, honestly uncovered
+            else:
+                found[current] = re.findall(r"`([A-Za-z_][A-Za-z0-9_]*)`", line)
+            current = None
+    return found
+
+
+def _watch_unit_test_names():
+    names = set()
+    for filename in ("DetectorTest.mc", "SelectionTest.mc"):
+        source = _read_source("connectiq", "test", filename)
+        names |= set(re.findall(r"\(:test\)\s*\nfunction (\w+)", source))
+    return names
+
+
+def test_every_requirement_states_how_it_is_verified():
+    """No requirement may silently lack a verification line."""
+    verifications = _requirement_verifications()
+    assert verifications, "no requirements parsed out of REQUIREMENTS.md"
+
+    missing = [req for req, tests in verifications.items() if tests == []]
+    assert not missing, f"requirements with no 'Verified by:' line: {missing}"
+
+
+def test_requirements_only_cite_tests_that_exist():
+    """A requirement pointing at a deleted test is worse than no citation."""
+    verifications = _requirement_verifications()
+
+    own_source = _read_source("simulation", "test_detection.py")
+    python_tests = set(re.findall(r"^def (test_\w+)", own_source, re.M))
+    watch_tests = _watch_unit_test_names()
+    known = python_tests | watch_tests
+
+    unknown = {}
+    for req, tests in verifications.items():
+        if not tests:
+            continue
+        gone = [t for t in tests if t not in known]
+        if gone:
+            unknown[req] = gone
+    assert not unknown, f"requirements cite tests that do not exist: {unknown}"
+
+
+def test_every_watch_unit_test_backs_a_requirement():
+    """A watch test nobody claims means the spec is missing something."""
+    verifications = _requirement_verifications()
+    cited = set()
+    for tests in verifications.values():
+        if tests:
+            cited |= set(tests)
+
+    orphans = sorted(_watch_unit_test_names() - cited)
+    assert not orphans, (
+        "these watch unit tests are not cited by any requirement in "
+        f"REQUIREMENTS.md: {orphans}"
+    )
