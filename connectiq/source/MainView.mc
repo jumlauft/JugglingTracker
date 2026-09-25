@@ -438,32 +438,53 @@ class MainView extends WatchUi.View {
         return _detector.currentCount == 0 && _detector.sessionRuns() == 0;
     }
 
-    public function promptQuitWithoutSync() as Void {
+    // The BACK button (top-left) used to fall through to the system default,
+    // which pops the only view on the stack and kills the app instantly --
+    // silently discarding whatever had been juggled. This menu is now always
+    // shown instead, so a back press can never destroy a session by accident.
+    public function promptBackMenu() as Void {
         if (_awaitingDecision) {
-            return;
+            return;  // Already showing a confirmation dialog.
         }
         _awaitingDecision = true;
-        var menu = new WatchUi.Menu2({ :title => "Quit without sync?" });
-        menu.addItem(new WatchUi.MenuItem("Yes", null, :quit_confirm, null));
-        menu.addItem(new WatchUi.MenuItem("Continue", null, :quit_continue, null));
+
+        var menu = new WatchUi.Menu2({ :title => "Back pressed" });
+        menu.addItem(new WatchUi.MenuItem("End session", null, :back_end, null));
+        menu.addItem(new WatchUi.MenuItem("Discard last run", null, :back_discard, null));
+        menu.addItem(new WatchUi.MenuItem("Continue juggling", null, :back_continue, null));
+
         WatchUi.pushView(
             menu,
-            new QuitConfirmationDelegate(self),
+            new BackMenuDelegate(self),
             WatchUi.SLIDE_IMMEDIATE
         );
     }
 
-    public function onQuitConfirmed() as Void {
+    // "End session": hand off to the normal sync/quit flow, unchanged from
+    // pressing the START/STOP button.
+    public function onBackEnd() as Void {
         _awaitingDecision = false;
-        System.exit();
+        showSessionEndMenu(false);
     }
 
-    public function onQuitCancelled() as Void {
+    // "Discard last run": drop the in-progress run if one is active, otherwise
+    // the most recently completed run this session, then return straight to
+    // juggling. Vibration feedback is reset so the next run's 10-catch buzz
+    // counts from zero rather than the discarded run's total.
+    public function onBackDiscard() as Void {
+        _awaitingDecision = false;
+        _detector.discardLastRun();
+        _lastVibrateCount = 0;
+        WatchUi.requestUpdate();
+    }
+
+    // "Continue juggling": dismiss the menu, nothing else changes.
+    public function onBackContinue() as Void {
         _awaitingDecision = false;
     }
 }
 
-class QuitConfirmationDelegate extends WatchUi.Menu2InputDelegate {
+class BackMenuDelegate extends WatchUi.Menu2InputDelegate {
     private var _view as MainView;
 
     public function initialize(view as MainView) {
@@ -473,10 +494,13 @@ class QuitConfirmationDelegate extends WatchUi.Menu2InputDelegate {
 
     public function onSelect(item as WatchUi.MenuItem) as Void {
         WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
-        if (item.getId() == :quit_confirm) {
-            _view.onQuitConfirmed();
+        var itemId = item.getId();
+        if (itemId == :back_end) {
+            _view.onBackEnd();
+        } else if (itemId == :back_discard) {
+            _view.onBackDiscard();
         } else {
-            _view.onQuitCancelled();
+            _view.onBackContinue();
         }
     }
 }
@@ -513,12 +537,25 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
     }
 
     // The START/STOP button (top-right, KEY_ENTER) shows the session-end menu.
+    // The BACK button (top-left, KEY_ESC) shows the back-press menu instead of
+    // being left to the system default, which would exit immediately.
     public function onKey(evt as WatchUi.KeyEvent) as Boolean {
-        if (evt.getKey() == WatchUi.KEY_ENTER) {
+        var key = evt.getKey();
+        if (key == WatchUi.KEY_ENTER) {
             _view.showSessionEndMenu(false);
             return true;
         }
+        if (key == WatchUi.KEY_ESC) {
+            _view.promptBackMenu();
+            return true;
+        }
         return false;
+    }
+
+    // Some devices deliver the back gesture here rather than through onKey.
+    public function onBack() as Boolean {
+        _view.promptBackMenu();
+        return true;
     }
 }
 

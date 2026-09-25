@@ -322,6 +322,46 @@ class JugglingDetector {
         return 0;
     }
 
+    // Discards the most recent run so the user can keep juggling without it
+    // counting toward the session. If a run is still in progress, that run is
+    // dropped without ever being recorded. Otherwise the last *completed* run
+    // this session is removed retroactively, and session totals/max/previous
+    // are recomputed to match. Returns true if something was discarded.
+    public function discardLastRun() as Boolean {
+        if (hasActiveRun()) {
+            currentCount = 0;
+            clearRunDetectionState();
+            return true;
+        }
+
+        var n = _runCatches.size();
+        if (n == 0) {
+            return false;
+        }
+
+        var removed = _runCatches[n - 1];
+        // Array has no index-based remove, only by-value (which would drop the
+        // wrong run if an earlier run happened to have the same catch count),
+        // so drop the last element via slice instead.
+        _runCatches = _runCatches.slice(0, n - 1);
+        _runDurationsMillis = _runDurationsMillis.slice(0, n - 1);
+        _sessionRuns -= 1;
+        _sessionTotal -= removed;
+
+        // sessionMax and previousCount both depend on which runs remain, so
+        // they are recomputed from scratch rather than patched incrementally.
+        var newMax = 0;
+        for (var i = 0; i < _runCatches.size(); i++) {
+            if (_runCatches[i] > newMax) {
+                newMax = _runCatches[i];
+            }
+        }
+        sessionMax = newMax;
+        previousCount = _runCatches.size() > 0 ? _runCatches[_runCatches.size() - 1] : 0;
+
+        return true;
+    }
+
     // Apply the IIR highpass filter to one sample of the magnitude signal.
     // Returns the filtered value. Updates internal filter state.
     private function applyHighpass(x as Float) as Float {

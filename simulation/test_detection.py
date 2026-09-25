@@ -10,6 +10,7 @@ with alternating watch-hand burst counting: total absolute error = 189 and
 positive overcount error = 69 across 102 runs (2459 actual watch-hand catches).
 """
 import os
+import re
 import sys
 import pytest
 
@@ -443,3 +444,41 @@ def test_watch_startup_offers_recording_mode():
     assert "private const ENABLE_RECORDING_MODE = true;" in source
     assert "new ModeSelectView()" in source
     assert "new BallSelectView(:juggle)" in source
+
+
+def _read_source(*rel_parts):
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", *rel_parts)
+    if not os.path.exists(path):
+        pytest.skip(f"{os.path.join(*rel_parts)} not found")
+    with open(path, "r") as f:
+        return f.read()
+
+
+def test_back_button_offers_a_menu_instead_of_exiting_silently():
+    """BACK during a juggling session must never silently exit and lose data.
+
+    Before this fix, MainDelegate had no handler for the back button at all,
+    so it fell through to the system default: pop the only view on the
+    stack, which exits the app and discards whatever had been juggled with no
+    warning. Both onKey(KEY_ESC) and onBack() (different devices route the
+    back gesture through different callbacks) must now open a menu instead.
+    """
+    source = _read_source("connectiq", "source", "MainView.mc")
+
+    m = re.search(r"class MainDelegate extends WatchUi\.BehaviorDelegate \{(.*)", source, re.DOTALL)
+    assert m, "MainDelegate not found in MainView.mc"
+    delegate_source = m.group(1)
+
+    assert "WatchUi.KEY_ESC" in delegate_source, "MainDelegate.onKey must handle KEY_ESC"
+    assert re.search(r"onKey\(evt as WatchUi\.KeyEvent\) as Boolean \{.*promptBackMenu\(\)",
+                      delegate_source, re.DOTALL)
+    assert re.search(r"public function onBack\(\) as Boolean \{\s*_view\.promptBackMenu\(\)",
+                      delegate_source)
+
+    # The menu itself must offer exactly the three options requested: end the
+    # session, discard just the last run, or dismiss and keep juggling.
+    m = re.search(r"public function promptBackMenu\(\) as Void \{(.*?)\n    \}", source, re.DOTALL)
+    assert m, "promptBackMenu() not found in MainView.mc"
+    menu_body = m.group(1)
+    for item_id in (":back_end", ":back_discard", ":back_continue"):
+        assert item_id in menu_body, f"back menu is missing the {item_id} option"
