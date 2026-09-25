@@ -454,14 +454,16 @@ def _read_source(*rel_parts):
         return f.read()
 
 
-def test_back_button_offers_a_menu_instead_of_exiting_silently():
-    """BACK during a juggling session must never silently exit and lose data.
+def test_back_button_confirms_discarding_a_run_instead_of_exiting():
+    """BACK during a juggling session must discard a run, never exit.
 
     Before this fix, MainDelegate had no handler for the back button at all,
     so it fell through to the system default: pop the only view on the
     stack, which exits the app and discards whatever had been juggled with no
     warning. Both onKey(KEY_ESC) and onBack() (different devices route the
-    back gesture through different callbacks) must now open a menu instead.
+    back gesture through different callbacks) must now prompt instead, and
+    that prompt must be a yes/no confirmation -- the discard is destructive
+    and a single button press away.
     """
     source = _read_source("connectiq", "source", "MainView.mc")
 
@@ -470,18 +472,59 @@ def test_back_button_offers_a_menu_instead_of_exiting_silently():
     delegate_source = m.group(1)
 
     assert "WatchUi.KEY_ESC" in delegate_source, "MainDelegate.onKey must handle KEY_ESC"
-    assert re.search(r"onKey\(evt as WatchUi\.KeyEvent\) as Boolean \{.*promptBackMenu\(\)",
+    assert re.search(r"onKey\(evt as WatchUi\.KeyEvent\) as Boolean \{.*promptDiscardRun\(\)",
                       delegate_source, re.DOTALL)
-    assert re.search(r"public function onBack\(\) as Boolean \{\s*_view\.promptBackMenu\(\)",
+    assert re.search(r"public function onBack\(\) as Boolean \{\s*_view\.promptDiscardRun\(\)",
                       delegate_source)
 
-    # The menu itself must offer exactly the three options requested: end the
-    # session, discard just the last run, or dismiss and keep juggling.
-    m = re.search(r"public function promptBackMenu\(\) as Void \{(.*?)\n    \}", source, re.DOTALL)
-    assert m, "promptBackMenu() not found in MainView.mc"
-    menu_body = m.group(1)
-    for item_id in (":back_end", ":back_discard", ":back_continue"):
-        assert item_id in menu_body, f"back menu is missing the {item_id} option"
+    m = re.search(r"public function promptDiscardRun\(\) as Void \{(.*?)\n    \}", source, re.DOTALL)
+    assert m, "promptDiscardRun() not found in MainView.mc"
+    prompt_body = m.group(1)
+
+    # It must ask, not act: a Confirmation view, wired to the delegate below.
+    assert "new WatchUi.Confirmation(" in prompt_body, (
+        "back press must open a yes/no Confirmation before discarding anything"
+    )
+    assert "new DiscardRunDelegate(self)" in prompt_body
+
+    # The prompt must name which run is at stake, because the two cases remove
+    # different things: an active run is stopped and dropped, otherwise the
+    # last completed run of the session is removed retroactively.
+    assert "_detector.isRunActive()" in prompt_body
+    assert "_detector.sessionRuns() > 0" in prompt_body
+
+    # Nothing recorded yet means nothing to confirm -- but the press still has
+    # to be swallowed, or it reaches the system and exits the app.
+    assert re.search(r"\} else \{.*?\n\s*return;\n\s*\}", prompt_body, re.DOTALL), (
+        "promptDiscardRun() must return early (not fall through) when there is "
+        "no run to discard"
+    )
+
+    # Only a "yes" may touch session state.
+    m = re.search(
+        r"public function onDiscardResponse\(confirmed as Boolean\) as Void \{(.*?)\n    \}",
+        source, re.DOTALL,
+    )
+    assert m, "onDiscardResponse() not found in MainView.mc"
+    body = m.group(1)
+    guarded = re.search(r"if \(confirmed\) \{(.*?)\n        \}", body, re.DOTALL)
+    assert guarded, "onDiscardResponse() must guard the discard on the answer"
+    assert "_detector.discardLastRun();" in guarded.group(1)
+    assert "_detector.discardLastRun();" not in body.replace(guarded.group(0), ""), (
+        "discardLastRun() must only run inside the if (confirmed) branch"
+    )
+
+    # The system pops a Confirmation itself; popping again would take MainView
+    # down with it and exit the app -- the exact bug this whole path prevents.
+    m = re.search(
+        r"class DiscardRunDelegate extends WatchUi\.ConfirmationDelegate \{(.*?)\n\}",
+        source, re.DOTALL,
+    )
+    assert m, "DiscardRunDelegate not found in MainView.mc"
+    assert "WatchUi.popView" not in m.group(1), (
+        "DiscardRunDelegate must not popView: the system already pops the Confirmation"
+    )
+    assert "WatchUi.CONFIRM_YES" in m.group(1)
 
 
 def test_short_runs_are_ignored_as_false_starts():

@@ -468,68 +468,66 @@ class MainView extends WatchUi.View {
 
     // The BACK button (top-left) used to fall through to the system default,
     // which pops the only view on the stack and kills the app instantly --
-    // silently discarding whatever had been juggled. This menu is now always
-    // shown instead, so a back press can never destroy a session by accident.
-    public function promptBackMenu() as Void {
+    // silently discarding whatever had been juggled. It now means "throw away
+    // the run I am looking at", and only ever that: the run in progress if one
+    // is active (it is stopped and dropped without ever being recorded),
+    // otherwise the last completed run of the session. Ending the session stays
+    // on START/STOP, so a back press can neither quit nor sync by accident.
+    // The discard is destructive and one button press away, so it always goes
+    // through a yes/no confirmation first.
+    public function promptDiscardRun() as Void {
         if (_awaitingDecision) {
             return;  // Already showing a confirmation dialog.
         }
+
+        var prompt;
+        if (_detector.isRunActive()) {
+            prompt = Lang.format("Discard this run? ($1$ catches)", [_detector.currentCount.toString()]);
+        } else if (_detector.sessionRuns() > 0) {
+            prompt = Lang.format("Discard last run? ($1$ catches)", [_detector.previousCount.toString()]);
+        } else {
+            // Nothing recorded yet, so there is nothing to confirm. Swallow the
+            // press anyway: letting it reach the system would exit the app,
+            // which is the very thing this handler exists to prevent.
+            return;
+        }
+
         _awaitingDecision = true;
-
-        var menu = new WatchUi.Menu2({ :title => "Back pressed" });
-        menu.addItem(new WatchUi.MenuItem("End session", null, :back_end, null));
-        menu.addItem(new WatchUi.MenuItem("Discard last run", null, :back_discard, null));
-        menu.addItem(new WatchUi.MenuItem("Continue juggling", null, :back_continue, null));
-
         WatchUi.pushView(
-            menu,
-            new BackMenuDelegate(self),
+            new WatchUi.Confirmation(prompt),
+            new DiscardRunDelegate(self),
             WatchUi.SLIDE_IMMEDIATE
         );
     }
 
-    // "End session": hand off to the normal sync/quit flow, unchanged from
-    // pressing the START/STOP button.
-    public function onBackEnd() as Void {
+    // Answer to that confirmation. On "Yes" the run is dropped and we go
+    // straight back to juggling -- vibration feedback is reset so the next
+    // run's 10-catch buzz counts from zero rather than from the discarded
+    // run's total. On "No" nothing about the session changes.
+    public function onDiscardResponse(confirmed as Boolean) as Void {
         _awaitingDecision = false;
-        showSessionEndMenu(false);
-    }
-
-    // "Discard last run": drop the in-progress run if one is active, otherwise
-    // the most recently completed run this session, then return straight to
-    // juggling. Vibration feedback is reset so the next run's 10-catch buzz
-    // counts from zero rather than the discarded run's total.
-    public function onBackDiscard() as Void {
-        _awaitingDecision = false;
-        _detector.discardLastRun();
-        _lastVibrateCount = 0;
+        if (confirmed) {
+            _detector.discardLastRun();
+            _lastVibrateCount = 0;
+        }
         WatchUi.requestUpdate();
-    }
-
-    // "Continue juggling": dismiss the menu, nothing else changes.
-    public function onBackContinue() as Void {
-        _awaitingDecision = false;
     }
 }
 
-class BackMenuDelegate extends WatchUi.Menu2InputDelegate {
+class DiscardRunDelegate extends WatchUi.ConfirmationDelegate {
     private var _view as MainView;
 
     public function initialize(view as MainView) {
-        WatchUi.Menu2InputDelegate.initialize();
+        WatchUi.ConfirmationDelegate.initialize();
         _view = view;
     }
 
-    public function onSelect(item as WatchUi.MenuItem) as Void {
-        WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
-        var itemId = item.getId();
-        if (itemId == :back_end) {
-            _view.onBackEnd();
-        } else if (itemId == :back_discard) {
-            _view.onBackDiscard();
-        } else {
-            _view.onBackContinue();
-        }
+    // Unlike a Menu2 delegate, this must not popView: the system pops the
+    // Confirmation itself once a response is picked, and a second pop would
+    // take MainView down with it and exit the app.
+    public function onResponse(response as WatchUi.Confirm) as Boolean {
+        _view.onDiscardResponse(response == WatchUi.CONFIRM_YES);
+        return true;
     }
 }
 
@@ -565,8 +563,9 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
     }
 
     // The START/STOP button (top-right, KEY_ENTER) shows the session-end menu.
-    // The BACK button (top-left, KEY_ESC) shows the back-press menu instead of
-    // being left to the system default, which would exit immediately.
+    // The BACK button (top-left, KEY_ESC) offers to discard the current or last
+    // run instead of being left to the system default, which would exit
+    // immediately and take the whole session with it.
     public function onKey(evt as WatchUi.KeyEvent) as Boolean {
         var key = evt.getKey();
         if (key == WatchUi.KEY_ENTER) {
@@ -574,7 +573,7 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
             return true;
         }
         if (key == WatchUi.KEY_ESC) {
-            _view.promptBackMenu();
+            _view.promptDiscardRun();
             return true;
         }
         return false;
@@ -582,7 +581,7 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
 
     // Some devices deliver the back gesture here rather than through onKey.
     public function onBack() as Boolean {
-        _view.promptBackMenu();
+        _view.promptDiscardRun();
         return true;
     }
 }
