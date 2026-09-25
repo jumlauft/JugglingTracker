@@ -193,31 +193,45 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun initializeGarminConnectIQ() {
-        connectIQ = ConnectIQ.getInstance(this, ConnectIQ.IQConnectType.WIRELESS)
+        try {
+            connectIQ = ConnectIQ.getInstance(this, ConnectIQ.IQConnectType.WIRELESS)
 
-        connectIQ.initialize(
-            this,
-            true,
-            object : ConnectIQ.ConnectIQListener {
-                override fun onSdkReady() {
-                    findAndRegisterDevice()
-                }
-
-                override fun onInitializeError(status: ConnectIQ.IQSdkErrorStatus) {
-                    if (status == ConnectIQ.IQSdkErrorStatus.GCM_NOT_INSTALLED) {
-                        viewModel.garminStatus = GarminConnectionStatus.CONNECT_IQ_MISSING
-                        viewModel.statusMessage = "Garmin Connect app not found. Please install it from the Play Store."
-                    } else {
-                        viewModel.garminStatus = GarminConnectionStatus.SDK_ERROR
-                        viewModel.statusMessage = "Garmin SDK error: ${status.name}. Please restart the app."
+            // Unlike every other SDK call in this file, initialize() is not
+            // wrapped by the SDK's own error handling for its final step: it
+            // registers a broadcast receiver and binds the Garmin Connect
+            // service directly, outside its internal try/catch. A failure
+            // there (e.g. a SecurityException from a manufacturer's stricter
+            // receiver-registration policy) would otherwise propagate all the
+            // way up through onCreate and crash the app on every launch.
+            connectIQ.initialize(
+                this,
+                true,
+                object : ConnectIQ.ConnectIQListener {
+                    override fun onSdkReady() {
+                        findAndRegisterDevice()
                     }
-                }
 
-                override fun onSdkShutDown() {
-                    viewModel.garminStatus = GarminConnectionStatus.NOT_INITIALIZED
-                }
-            },
-        )
+                    override fun onInitializeError(status: ConnectIQ.IQSdkErrorStatus) {
+                        if (status == ConnectIQ.IQSdkErrorStatus.GCM_NOT_INSTALLED) {
+                            viewModel.garminStatus = GarminConnectionStatus.CONNECT_IQ_MISSING
+                            viewModel.statusMessage = "Garmin Connect app not found. Please install it from the Play Store."
+                        } else {
+                            viewModel.garminStatus = GarminConnectionStatus.SDK_ERROR
+                            viewModel.statusMessage = "Garmin SDK error: ${status.name}. Please restart the app."
+                        }
+                    }
+
+                    override fun onSdkShutDown() {
+                        viewModel.garminStatus = GarminConnectionStatus.NOT_INITIALIZED
+                    }
+                },
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing Garmin ConnectIQ SDK", e)
+            CrashlyticsUtils.recordException(e)
+            viewModel.garminStatus = GarminConnectionStatus.SDK_ERROR
+            viewModel.statusMessage = "Garmin SDK failed to start. Please restart the app."
+        }
     }
 
     private fun findAndRegisterDevice() {
