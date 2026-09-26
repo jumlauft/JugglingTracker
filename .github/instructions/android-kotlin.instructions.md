@@ -15,7 +15,7 @@ applyTo: "android/**/*.kt"
 
 ## Persistence
 - `SessionRepository` uses `SharedPreferences` with manual JSON via `org.json.JSONArray`/`JSONObject`.
-- `buildSessionJson()` builds JSON strings by template interpolation — keep this pattern consistent.
+- `buildSessionJson()` builds each session with `org.json.JSONObject.put(...)` and wraps list fields in `org.json.JSONArray`, so escaping and number formatting stay the library's job. Do not hand-assemble JSON strings. On failure it logs, reports to Crashlytics and returns `{}`.
 - Always call `saveSessionsToStorage()` after mutating `sessionsCache`.
 - Use `apply()` (async) not `commit()` for SharedPreferences writes.
 - `RecordingRepository` stores raw accelerometer recordings under the app's `recordings/` files directory, one run per file named `YYYYMMDD_HHMMSS.csv` in the same format as `connectiq/data/`, so files can be copied straight into the corpus. It can also export all recordings as one merged CSV string.

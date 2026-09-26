@@ -10,7 +10,7 @@ applyTo: ["android/**/test/**/*.kt", "android/**/androidTest/**/*.kt", "simulati
 - Use `runTest { }` for coroutine test bodies.
 
 ## File Placement
-- Unit tests: `android/app/src/test/java/com/jugglingtracker/imu/` mirroring the main source tree.
+- Unit tests: `android/app/src/test/java/com/juggling/tracker/` mirroring the main source tree, so `logic/` and `data/` subpackages, with shared fakes (`MainDispatcherRule`, `FakeSharedPreferences`) at the package root.
 - Test class names: `<ClassUnderTest>Test.kt`.
 
 ## Patterns
