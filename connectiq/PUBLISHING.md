@@ -11,7 +11,12 @@
 ## 2. Store Listing Assets
 
 
-- **Ttitle**: (Max 50 chars)
+- **Store listing**: https://apps.garmin.com/apps/0096c65a-510f-440a-948c-d61267d10998
+    - *Note*: that URL id is the store's own listing id and is **not** the
+      `id` in `manifest.xml`. Keep the manifest id stable — changing it makes
+      Garmin treat the upload as a brand new app rather than an update, which
+      orphans this listing along with its downloads and reviews.
+- **Title**: Juggling Tracker  (Max 50 chars)
 - **Description**: (Max 4000 chars)
 Track your juggling runs automatically based on the movements on your wrist. 
 
