@@ -27,10 +27,12 @@ it is reachable only by deliberately toggling. Setting
 `JugglingTrackerApp.ENABLE_RECORDING_MODE` to `false` skips this screen and
 starts customers directly on ball selection.
 
-> **Release gap.** The flag is currently `true` for data collection and must be
-> `false` before any customer release. The test below pins its *current* value,
-> so flipping it forces a deliberate test update — but nothing fails while it is
-> on, so nothing blocks shipping Record mode to customers today.
+> **Record mode ships enabled, on purpose.** It is how the labeled corpus
+> grows — users record runs and send them back — and the Connect IQ store
+> description advertises it. The flag is therefore `true` in released builds;
+> the test below pins that value, so changing it fails and forces the decision
+> to be deliberate. Do not "fix" this by turning it off: that would remove a
+> feature the store listing sells.
 
 *Verified by:* `app1_modeSelectionDefaultsToJuggle`, `test_watch_startup_offers_recording_mode`
 

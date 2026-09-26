@@ -73,7 +73,11 @@ Phone sessions are stored in the same `SessionSummary` history as watch sessions
 
 ### Recording Mode
 
-Recording mode is retained for detector tuning and is hidden from customer watch startup while `ENABLE_RECORDING_MODE` is `false` in `connectiq/source/JugglingTrackerApp.mc`. **It is currently `true` for data collection and must be flipped back before any release.** `test_detection.py::test_watch_startup_offers_recording_mode` pins the current state, so flipping the flag fails that test and forces the change to be deliberate — but note it pins the flag as `true`, so nothing currently *blocks* a release while it is on. See requirement APP-1.
+**Recording mode ships enabled, deliberately.** It is how the labeled corpus grows: users capture runs, send them back through the Android app, and those recordings become the data every detector test runs against. The Connect IQ store description in `connectiq/PUBLISHING.md` advertises it as a feature.
+
+Setting `ENABLE_RECORDING_MODE` to `false` in `connectiq/source/JugglingTrackerApp.mc` skips the mode picker and starts users directly on ball selection. `test_detection.py::test_watch_startup_offers_recording_mode` pins the current value, so flipping it fails that test and forces the change to be deliberate. See requirement APP-1.
+
+> Earlier revisions of this file claimed the flag had to be turned off before release. That was wrong — it contradicted both the store listing and the test — and disabling it would have removed an advertised feature. Watch app 1.1.0 shipped with it on.
 
 Controls, once a ball count is chosen:
 
