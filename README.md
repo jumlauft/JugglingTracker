@@ -69,6 +69,8 @@ The Python simulator in `simulation/eval_new_watch.py` mirrors the watch detecto
 
 The tracker screen has a phone button next to the Garmin status. It opens a full-screen phone tracker where the user selects the ball count, starts recording, juggles while holding the phone in the counting hand, then saves the finished session. The Android detector mirrors the watch burst-clustering/counting algorithm and processes phone accelerometer samples at an effective 25 Hz so the stored `runs`, `durationSeconds`, and `runDurationsMillis` match the watch session shape.
 
+The screen is held awake for exactly as long as samples are being collected, driven by `JugglingViewModel.shouldKeepScreenOn`. `MainActivity.onPause` unregisters the sensor listener, and the display timeout calls `onPause` — juggling never touches the screen — so without this a session outlasting the timeout stopped counting silently and the gap in samples auto-finished the run in progress.
+
 Phone sessions are stored in the same `SessionSummary` history as watch sessions. There is intentionally no separate source field in storage, so graphs and CSV export treat watch and phone sessions seamlessly.
 
 ### Recording Mode

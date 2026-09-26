@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -173,10 +174,21 @@ fun JugglingTrackerApp(
     }
 
     DisposableEffect(Unit) {
-        onDispose { 
+        onDispose {
             tts.stop()
             tts.shutdown()
         }
+    }
+
+    // Hold the screen awake while samples are being collected. Without this the
+    // display times out mid-session -- juggling never touches the screen -- and
+    // onPause tears the sensor listener down, so counting stops with nothing on
+    // screen to say so.
+    val view = LocalView.current
+    val keepScreenOn = viewModel.shouldKeepScreenOn
+    DisposableEffect(view, keepScreenOn) {
+        view.keepScreenOn = keepScreenOn
+        onDispose { view.keepScreenOn = false }
     }
 
     Scaffold(
