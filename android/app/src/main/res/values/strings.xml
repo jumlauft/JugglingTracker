@@ -11,7 +11,6 @@
     <string name="action_save">Save</string>
     <string name="action_start">Start</string>
     <string name="action_close">Close</string>
-    <string name="action_phone">Phone</string>
     <string name="action_start_phone_session">Start Session with Phone</string>
     <string name="action_export_csv">Export History to CSV</string>
     <string name="action_export_recordings">Export All Recordings</string>
@@ -52,13 +51,9 @@
     <string name="garmin_disconnected">Watch is not connected via Bluetooth</string>
     <string name="garmin_missing">Watch is not linked correctly to phone</string>
     <string name="garmin_watch_app_missing">Juggling app is not installed on the watch</string>
-    <string name="garmin_install_advice">Install it from the Play Store to sync with your watch.</string>
     <string name="label_record_with_garmin">Record with Garmin watch</string>
     <string name="garmin_receiving">Receiving data...</string>
     <string name="garmin_connecting">Connecting to Garmin...</string>
-    <string name="garmin_bluetooth_advice">Go to Android Settings to enable Bluetooth.</string>
-    <string name="garmin_paired_advice">Ensure your watch is paired in the Garmin ConnectIQ app.</string>
-    <string name="garmin_troubleshooting">Troubleshooting: %1$s</string>
 
     <string name="stat_catches">CATCHES</string>
     <string name="stat_previous_hand">PREVIOUS HAND</string>
@@ -77,7 +72,6 @@
     <string name="label_watch_hand_trends">Watch-Hand Trends</string>
     <string name="label_best">Best</string>
     <string name="label_average">Average</string>
-    <string name="label_num_catches"># of catches</string>
 
     <string name="format_balls_tab">%1$d Balls</string>
     <string name="format_session_summary">%1$d balls • %2$d runs • %3$d catches</string>

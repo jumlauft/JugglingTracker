@@ -4,6 +4,7 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.juggling.tracker.model.SessionSummary
+import com.juggling.tracker.model.normalizeRunDurations
 import com.juggling.tracker.data.SessionRepository
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.data.SettingsManager
@@ -13,16 +14,11 @@ import kotlinx.coroutines.launch
 import kotlin.math.sqrt
 import android.os.Bundle
 import com.google.firebase.analytics.FirebaseAnalytics
-import java.io.FileInputStream
-import java.nio.MappedByteBuffer
-import java.nio.channels.FileChannel
-import android.content.Context
 
 sealed class JugglingEvent {
     data class Announcement(val text: String) : JugglingEvent()
     data class SyncCompleted(val count: Int, val ballCount: Int) : JugglingEvent()
     data class PhoneSessionSaved(val count: Int, val ballCount: Int) : JugglingEvent()
-    object SyncStarted : JugglingEvent()
 }
 
 enum class GarminConnectionStatus {
@@ -209,7 +205,6 @@ class JugglingViewModel(
                 runCount = runs.size,
                 avgThrows = avg,
                 stdDevThrows = stdDev,
-                avgConsistency = 0.0,
                 bestRun = bestRun,
                 totalThrows = runs.sum(),
                 runHistory = runs,
@@ -245,12 +240,6 @@ class JugglingViewModel(
     private fun parseLongList(value: Any?): List<Long> {
         val raw = value as? List<*> ?: return emptyList()
         return raw.mapNotNull { (it as? Number)?.toLong()?.coerceAtLeast(0L) }
-    }
-
-    private fun normalizeRunDurations(runCount: Int, runDurationsMillis: List<Long>): List<Long> {
-        val sanitized = runDurationsMillis.take(runCount)
-        if (sanitized.size == runCount) return sanitized
-        return sanitized + List(runCount - sanitized.size) { 0L }
     }
 
     // ── Recording support ──────────────────────────────────────────────
