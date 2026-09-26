@@ -37,7 +37,6 @@ import com.juggling.tracker.logic.JugglingEvent
 import com.juggling.tracker.logic.JugglingViewModel
 import com.juggling.tracker.model.SessionSummary
 import java.util.*
-import kotlin.math.roundToInt
 
 enum class Screen {
     Tracker, PhoneSession, Settings
@@ -148,9 +147,6 @@ fun JugglingTrackerApp(
             when (event) {
                 is JugglingEvent.Announcement -> {
                     if (isTtsReady) tts.speak(event.text, TextToSpeech.QUEUE_FLUSH, null, null)
-                }
-                is JugglingEvent.SyncStarted -> {
-                    // No toast when sync starts as per user request
                 }
                 is JugglingEvent.SyncCompleted -> {
                     Toast.makeText(context, context.getString(R.string.toast_sync_completed, event.count, event.ballCount), Toast.LENGTH_LONG).show()
