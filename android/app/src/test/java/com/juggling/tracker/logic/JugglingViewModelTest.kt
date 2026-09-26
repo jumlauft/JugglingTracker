@@ -381,9 +381,9 @@ class JugglingViewModelTest {
     fun `stop phone session saves detected runs in session history`() = runTest {
         viewModel.startPhoneSession(ballCount = 3, startedAtMillis = 100_000L)
         var sampleMs = feedPhoneBaseline(0L, PhoneJugglingDetector.WARMUP_SAMPLES + 30)
-        sampleMs = feedPhoneBurst(sampleMs)
-        sampleMs = feedPhoneBurst(sampleMs)
-        feedPhoneBurst(sampleMs)
+        // Five bursts are three watch-hand catches, which clears
+        // MIN_RUN_CATCHES; anything shorter is dropped as a false start.
+        repeat(5) { sampleMs = feedPhoneBurst(sampleMs) }
 
         val saved = viewModel.stopPhoneSessionAndSave(stoppedAtMillis = 112_000L)
         advanceUntilIdle()
@@ -393,7 +393,7 @@ class JugglingViewModelTest {
         assertEquals(1, viewModel.completedSessions.size)
         val summary = viewModel.completedSessions[0]
         assertEquals(3, summary.ballCount)
-        assertEquals(listOf(2), summary.runHistory)
+        assertEquals(listOf(3), summary.runHistory)
         assertEquals(12L, summary.durationSeconds)
         assertEquals(1, summary.runDurationsMillis.size)
         assertTrue(summary.runDurationsMillis[0] > 0L)
@@ -408,15 +408,34 @@ class JugglingViewModelTest {
 
         viewModel.startPhoneSession(ballCount = 3, startedAtMillis = 100_000L)
         var sampleMs = feedPhoneBaseline(0L, PhoneJugglingDetector.WARMUP_SAMPLES + 30)
-        feedPhoneBurst(sampleMs)
+        // Three watch-hand catches, so the run survives MIN_RUN_CATCHES and
+        // there is actually a session to save.
+        repeat(5) { sampleMs = feedPhoneBurst(sampleMs) }
 
         viewModel.stopPhoneSessionAndSave(stoppedAtMillis = 105_000L)
         advanceUntilIdle()
 
         assertEquals(1, events.size)
         val event = events[0] as JugglingEvent.PhoneSessionSaved
+        // The event carries the number of runs, not catches.
         assertEquals(1, event.count)
         assertEquals(3, event.ballCount)
+    }
+
+    @Test
+    fun `a phone session of only false starts saves nothing`() = runTest {
+        viewModel.startPhoneSession(ballCount = 3, startedAtMillis = 100_000L)
+        var sampleMs = feedPhoneBaseline(0L, PhoneJugglingDetector.WARMUP_SAMPLES + 30)
+        // Two catches: a drop, not a run.
+        sampleMs = feedPhoneBurst(sampleMs)
+        sampleMs = feedPhoneBurst(sampleMs)
+        feedPhoneBurst(sampleMs)
+
+        val saved = viewModel.stopPhoneSessionAndSave(stoppedAtMillis = 112_000L)
+        advanceUntilIdle()
+
+        assertFalse("a session of false starts has nothing worth saving", saved)
+        assertTrue(viewModel.completedSessions.isEmpty())
     }
 
     // ── Statistics accuracy ─────────────────────────────────────────────

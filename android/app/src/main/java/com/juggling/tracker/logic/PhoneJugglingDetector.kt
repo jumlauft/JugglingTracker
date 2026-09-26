@@ -21,6 +21,14 @@ class PhoneJugglingDetector(val ballCount: Int) {
         const val SAMPLE_PERIOD_MS = 1000L / SAMPLE_RATE
         const val WARMUP_SAMPLES = 25
 
+        // A run of fewer than this many catches is treated as a false start
+        // rather than a real run -- at any ball count, catching fewer than
+        // three times before dropping isn't a run someone was actually
+        // juggling, and recording it wrecks Prev/Avg/Max. Applied in
+        // recordRun(), so a manual stop and an idle auto-finish are covered
+        // identically. Mirrors MIN_RUN_CATCHES in JugglingDetector.mc.
+        const val MIN_RUN_CATCHES = 3
+
         const val GRAVITY_ALPHA_IDLE = 0.95
         const val GRAVITY_ALPHA_ACTIVE = 0.99
 
@@ -240,6 +248,13 @@ class PhoneJugglingDetector(val ballCount: Int) {
     }
 
     private fun recordRun(catches: Int) {
+        if (catches < MIN_RUN_CATCHES) {
+            // False start: too short to be a real run. Leave previousCount and
+            // every session statistic untouched, exactly as if it never
+            // happened -- the caller still resets currentCount for the next
+            // attempt regardless of this early return.
+            return
+        }
         previousCount = catches
         sessionRuns += 1
         sessionTotal += catches
