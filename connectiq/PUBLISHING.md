@@ -21,10 +21,14 @@ Using advanced accelerometer analysis, the app detects each catch made by the ha
 Key Features:
 * Automatic run detection: Once you started your session, the app will automatically detect the start and finish of each run
 * Automatic catch detection: Catches in the hand wearing the watch will be detected automatically.
-* Live Feedback: See your current run count and session best at a glance.
+* Live Feedback: See your current run count, best in session and session average at a glance.
 * Optimized for performance: Low-power sensor monitoring ensures your battery lasts through even the longest practice sessions.
 * Seamless Sync: Transmits finished sessions to the Juggling Tracker Android app for long-term visualization and history. (It can also be used standalone).  
-* Record labeled data and send to developers (via Android App) to detection precision in future releases.
+* Record labeled data and send to developers (via Android App) to improve detection precision in future releases.
+
+Disclaimer: The counting will be often be off by 1 or 2 catches, so it is not suitable to document your newest high-score, but rather works based on statistics. On the training data, we see accuracies around 95% well balanced between over and untercounting, so it definitely will give you a trend on how fast you are improving. 
+
+Call-for-action: Help to improve precision by running a "Record" session. Label the runs with the manual counted number of catches and send the data to the developer. We will use it improve detection accuracy in future releases
 
 E-Mail Address: juggling.tracker@gmail.com
 Source Code URL (Optional): https://github.com/jumlauft/JugglingTracker
