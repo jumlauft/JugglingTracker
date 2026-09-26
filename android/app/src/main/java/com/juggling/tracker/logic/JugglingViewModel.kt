@@ -116,6 +116,21 @@ class JugglingViewModel(
     var rawRecordingState by mutableStateOf(RawRecordingUiState())
         private set
 
+    /**
+     * True while the accelerometer has to keep streaming, so the UI can hold the
+     * screen awake for exactly that long.
+     *
+     * MainActivity unregisters the sensor listener in onPause, and the display
+     * timeout triggers onPause: nobody touches the screen while juggling, so any
+     * session outlasting the timeout silently stopped counting, and the gap in
+     * samples then auto-finished the run that was in progress. Deriving this
+     * from the recording state rather than toggling a flag at the call sites
+     * means it cannot drift out of step with the sensor.
+     */
+    val shouldKeepScreenOn: Boolean
+        get() = phoneSessionState.isRecording ||
+            rawRecordingState.step == RawRecordingStep.RECORDING
+
     private val rawAccelX = mutableListOf<Int>()
     private val rawAccelY = mutableListOf<Int>()
     private val rawAccelZ = mutableListOf<Int>()
