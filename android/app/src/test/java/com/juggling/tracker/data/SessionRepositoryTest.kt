@@ -196,15 +196,4 @@ class SessionRepositoryTest {
         assertEquals(1000L, reloaded.getSessions()[0].timestamp)
     }
 
-    // ── addSession ──────────────────────────────────────────────────────
-
-    @Test
-    fun `addSession inserts at front`() {
-        repository.importSession(3, 1000L, listOf(10))
-        val newSession = repository.getSessions()[0].copy(id = 99, timestamp = 3000L, ballCount = 7)
-        repository.addSession(newSession)
-
-        assertEquals(2, repository.getSessions().size)
-        assertEquals(99, repository.getSessions()[0].id)
-    }
 }

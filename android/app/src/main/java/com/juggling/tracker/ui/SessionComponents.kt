@@ -67,7 +67,7 @@ fun SessionHistoryGraph(sessions: List<SessionSummary>, modifier: Modifier = Mod
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.fillMaxSize()) {
                 val leftPadding = 45.dp
                 val bottomPadding = 4.dp
                 

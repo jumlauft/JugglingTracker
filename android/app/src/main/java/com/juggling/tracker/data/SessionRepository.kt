@@ -6,6 +6,7 @@ import android.util.Log
 import com.juggling.tracker.util.CrashlyticsUtils
 import androidx.core.content.edit
 import com.juggling.tracker.model.SessionSummary
+import com.juggling.tracker.model.normalizeRunDurations
 import androidx.compose.runtime.mutableStateListOf
 import kotlin.math.sqrt
 
@@ -59,18 +60,12 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
             runCount = runs.size,
             avgThrows = avg,
             stdDevThrows = stdDev,
-            avgConsistency = 0.0,
             bestRun = bestRun,
             totalThrows = runs.sum(),
             runHistory = runs,
             durationSeconds = durationSeconds,
             runDurationsMillis = normalizeRunDurations(runs.size, runDurationsMillis),
         )
-        sessionsCache.add(0, session)
-        saveSessionsToStorage()
-    }
-
-    fun addSession(session: SessionSummary) {
         sessionsCache.add(0, session)
         saveSessionsToStorage()
     }
@@ -116,7 +111,6 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
                         runCount = obj.getInt("runCount"),
                         avgThrows = obj.getDouble("avgThrows"),
                         stdDevThrows = obj.getDouble("stdDevThrows"),
-                        avgConsistency = obj.optDouble("avgConsistency", 0.0),
                         bestRun = obj.getInt("bestRun"),
                         totalThrows = obj.getInt("totalThrows"),
                         runHistory = runHistory,
@@ -156,54 +150,8 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
         }
     }
     
-    private fun parseSessionJson(json: org.json.JSONObject): SessionSummary? {
-        return try {
-            val id = json.getInt("id")
-            val timestamp = json.getLong("timestamp")
-            val ballCount = json.getInt("ballCount")
-            val runCount = json.getInt("runCount")
-            val avgThrows = json.getDouble("avgThrows")
-            val stdDevThrows = json.getDouble("stdDevThrows")
-            val avgConsistency = json.optDouble("avgConsistency", 0.0)
-            val bestRun = json.getInt("bestRun")
-            val totalThrows = json.getInt("totalThrows")
-            val runHistory = readIntArray(json, "runHistory")
-            val durationSeconds = json.optLong("durationSeconds", 0L)
-            val runDurationsMillis = readLongArray(json, "runDurationsMillis")
-            SessionSummary(
-                id = id,
-                timestamp = timestamp,
-                ballCount = ballCount,
-                runCount = runCount,
-                avgThrows = avgThrows,
-                stdDevThrows = stdDevThrows,
-                avgConsistency = avgConsistency,
-                bestRun = bestRun,
-                totalThrows = totalThrows,
-                runHistory = runHistory,
-                durationSeconds = durationSeconds,
-                runDurationsMillis = runDurationsMillis,
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse session JSON", e)
-            CrashlyticsUtils.recordException(e)
-            null
-        }
-    }
-
     private fun readLongArray(obj: org.json.JSONObject, key: String): List<Long> {
         val array = obj.optJSONArray(key) ?: return emptyList()
         return List(array.length()) { index -> array.getLong(index).coerceAtLeast(0L) }
-    }
-
-    private fun readIntArray(obj: org.json.JSONObject, key: String): List<Int> {
-        val array = obj.optJSONArray(key) ?: return emptyList()
-        return List(array.length()) { index -> array.getInt(index) }
-    }
-
-    private fun normalizeRunDurations(runCount: Int, runDurationsMillis: List<Long>): List<Long> {
-        val sanitized = runDurationsMillis.take(runCount).map { it.coerceAtLeast(0L) }
-        if (sanitized.size == runCount) return sanitized
-        return sanitized + List(runCount - sanitized.size) { 0L }
     }
 }
