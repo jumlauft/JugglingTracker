@@ -31,7 +31,8 @@ applyTo: "connectiq/**/*.mc"
 - Ball-count-adaptive burst clustering (data-driven from watch-hand labels over 77 runs):
   - 3 balls: HP threshold 2.0, candidate refractory 80ms, raw gate 7.0 m/s², merge window 160ms
   - 4 balls: HP threshold 3.0, candidate refractory 80ms, raw gate 11.0 m/s², merge window 160ms
-  - 5-6 balls: HP threshold 3.0, candidate refractory 40ms, raw gate 13.0 m/s², merge window 160ms
+  - 5 balls: HP threshold 3.0, candidate refractory 40ms, raw gate 13.0 m/s², merge window 160ms
+  - 6 balls: HP threshold 5.0, candidate refractory 40ms, raw gate 17.0 m/s², merge window 120ms
   - 7+ balls: HP threshold 3.0, candidate refractory 160ms, raw gate 7.0 m/s², merge window 80ms
 - Hysteresis factor is 0.3. Raw magnitude gate: a candidate only counts if the pre-highpass magnitude also exceeds the per-ball-count floor.
 - True peak detection: threshold-crossing on the filtered signal with hysteresis (signal must drop below `threshold × 0.3` before re-arming). The strongest filtered peak in a burst represents the catch motion.

@@ -58,12 +58,15 @@ Current burst-clustering parameters:
 | --- | ---: | ---: | ---: | ---: |
 | 3 | 2.0 | 80 ms | 7.0 m/s² | 160 ms |
 | 4 | 3.0 | 80 ms | 11.0 m/s² | 160 ms |
-| 5-6 | 3.0 | 40 ms | 13.0 m/s² | 160 ms |
+| 5 | 3.0 | 40 ms | 13.0 m/s² | 160 ms |
+| 6 | 5.0 | 40 ms | 17.0 m/s² | 120 ms |
 | 7+ | 3.0 | 160 ms | 7.0 m/s² | 80 ms |
 
-7+ has its own bucket because its cadence is distinctly faster than 5-ball, and it was previously run on parameters fitted entirely to 5-ball data.
+6 has its own bucket because six throws land harder and closer together than five, so the peak that marks a catch clears a higher bar. 7+ has its own because its cadence is distinctly faster than 5-ball, and it was previously run on parameters fitted entirely to 5-ball data.
 
-The Python simulator in `simulation/eval_new_watch.py` mirrors the watch detector. Keep it, `connectiq/source/JugglingDetector.mc`, `simulation/test_detection.py`, and `.github/instructions/connectiq-monkeyc.instructions.md` in sync when changing detector behavior or parameters.
+`simulate_watch()` in `simulation/eval_new_watch.py` is the shared Python implementation of the algorithm above, and the table is what `simulation/test_detection.py` feeds it through its own `WATCH_PARAMS`, so the locked corpus baseline reflects these values. Keep the table, `connectiq/source/JugglingDetector.mc`, `android/.../PhoneJugglingDetector.kt`, `simulation/test_detection.py`, and `.github/instructions/connectiq-monkeyc.instructions.md` in sync when changing detector behavior or parameters.
+
+One known exception: `eval_new_watch.py` carries its own `CURRENT_WATCH_PARAMS`, which has no 6-ball entry, so `params_for_balls()` routes 6 balls to the 5-ball values. Running `python eval_new_watch.py` (or `rhythm_gate.py`, which imports it) therefore reports the 11 six-ball corpus runs under parameters the watch does not use. The test suite is unaffected — it never imports that table.
 
 ### Phone IMU Sessions
 
