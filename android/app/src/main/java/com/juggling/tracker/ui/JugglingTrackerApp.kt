@@ -37,6 +37,7 @@ import com.juggling.tracker.logic.GarminConnectionStatus
 import com.juggling.tracker.logic.JugglingEvent
 import com.juggling.tracker.logic.JugglingViewModel
 import com.juggling.tracker.model.SessionSummary
+import com.juggling.tracker.ui.theme.LocalStatusColors
 import java.util.*
 
 enum class Screen {
@@ -416,37 +417,44 @@ fun GarminStatusHeader(
     onGarminLinkClick: () -> Unit,
     onGarminSessionClick: () -> Unit,
 ) {
+    // Every state's colours come from the theme: the failure states from
+    // Material's own error container, "ready" and "receiving" from
+    // LocalStatusColors, which has no Material token. These used to be literal
+    // light-mode tints, so in dark mode the card stayed pale while the rest of
+    // the app went dark -- and only NOT_INITIALIZED, already on theme colours,
+    // followed along.
+    val statusColors = LocalStatusColors.current
     val (backgroundColor, textColor, statusText) = when (status) {
         GarminConnectionStatus.READY -> Triple(
-            Color(0xFFE8F5E9), // Light Green
-            Color(0xFF2E7D32), // Dark Green
+            statusColors.successContainer,
+            statusColors.onSuccessContainer,
             stringResource(R.string.garmin_ready)
         )
         GarminConnectionStatus.RECEIVING -> Triple(
-            Color(0xFFFFF3E0), // Light Orange
-            Color(0xFFEF6C00), // Dark Orange
+            statusColors.warningContainer,
+            statusColors.onWarningContainer,
             stringResource(R.string.garmin_receiving)
         )
         GarminConnectionStatus.CONNECT_IQ_MISSING -> Triple(
-            Color(0xFFFFEBEE), // Light Red
-            Color(0xFFC62828), // Dark Red
+            MaterialTheme.colorScheme.errorContainer,
+            MaterialTheme.colorScheme.onErrorContainer,
             stringResource(R.string.garmin_missing)
         )
         GarminConnectionStatus.WATCH_APP_MISSING -> Triple(
-            Color(0xFFFFEBEE), // Light Red
-            Color(0xFFC62828), // Dark Red
+            MaterialTheme.colorScheme.errorContainer,
+            MaterialTheme.colorScheme.onErrorContainer,
             stringResource(R.string.garmin_watch_app_missing)
         )
         GarminConnectionStatus.DISCONNECTED -> Triple(
-            Color(0xFFFFEBEE), // Light Red
-            Color(0xFFC62828), // Dark Red
+            MaterialTheme.colorScheme.errorContainer,
+            MaterialTheme.colorScheme.onErrorContainer,
             stringResource(R.string.garmin_disconnected)
         )
         GarminConnectionStatus.BLUETOOTH_DISABLED,
         GarminConnectionStatus.NO_PAIRED_DEVICES,
         GarminConnectionStatus.SDK_ERROR -> Triple(
-            Color(0xFFFFEBEE), // Light Red
-            Color(0xFFC62828), // Dark Red
+            MaterialTheme.colorScheme.errorContainer,
+            MaterialTheme.colorScheme.onErrorContainer,
             message
         )
         GarminConnectionStatus.NOT_INITIALIZED -> Triple(
