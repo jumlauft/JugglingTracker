@@ -131,9 +131,17 @@ Acknowledgement from phone to watch:
 ## Build And Test
 
 `.github/workflows/ci.yml` runs on every pull request and on `main` after
-merge: the Android unit tests, Android Lint (which fails the build on lint
-errors), and the detection tests. Reports are uploaded as artifacts when a run
-fails.
+merge: the Android unit tests (Compose UI tests included), Android Lint (which
+fails the build on lint errors), a compile of the instrumented test suite, and
+the detection tests. Reports are uploaded as artifacts when a run fails.
+
+The Compose UI tests run under Robolectric, in the unit test source set, so CI
+gates them without an emulator — which is what lets the UI effects be asserted
+rather than argued about: `KeepScreenOnTest` proves the display is held awake
+for a whole phone session, and `StatusBarAppearanceTest` proves the status bar
+icon colour is applied, at both API 34 and 35 where the correct answer inverts.
+The instrumented suite in `android/app/src/androidTest/` needs a real device, so
+CI only compiles it; run it with `./gradlew connectedDebugAndroidTest`.
 
 The Connect IQ watch tests are **not** in CI. They need the Garmin SDK, a
 developer signing key, and the simulator, so running them would mean fetching
@@ -153,10 +161,14 @@ Requires JDK 17+. Android Studio's bundled JBR works.
 
 ```sh
 cd android
-./gradlew assembleDebug       # build debug APK
-./gradlew test                # unit tests
-./gradlew installDebug        # install on connected phone
+./gradlew assembleDebug             # build debug APK
+./gradlew test                      # unit tests, Compose UI tests included
+./gradlew connectedDebugAndroidTest # instrumented tests; needs a device
+./gradlew installDebug              # install on connected phone
 ```
+
+The first `test` run downloads a Robolectric framework jar (~170 MB per API
+level) into `~/.m2/repository/org/robolectric`; later runs reuse it.
 
 ### Garmin Watch
 
