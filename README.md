@@ -170,12 +170,16 @@ python eval_new_watch.py
 
 Per-ball-count accuracy on that corpus:
 
-| Balls | Runs | Catches | Absolute error |
-| --- | ---: | ---: | ---: |
-| 3 | 14 | 343 | 16 |
-| 4 | 13 | 291 | 11 |
-| 5-6 | 32 | 966 | 104 |
-| 7+ | 18 | 205 | 26 |
+| Balls | Runs | Catches | Detected | Absolute error | Overcount | Undercount | Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 3 | 14 | 343 | 337 | 16 | 5 | 11 | 95.3% |
+| 4 | 13 | 291 | 282 | 11 | 1 | 10 | 96.2% |
+| 5 | 41 | 1345 | 1323 | 120 | 49 | 71 | 91.1% |
+| 6 | 11 | 215 | 216 | 11 | 6 | 5 | 94.9% |
+| 7+ | 23 | 265 | 250 | 31 | 8 | 23 | 88.3% |
+| **All** | **102** | **2459** | **2408** | **189** | **69** | **120** | **92.3%** |
+
+Accuracy is `1 - absolute error / catches`. The corpus undercounts on balance: net -51 catches (-2.1%), with undercounting making up 63% of all error and overcounting 37%. 6 balls is the second most accurate bucket, which is the case for it having parameters of its own; 7+ is the weakest and is almost entirely undercount.
 
 ### Connect IQ Watch App
 
