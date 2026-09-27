@@ -66,7 +66,7 @@ Current burst-clustering parameters:
 
 `simulate_watch()` in `simulation/eval_new_watch.py` is the shared Python implementation of the algorithm above, and the table is what `simulation/test_detection.py` feeds it through its own `WATCH_PARAMS`, so the locked corpus baseline reflects these values. Keep the table, `connectiq/source/JugglingDetector.mc`, `android/.../PhoneJugglingDetector.kt`, `simulation/test_detection.py`, and `.github/instructions/connectiq-monkeyc.instructions.md` in sync when changing detector behavior or parameters.
 
-One known exception: `eval_new_watch.py` carries its own `CURRENT_WATCH_PARAMS`, which has no 6-ball entry, so `params_for_balls()` routes 6 balls to the 5-ball values. Running `python eval_new_watch.py` (or `rhythm_gate.py`, which imports it) therefore reports the 11 six-ball corpus runs under parameters the watch does not use. The test suite is unaffected — it never imports that table.
+`eval_new_watch.py` keeps a second copy of the table in `CURRENT_WATCH_PARAMS`, which is what `params_for_balls()` and the sweep's tie-breaker read, and what `rhythm_gate.py` imports. `test_detection.py::test_evaluator_params_match_the_tested_watch_params` pins it to the values above so the two cannot drift apart unnoticed again — they did once, when the evaluator kept folding 6 balls onto the 5-ball parameters after the watch had shipped a separate bucket.
 
 ### Phone IMU Sessions
 

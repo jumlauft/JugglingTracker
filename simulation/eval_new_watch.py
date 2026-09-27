@@ -30,23 +30,32 @@ CURRENT_WATCH_PARAMS = {
     3: {'threshold': 2.0, 'refractory_ms': 80, 'raw_gate': 7.0, 'merge_window_ms': 160},
     4: {'threshold': 3.0, 'refractory_ms': 80, 'raw_gate': 11.0, 'merge_window_ms': 160},
     5: {'threshold': 3.0, 'refractory_ms': 40, 'raw_gate': 13.0, 'merge_window_ms': 160},
+    6: {'threshold': 5.0, 'refractory_ms': 40, 'raw_gate': 17.0, 'merge_window_ms': 120},
     7: {'threshold': 3.0, 'refractory_ms': 160, 'raw_gate': 7.0, 'merge_window_ms': 80},
 }
 
 
-def params_for_balls(balls):
-    """Match JugglingDetector.mc: 3 / 4 / 5-6 / 7+."""
+def bucket_for_balls(balls):
+    """Match JugglingDetector.mc: 3 / 4 / 5 / 6 / 7+."""
     if balls <= 3:
-        return CURRENT_WATCH_PARAMS[3]
+        return 3
     if balls == 4:
-        return CURRENT_WATCH_PARAMS[4]
-    if balls <= 6:
-        return CURRENT_WATCH_PARAMS[5]
-    return CURRENT_WATCH_PARAMS[7]
+        return 4
+    if balls == 5:
+        return 5
+    if balls == 6:
+        return 6
+    return 7
+
+
+def params_for_balls(balls):
+    """The parameters the shipped watch detector would use for this ball count."""
+    return CURRENT_WATCH_PARAMS[bucket_for_balls(balls)]
 
 
 def _distance_from_current(params, balls):
-    current = CURRENT_WATCH_PARAMS[min(balls, 5)]
+    """Tie-break the sweep toward the parameters already shipped for this bucket."""
+    current = CURRENT_WATCH_PARAMS[bucket_for_balls(balls)]
     return sum(abs(params[key] - current[key]) for key in current)
 
 
