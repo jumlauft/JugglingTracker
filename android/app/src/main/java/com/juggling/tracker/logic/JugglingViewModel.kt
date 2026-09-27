@@ -206,7 +206,11 @@ class JugglingViewModel(
                 completedSessions.addAll(sessions)
             }
         } else {
-            // No repository (likely unit test), just calculate summary locally
+            // No repository (likely unit test), just calculate summary locally.
+            // Deduplicate by timestamp like the repository does, so this path
+            // upholds the same identity invariant the UI keys rows on.
+            if (completedSessions.any { it.timestamp == timestamp }) return
+
             val avg = runs.average()
             val bestRun = runs.maxOrNull() ?: 0
             val stdDev = if (runs.size > 1) {
@@ -214,7 +218,6 @@ class JugglingViewModel(
             } else 0.0
 
             val summary = SessionSummary(
-                id = completedSessions.size + 1,
                 timestamp = timestamp,
                 ballCount = balls,
                 runCount = runs.size,
