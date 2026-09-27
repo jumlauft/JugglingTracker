@@ -1,5 +1,7 @@
 # JugglingTracker
 
+[![CI](https://github.com/jumlauft/JugglingTracker/actions/workflows/ci.yml/badge.svg)](https://github.com/jumlauft/JugglingTracker/actions/workflows/ci.yml)
+
 Two-platform juggling tracker focused on a single counting hand. A Garmin Forerunner 245 watch app counts watch-hand catches from accelerometer data, stores runs for the active watch session, and sends finished sessions to an Android companion app for storage, charts, CSV export, and developer-only algorithm recording workflows. The Android app can also record sessions directly from the phone accelerometer when the phone is held in the counting hand. Counts are not both-hands totals.
 
 ## Project Structure
@@ -127,6 +129,23 @@ Acknowledgement from phone to watch:
 ```
 
 ## Build And Test
+
+`.github/workflows/ci.yml` runs on every pull request and on `main` after
+merge: the Android unit tests, Android Lint (which fails the build on lint
+errors), and the detection tests. Reports are uploaded as artifacts when a run
+fails.
+
+The Connect IQ watch tests are **not** in CI. They need the Garmin SDK, a
+developer signing key, and the simulator, so running them would mean fetching
+the SDK on the runner, storing `developer_key.der` as a repository secret, and
+driving the simulator headless under xvfb. Run `./connectiq/run_tests.sh`
+locally before touching watch code. The detection tests do cover part of that
+ground from the outside, by parsing `JugglingDetector.mc` to check its
+constants and by pinning `REQUIREMENTS.md` to the tests that verify it.
+
+`.github/workflows/release-android.yml` is separate and fires only on `v*`
+tags, which publishes the **Android** app to Google Play. Do not tag a watch
+release `v*`.
 
 ### Android
 
