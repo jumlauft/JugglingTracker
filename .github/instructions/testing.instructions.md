@@ -10,8 +10,16 @@ applyTo: ["android/**/test/**/*.kt", "android/**/androidTest/**/*.kt", "simulati
 - Use `runTest { }` for coroutine test bodies.
 
 ## File Placement
-- Unit tests: `android/app/src/test/java/com/juggling/tracker/` mirroring the main source tree, so `logic/` and `data/` subpackages, with shared fakes (`MainDispatcherRule`, `FakeSharedPreferences`) at the package root.
+- Unit tests: `android/app/src/test/java/com/juggling/tracker/` mirroring the main source tree, so `logic/`, `data/` and `ui/` subpackages, with shared fakes (`MainDispatcherRule`, `FakeSharedPreferences`) at the package root.
 - Test class names: `<ClassUnderTest>Test.kt`.
+- Instrumented tests: `android/app/src/androidTest/java/com/juggling/tracker/` — see "Compose UI Tests" below for when something belongs there rather than in `test/`.
+
+## Compose UI Tests
+- Compose UI tests live in the **unit test** source set and run under Robolectric (`@RunWith(RobolectricTestRunner::class)` plus `@Config(sdk = [34])`), so `./gradlew testDebugUnitTest` and therefore CI runs them without an emulator. Put a UI test here unless it genuinely cannot work against Robolectric's shadows.
+- Pin `@Config(sdk = ...)` explicitly. Robolectric does not support `compileSdk 36`, and a test whose behaviour depends on the API level should name the level it means — `StatusBarAppearanceTest` runs the same assertion at 34 and 35 because the correct answer inverts between them.
+- Pass `dynamicColor = false` to `JugglingTrackerTheme` in any test that asserts on colour. With it on, the wallpaper picks the palette and expectations become host-dependent.
+- `androidTest/` is for what needs a real framework instead of shadows. CI cannot run it (no emulator on the runner) but does compile it, so it will not rot silently. Run it by hand with `./gradlew connectedDebugAndroidTest`. Keep it small — anything assertable on the JVM belongs in `test/`, where it runs on every change.
+- To assert on a `DisposableEffect` or `SideEffect` that writes to the view or window, capture `LocalView.current` in `setContent` and read the property back afterwards (`KeepScreenOnTest`), or read it off `createAndroidComposeRule<ComponentActivity>().activity.window` (`StatusBarAppearanceTest`).
 
 ## Patterns
 - `JugglingViewModel` can be instantiated without a repository for unit tests (constructor accepts `null`).
@@ -28,8 +36,13 @@ applyTo: ["android/**/test/**/*.kt", "android/**/androidTest/**/*.kt", "simulati
 ## Running Android Tests
 ```sh
 cd android
-./gradlew test
+./gradlew test                      # JVM tests, Compose UI tests included
+./gradlew connectedDebugAndroidTest # instrumented; needs a device or emulator
 ```
+
+The first Robolectric run downloads a ~170 MB framework jar per SDK level into
+`~/.m2/repository/org/robolectric`, so it is slow once and fast after. CI caches
+that directory.
 
 ## Running Detection Tests
 ```sh

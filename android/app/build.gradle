@@ -22,6 +22,7 @@ android {
         targetSdk 36
         versionCode releaseVersionCode
         versionName releaseVersionName
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -71,6 +72,9 @@ android {
 
     testOptions {
         unitTests.returnDefaultValues = true
+        // Robolectric needs the real merged resources and manifest to inflate
+        // anything; without this the Compose tests cannot resolve R.string.
+        unitTests.includeAndroidResources = true
     }
 }
 
@@ -108,4 +112,19 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3'
     testImplementation 'org.json:json:20231013'
+
+    // Compose UI tests. Robolectric runs them on the JVM as part of
+    // testDebugUnitTest, so they run in CI on every pull request; an
+    // instrumented androidTest suite would need an emulator the CI runner does
+    // not have. ui-test-manifest supplies the empty activity the test host
+    // composes into and is already a debugImplementation above.
+    testImplementation composeBom
+    testImplementation 'androidx.compose.ui:ui-test-junit4'
+    testImplementation 'org.robolectric:robolectric:4.15.1'
+
+    // Instrumented tests, for the cases that need a real device rather than a
+    // shadowed framework. Run with `./gradlew connectedDebugAndroidTest`.
+    androidTestImplementation composeBom
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
 }

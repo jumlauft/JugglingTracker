@@ -36,9 +36,29 @@ jobs:
           java-version: '17'
           cache: gradle
 
+      - name: Cache Robolectric framework jars
+        uses: actions/cache@v4
+        with:
+          # The Compose UI tests run under Robolectric, which fetches a ~170 MB
+          # android-all jar per SDK level it targets (34 and 35 here). Without
+          # this the job re-downloads both every run.
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-${{ runner.os }}-${{ hashFiles('android/app/build.gradle') }}
+          restore-keys: |
+            robolectric-${{ runner.os }}-
+
       - name: Unit tests
         working-directory: android
+        # Includes the Compose UI tests: Robolectric runs them on the JVM, so
+        # they gate every pull request without an emulator.
         run: ./gradlew testDebugUnitTest
+
+      - name: Compile instrumented tests
+        working-directory: android
+        # The androidTest suite needs a device, which this runner has not got,
+        # so it cannot run here -- but compiling it stops it rotting unnoticed.
+        if: ${{ !cancelled() }}
+        run: ./gradlew assembleDebugAndroidTest
 
       - name: Lint
         working-directory: android
