@@ -1,7 +1,16 @@
 package com.juggling.tracker.model
 
+/**
+ * One finished session, from the watch or from a phone recording.
+ *
+ * `timestamp` is the identity: [SessionRepository][com.juggling.tracker.data.SessionRepository]
+ * rejects an import whose timestamp it already holds, and drops duplicates when
+ * loading, so no two stored sessions share one. Use it wherever a stable key is
+ * needed rather than adding a second id field to keep in sync -- an earlier
+ * `id = sessionsCache.size + 1` repeated itself as soon as a session in the
+ * middle was deleted.
+ */
 data class SessionSummary(
-    val id: Int,
     val timestamp: Long,
     val ballCount: Int,
     val runCount: Int,

@@ -348,7 +348,7 @@ fun TrackerScreen(
             )
             
             filteredSessions.forEach { session ->
-                key(session.id) {
+                key(session.timestamp) {
                     val dismissState = rememberSwipeToDismissBoxState(
                         confirmValueChange = {
                             if (it == SwipeToDismissBoxValue.EndToStart) {

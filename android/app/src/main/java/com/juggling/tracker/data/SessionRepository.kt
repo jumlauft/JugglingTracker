@@ -54,7 +54,6 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
         } else 0.0
 
         val session = SessionSummary(
-            id = sessionsCache.size + 1,
             timestamp = timestamp,
             ballCount = ballCount,
             runCount = runs.size,
@@ -105,7 +104,6 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
                 
                 sessions.add(
                     SessionSummary(
-                        id = obj.getInt("id"),
                         timestamp = obj.getLong("timestamp"),
                         ballCount = obj.getInt("ballCount"),
                         runCount = obj.getInt("runCount"),
@@ -121,7 +119,12 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
             }
             
             sessionsCache.clear()
-            sessionsCache.addAll(sessions.sortedByDescending { it.timestamp })
+            // distinctBy timestamp, not just sort: importSession refuses a
+            // duplicate timestamp, but storage written by an older build can
+            // still hold one, and the timestamp is the session's identity.
+            sessionsCache.addAll(
+                sessions.sortedByDescending { it.timestamp }.distinctBy { it.timestamp }
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load sessions from storage", e)
             CrashlyticsUtils.recordException(e)
@@ -131,7 +134,6 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
     private fun buildSessionJson(session: SessionSummary): String {
         return try {
             val json = org.json.JSONObject()
-            json.put("id", session.id)
             json.put("timestamp", session.timestamp)
             json.put("ballCount", session.ballCount)
             json.put("runCount", session.runCount)

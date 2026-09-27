@@ -280,7 +280,7 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        val fake = viewModel.completedSessions[0].copy(id = 999)
+        val fake = viewModel.completedSessions[0].copy(timestamp = 999L)
         viewModel.deleteSession(fake)
 
         assertEquals(1, viewModel.completedSessions.size)

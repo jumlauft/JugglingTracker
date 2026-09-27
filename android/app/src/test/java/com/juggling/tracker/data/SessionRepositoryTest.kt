@@ -84,6 +84,59 @@ class SessionRepositoryTest {
     }
 
     @Test
+    fun `timestamps stay unique when a session in the middle is deleted`() {
+        // The UI keys session rows on the timestamp, so a repeat swaps swipe
+        // state between rows. The old `id = sessionsCache.size + 1` produced
+        // exactly that here: deleting the middle of three and importing a
+        // fourth handed out [3, 3, 1].
+        repository.importSession(3, 1000L, listOf(10))
+        repository.importSession(3, 2000L, listOf(20))
+        repository.importSession(3, 3000L, listOf(30))
+
+        repository.deleteSession(repository.getSessions().first { it.timestamp == 2000L })
+        repository.importSession(3, 4000L, listOf(40))
+
+        val keys = repository.getSessions().map { it.timestamp }
+        assertEquals(listOf(4000L, 3000L, 1000L), keys)
+        assertEquals(keys.size, keys.distinct().size)
+    }
+
+    @Test
+    fun `stored duplicate timestamps collapse to one session on load`() {
+        // importSession refuses a duplicate, but storage written by an older
+        // build can hold one, and the timestamp is the session's identity.
+        prefs.edit().putString(
+            "sessions_json",
+            """
+            [{
+                "timestamp":1000,
+                "ballCount":3,
+                "runCount":1,
+                "avgThrows":10.0,
+                "stdDevThrows":0.0,
+                "bestRun":10,
+                "totalThrows":10,
+                "runHistory":[10]
+            },{
+                "timestamp":1000,
+                "ballCount":3,
+                "runCount":1,
+                "avgThrows":20.0,
+                "stdDevThrows":0.0,
+                "bestRun":20,
+                "totalThrows":20,
+                "runHistory":[20]
+            }]
+            """.trimIndent()
+        ).commit()
+
+        val sessions = SessionRepository(prefs).getSessions()
+
+        assertEquals(1, sessions.size)
+        assertEquals(1000L, sessions[0].timestamp)
+    }
+
+    @Test
     fun `import pads missing run durations with zero`() {
         repository.importSession(3, 1000L, listOf(10, 20, 30), runDurationsMillis = listOf(9000L))
 
@@ -139,6 +192,7 @@ class SessionRepositoryTest {
 
     @Test
     fun `legacy sessions without duration load with zero duration`() {
+        // The `id` below is a field older builds wrote; the reader now ignores it.
         prefs.edit().putString(
             "sessions_json",
             """
