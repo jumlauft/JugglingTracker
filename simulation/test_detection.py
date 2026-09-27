@@ -17,7 +17,7 @@ import pytest
 # Ensure the simulation directory is importable.
 sys.path.insert(0, os.path.dirname(__file__))
 
-from eval_new_watch import simulate_watch
+from eval_new_watch import simulate_watch, CURRENT_WATCH_PARAMS, params_for_balls
 from data_utils import load_all_runs
 
 # ── Current watch parameters (must match JugglingDetector.mc) ──────────────
@@ -315,6 +315,34 @@ def test_watch_params_match_detector_constants():
     # 5, 6 and 7+ must each be selected separately, not folded together.
     assert "balls == 5" in source
     assert "balls == 6" in source
+
+
+def test_evaluator_params_match_the_tested_watch_params():
+    """Pin eval_new_watch.py's own parameter table to the one these tests use.
+
+    These tests drive simulate_watch() with WATCH_PARAMS, but the evaluator
+    keeps a second table, CURRENT_WATCH_PARAMS, which is what params_for_balls()
+    and the sweep's tie-breaker read -- and rhythm_gate.py imports. The two
+    drifted silently once: the evaluator had no 6-ball entry and folded 6 balls
+    onto the 5-ball values long after the watch shipped a separate bucket.
+    Nothing failed, because no test had ever read that table.
+    """
+    assert set(CURRENT_WATCH_PARAMS) == set(WATCH_PARAMS), (
+        "evaluator and test parameter tables cover different buckets: "
+        f"{sorted(CURRENT_WATCH_PARAMS)} vs {sorted(WATCH_PARAMS)}"
+    )
+    for bucket, expected in WATCH_PARAMS.items():
+        assert CURRENT_WATCH_PARAMS[bucket] == expected, (
+            f"evaluator {bucket}-ball params disagree with the watch: "
+            f"{CURRENT_WATCH_PARAMS[bucket]} vs {expected}"
+        )
+
+    # Every ball count the app offers has to land in its own bucket, which also
+    # cross-checks the evaluator's bucketing against _bucket() used above.
+    for balls in range(3, 10):
+        assert params_for_balls(balls) == WATCH_PARAMS[_bucket(balls)], (
+            f"{balls} balls routed to the wrong parameter set"
+        )
 
 
 def test_watch_counts_alternating_bursts_as_watch_hand_catches():
