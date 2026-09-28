@@ -35,6 +35,10 @@ class MainView extends WatchUi.View {
     private var _pendingPayload as Dictionary?;
     // True while the retry/force-quit confirmation dialog is on screen.
     private var _awaitingDecision as Boolean;
+    // Bumped on every transmit attempt. A timed-out or abandoned attempt can
+    // still report back late; without checking this, its callback would land
+    // on whichever attempt is current by then instead of being ignored.
+    private var _syncGeneration as Number;
 
     // Last watch-hand catch count at which we vibrated.
     private var _lastVibrateCount as Number;
@@ -51,7 +55,8 @@ class MainView extends WatchUi.View {
 
     public function initialize(ballCount as Number) {
         WatchUi.View.initialize();
-        _listener = new CommListener(self);
+        _syncGeneration = 0;
+        _listener = new CommListener(self, _syncGeneration);
         _sending = false;
         _detector = new JugglingDetector(ballCount);
         _errorMsg = null;
@@ -298,6 +303,11 @@ class MainView extends WatchUi.View {
         _errorMsg = null;
         WatchUi.requestUpdate();
 
+        // Each attempt gets its own id, so a late callback from an attempt
+        // that already timed out cannot be mistaken for this one.
+        _syncGeneration += 1;
+        _listener = new CommListener(self, _syncGeneration);
+
         try {
             _sending = true;
             startSyncTimer();
@@ -443,11 +453,14 @@ class MainView extends WatchUi.View {
         _sessionEndMs = null;
     }
 
-    public function onTransmitDone() as Void {
+    public function onTransmitDone(generation as Number) as Void {
         // Intentionally left as a no-op; waiting for the phone ACK.
     }
 
-    public function onTransmitError() as Void {
+    public function onTransmitError(generation as Number) as Void {
+        if (generation != _syncGeneration) {
+            return;   // late report from an abandoned attempt
+        }
         if (!_sending) {
             return;
         }
@@ -615,18 +628,20 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
 
 class CommListener extends Communications.ConnectionListener {
     private var _view as MainView;
+    private var _generation as Number;
 
-    function initialize(view as MainView) {
+    function initialize(view as MainView, generation as Number) {
         Communications.ConnectionListener.initialize();
         _view = view;
+        _generation = generation;
     }
 
     function onComplete() {
-        _view.onTransmitDone();
+        _view.onTransmitDone(_generation);
     }
 
     function onError() {
         System.println("Session data transmission failed");
-        _view.onTransmitError();
+        _view.onTransmitError(_generation);
     }
 }
