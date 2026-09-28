@@ -451,6 +451,10 @@ class MainView extends WatchUi.View {
     public function onContinueSession() as Void {
         _awaitingDecision = false;
         _sessionEndMs = null;
+        // A failed sync's banner must not survive back onto the live tracker
+        // screen: nothing is actually failing anymore once the user has
+        // chosen to keep juggling instead of retrying.
+        _errorMsg = null;
     }
 
     public function onTransmitDone(generation as Number) as Void {
