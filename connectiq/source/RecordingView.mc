@@ -410,6 +410,15 @@ class RecordingView extends WatchUi.View {
             return;
         }
 
+        // Every rec_end/session ack the phone sends echoes back the id it
+        // received (see MainActivity.sendAck). A sync that timed out or was
+        // skipped still gets a reply eventually if the phone finishes late;
+        // without this check that stale ack would land on whichever run is
+        // syncing by then and mark it delivered before its data was sent.
+        if (data["timestamp"] != _sessionId) {
+            return;
+        }
+
         cancelSyncTimer();
         cancelStatusTimer();
 
