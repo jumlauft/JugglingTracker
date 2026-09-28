@@ -284,6 +284,13 @@ connection callback: transmitting from that callback wedges the single
 outstanding-transmit slot and the call never reports back.
 *Verified by:* not automatically tested — needs a radio.
 
+**REC-8.** An ack received while syncing is only accepted if its `timestamp`
+matches the run currently syncing (`_sessionId`). A sync that timed out or was
+skipped can still get a delayed ack once the phone finishes processing it
+late; unchecked, that stale ack would land on whichever run is syncing by
+then and mark it delivered before its data was actually sent.
+*Verified by:* `test_recording_view_rejects_a_stale_sync_ack`
+
 ---
 
 ## Keeping this honest

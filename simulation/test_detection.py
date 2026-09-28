@@ -651,6 +651,45 @@ def test_main_view_reacquires_sensor_after_any_menu():
     assert "if (_sensorActive) {\n            return;" in m.group(1)
 
 
+def test_recording_view_rejects_a_stale_sync_ack():
+    """A sync ack must be checked against the run it actually confirms.
+
+    RecordingView loops through many runs per session, so a sync that timed
+    out or was skipped can still get a delayed ack once the phone finishes
+    processing it late. Before this fix, onPhoneMessage() accepted any ack
+    received while STATE_SYNCING regardless of which run it was for -- a
+    stale ack could land on a brand-new run and mark it delivered before its
+    data was actually sent, with the UI reporting success.
+    """
+    source = _read_source("connectiq", "source", "RecordingView.mc")
+
+    m = re.search(
+        r"public function onPhoneMessage\(msg as Communications\.PhoneAppMessage\) as Void \{(.*?)\n    \}",
+        source, re.DOTALL,
+    )
+    assert m, "onPhoneMessage() not found in RecordingView.mc"
+    body = m.group(1)
+
+    state_check = body.find("if (_state != STATE_SYNCING)")
+    assert state_check != -1, "onPhoneMessage must check _state == STATE_SYNCING"
+
+    id_check = body.find('data["timestamp"] != _sessionId')
+    assert id_check != -1, (
+        "onPhoneMessage must reject an ack whose timestamp does not match "
+        "the run currently syncing"
+    )
+    assert state_check < id_check, (
+        "the session-id check must come after the state check so it only "
+        "applies to real sync acks"
+    )
+
+    reset_pos = body.find("_state = STATE_IDLE;")
+    assert id_check < reset_pos, (
+        "the session-id check must run before the run is reset to idle, or "
+        "a stale ack would still advance past a run that was never sent"
+    )
+
+
 # ── Requirements traceability ──────────────────────────────────────────────
 #
 # connectiq/REQUIREMENTS.md is the written specification of the watch app.
