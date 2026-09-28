@@ -297,6 +297,13 @@ late; unchecked, that stale ack would land on whichever run is syncing by
 then and mark it delivered before its data was actually sent.
 *Verified by:* `test_recording_view_rejects_a_stale_sync_ack`
 
+**REC-9.** BACK is not merely undocumented while syncing, it is explicitly
+**consumed**: `handleBackButton()` returns `true` and does nothing. An
+unhandled BACK falls through to the system default, which pops the only view
+on the stack and exits the app instantly, silently abandoning a transfer that
+was already in flight.
+*Verified by:* `test_recording_view_swallows_back_while_syncing`
+
 ---
 
 ## Keeping this honest

@@ -169,7 +169,11 @@ class RecordingView extends WatchUi.View {
             return true;
         }
         if (_state == STATE_SYNCING) {
-            return false;
+            // Swallow the press rather than leaving it unhandled: an
+            // unhandled BACK falls through to the system default, which pops
+            // the only view on the stack and exits the app instantly,
+            // silently abandoning a transfer that was already in flight.
+            return true;
         }
         promptQuit();
         return true;

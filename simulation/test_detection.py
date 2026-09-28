@@ -739,6 +739,42 @@ def test_main_view_transmit_callbacks_check_the_sync_generation():
     )
 
 
+def test_recording_view_swallows_back_while_syncing():
+    """BACK during a sync must be consumed, never left to the system default.
+
+    handleBackButton() used to return false for STATE_SYNCING -- "unhandled"
+    -- which falls through to the platform's default BACK behaviour: pop the
+    only view on the stack and exit the app instantly. That silently
+    abandoned a transfer already in flight, with no warning, the exact
+    failure mode every other exit path in this file (promptDiscard,
+    promptQuit) was written to prevent. It must return true and do nothing.
+    """
+    source = _read_source("connectiq", "source", "RecordingView.mc")
+
+    m = re.search(
+        r"public function handleBackButton\(\) as Boolean \{(.*?)\n    \}",
+        source, re.DOTALL,
+    )
+    assert m, "handleBackButton() not found in RecordingView.mc"
+    body = m.group(1)
+
+    m = re.search(
+        r"if \(_state == STATE_SYNCING\) \{(.*?)\n        \}",
+        body, re.DOTALL,
+    )
+    assert m, "handleBackButton() must special-case STATE_SYNCING"
+    branch = m.group(1)
+
+    assert "return false;" not in branch, (
+        "an unhandled BACK during a sync falls through to the system "
+        "default, which exits the app and abandons the transfer"
+    )
+    assert "return true;" in branch, (
+        "BACK while syncing must be consumed (return true), not left "
+        "unhandled"
+    )
+
+
 # ── Requirements traceability ──────────────────────────────────────────────
 #
 # connectiq/REQUIREMENTS.md is the written specification of the watch app.
