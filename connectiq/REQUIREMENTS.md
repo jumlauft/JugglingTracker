@@ -242,6 +242,12 @@ assumed delivered. Failure or a 10 s timeout opens a retry menu instead.
 just exits; there is nothing worth sending.
 *Verified by:* not automatically tested — needs a radio.
 
+**SYNC-4.** Each transmit attempt carries a generation number, checked before
+`onTransmitError` acts on it. A timed-out attempt still reports back later,
+and without this check its late failure would land on whichever attempt is
+current by then — aborting a retry that might otherwise have been succeeding.
+*Verified by:* `test_main_view_transmit_callbacks_check_the_sync_generation`
+
 ---
 
 ## REC — Record mode (developer)

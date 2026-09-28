@@ -690,6 +690,55 @@ def test_recording_view_rejects_a_stale_sync_ack():
     )
 
 
+def test_main_view_transmit_callbacks_check_the_sync_generation():
+    """A late transmit callback must not act on a newer sync attempt.
+
+    RecordingView already guards its transmit callbacks with a generation
+    number, because an abandoned attempt still reports back later and would
+    otherwise land on whichever run is syncing by then. MainView's retry path
+    had the exact same shape -- a reused CommListener with no way to tell
+    attempts apart -- but never got the equivalent guard: a late onError()
+    from a timed-out attempt could abort a retry that was still in flight.
+    """
+    source = _read_source("connectiq", "source", "MainView.mc")
+
+    m = re.search(
+        r"private function attemptSync\(\) as Void \{(.*?)\n    \}",
+        source, re.DOTALL,
+    )
+    assert m, "attemptSync() not found in MainView.mc"
+    attempt_body = m.group(1)
+    assert "_syncGeneration += 1;" in attempt_body, (
+        "attemptSync() must give each attempt its own generation"
+    )
+    assert "_listener = new CommListener(self, _syncGeneration);" in attempt_body, (
+        "attemptSync() must hand the current generation to a fresh listener"
+    )
+    assert attempt_body.index("_syncGeneration += 1;") < attempt_body.index(
+        "_listener = new CommListener(self, _syncGeneration);"
+    ), "the generation must be bumped before the listener that carries it is built"
+
+    m = re.search(
+        r"public function onTransmitError\(generation as Number\) as Void \{(.*?)\n    \}",
+        source, re.DOTALL,
+    )
+    assert m, "onTransmitError(generation) not found in MainView.mc"
+    error_body = m.group(1)
+    assert "if (generation != _syncGeneration) {\n            return" in error_body, (
+        "onTransmitError must ignore a report from an abandoned generation"
+    )
+
+    m = re.search(
+        r"class CommListener extends Communications\.ConnectionListener \{(.*?)\n\}",
+        source, re.DOTALL,
+    )
+    assert m, "CommListener not found in MainView.mc"
+    listener_body = m.group(1)
+    assert "_view.onTransmitError(_generation);" in listener_body, (
+        "CommListener.onError() must forward the generation it was built with"
+    )
+
+
 # ── Requirements traceability ──────────────────────────────────────────────
 #
 # connectiq/REQUIREMENTS.md is the written specification of the watch app.
