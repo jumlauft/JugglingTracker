@@ -309,6 +309,15 @@ on the stack and exits the app instantly, silently abandoning a transfer that
 was already in flight.
 *Verified by:* `test_recording_view_swallows_back_while_syncing`
 
+**REC-10.** Backing out of **any** menu over the record screen clears the
+pending-decision flag. Backing out of the sync-failure menu retries the sync,
+since that is the only choice that keeps the run; backing out of the quit or
+discard prompt means "Continue". `Menu2`'s default back pops without telling
+the view, which left the flag set and, after a failed sync, left the view
+stuck in `SYNCING` with BACK and START both ignored and no way to reopen the
+menu.
+*Verified by:* `test_menus_over_recording_view_clear_the_pending_decision_flag_on_back`
+
 ---
 
 ## Keeping this honest

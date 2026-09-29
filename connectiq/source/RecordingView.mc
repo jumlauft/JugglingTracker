@@ -887,6 +887,15 @@ class RecordingSyncDelegate extends WatchUi.Menu2InputDelegate {
             _view.onSyncQuit();
         }
     }
+
+    // Backing out of this menu is the same as picking "Retry sync", the one
+    // choice that keeps the run. The default pop dismissed the menu but left
+    // _awaitingDecision set with the sync stalled, and BACK and START are
+    // both ignored while syncing, so nothing could ever reopen the menu.
+    public function onBack() as Void {
+        WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
+        _view.onSyncRetry();
+    }
 }
 
 // ── Menu delegate for the quit confirmation ────────────────────────────
@@ -907,6 +916,14 @@ class RecordingQuitDelegate extends WatchUi.Menu2InputDelegate {
             _view.onQuitCancelled();
         }
     }
+
+    // Backing out means "Continue". Overriding this replaces the default pop,
+    // so it has to pop itself and tell the view, or _awaitingDecision stays
+    // set and every later prompt becomes a no-op.
+    public function onBack() as Void {
+        WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
+        _view.onQuitCancelled();
+    }
 }
 
 // ── Menu delegate for the discard confirmation ─────────────────────────
@@ -926,5 +943,13 @@ class RecordingDiscardDelegate extends WatchUi.Menu2InputDelegate {
         } else {
             _view.onDiscardCancelled();
         }
+    }
+
+    // Backing out means "Continue". Overriding this replaces the default pop,
+    // so it has to pop itself and tell the view, or _awaitingDecision stays
+    // set and every later prompt becomes a no-op.
+    public function onBack() as Void {
+        WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
+        _view.onDiscardCancelled();
     }
 }
