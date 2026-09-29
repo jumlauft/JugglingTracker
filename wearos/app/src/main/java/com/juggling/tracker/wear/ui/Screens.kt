@@ -90,13 +90,38 @@ private fun WatchText(
     )
 }
 
+/**
+ * A screen's text, centred, with an optional button under it. The button is
+ * measured first, so on a small watch the text gives way and the button is
+ * never squeezed off the screen.
+ */
 @Composable
-private fun CenteredColumn(content: @Composable () -> Unit) {
+private fun CenteredColumn(button: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
-    ) { content() }
+    ) {
+        Column(
+            modifier = Modifier.weight(1f, fill = false),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) { content() }
+        if (button != null) {
+            Spacer(Modifier.height(2.dp))
+            button()
+        }
+    }
+}
+
+/** UP and DOWN either side of the value they change, like a stepper. */
+@Composable
+private fun Stepper(onDown: () -> Unit, onUp: () -> Unit, value: @Composable () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        ArrowButton("▼", Tags.DOWN, onDown)
+        Box(Modifier.padding(horizontal = 4.dp)) { value() }
+        ArrowButton("▲", Tags.UP, onUp)
+    }
 }
 
 @Composable
@@ -104,6 +129,9 @@ private fun ArrowButton(symbol: String, tag: String, onClick: () -> Unit) {
     CompactButton(
         onClick = onClick,
         colors = ButtonDefaults.secondaryButtonColors(),
+        // A 40 dp tap target rather than 48, so a stepper row fits across
+        // the middle of a 192 dp watch.
+        backgroundPadding = 4.dp,
         modifier = Modifier.testTag(tag),
     ) { Text(symbol, fontSize = 12.sp) }
 }
@@ -137,33 +165,29 @@ private fun StartButton(label: String, onClick: () -> Unit) {
 /** `ModeSelectView.mc`: Juggle or Record. */
 @Composable
 fun ModeSelectScreen(isRecordMode: Boolean, onToggle: () -> Unit, onStart: () -> Unit) {
-    CenteredColumn {
+    CenteredColumn(button = { StartButton("Start", onStart) }) {
         WatchText("Mode", WatchColors.Green, 14.sp)
-        ArrowButton("▲", Tags.UP, onToggle)
-        WatchText(
-            if (isRecordMode) "Record" else "Juggle",
-            WatchColors.White,
-            24.sp,
-            Modifier.testTag(Tags.MODE),
-            FontWeight.Bold,
-        )
+        Stepper(onDown = onToggle, onUp = onToggle) {
+            WatchText(
+                if (isRecordMode) "Record" else "Juggle",
+                WatchColors.White,
+                18.sp,
+                Modifier.testTag(Tags.MODE),
+                FontWeight.Bold,
+            )
+        }
         WatchText(if (isRecordMode) "Save raw sensor data" else "Track catches live", WatchColors.LightGray, 11.sp)
-        ArrowButton("▼", Tags.DOWN, onToggle)
-        Spacer(Modifier.height(2.dp))
-        StartButton("Start", onStart)
     }
 }
 
 /** `BallSelectView.mc`: 3 to 9 balls. */
 @Composable
 fun BallSelectScreen(ballCount: Int, onUp: () -> Unit, onDown: () -> Unit, onStart: () -> Unit) {
-    CenteredColumn {
+    CenteredColumn(button = { StartButton("Start", onStart) }) {
         WatchText("Balls", WatchColors.Green, 14.sp)
-        ArrowButton("▲", Tags.UP, onUp)
-        WatchText(ballCount.toString(), WatchColors.Green, 40.sp, Modifier.testTag(Tags.BALLS), FontWeight.Bold)
-        ArrowButton("▼", Tags.DOWN, onDown)
-        Spacer(Modifier.height(2.dp))
-        StartButton("Start", onStart)
+        Stepper(onDown = onDown, onUp = onUp) {
+            WatchText(ballCount.toString(), WatchColors.Green, 40.sp, Modifier.testTag(Tags.BALLS), FontWeight.Bold)
+        }
     }
 }
 
@@ -178,7 +202,7 @@ fun TrackerScreen(state: TrackerUiState, onStartStop: () -> Unit) {
         }
         return
     }
-    CenteredColumn {
+    CenteredColumn(button = { StartButton("End", onStartStop) }) {
         WatchText(
             if (state.runActive) "RUN ACTIVE" else "WAITING",
             if (state.runActive) WatchColors.Green else WatchColors.Yellow,
@@ -205,8 +229,6 @@ fun TrackerScreen(state: TrackerUiState, onStartStop: () -> Unit) {
         state.errorMessage?.let {
             WatchText(it, WatchColors.Red, 11.sp, Modifier.testTag(Tags.ERROR))
         }
-        Spacer(Modifier.height(2.dp))
-        StartButton("End", onStartStop)
     }
 }
 
@@ -223,7 +245,13 @@ private fun StatRow(left: Pair<String, String>, right: Pair<String, String>) {
 /** `RecordingView.mc`: idle, recording, labelling and syncing. */
 @Composable
 fun RecordingScreen(state: RecordingUiState, onStart: () -> Unit, onUp: () -> Unit, onDown: () -> Unit) {
-    CenteredColumn {
+    val button = when (state.phase) {
+        RecordingPhase.IDLE -> "Start"
+        RecordingPhase.RECORDING -> "Stop"
+        RecordingPhase.LABELING -> "Confirm"
+        RecordingPhase.SYNCING -> null
+    }
+    CenteredColumn(button = button?.let { label -> @Composable { StartButton(label, onStart) } }) {
         when (state.phase) {
             RecordingPhase.IDLE -> {
                 WatchText("Ready to record", WatchColors.Yellow, 13.sp, Modifier.testTag(Tags.REC_STATUS))
@@ -231,15 +259,11 @@ fun RecordingScreen(state: RecordingUiState, onStart: () -> Unit, onUp: () -> Un
                 if (state.runsCompleted > 0) {
                     WatchText("Runs: ${state.runsCompleted}", WatchColors.LightGray, 11.sp)
                 }
-                Spacer(Modifier.height(4.dp))
-                StartButton("Start", onStart)
             }
             RecordingPhase.RECORDING -> {
                 WatchText("● REC", WatchColors.Red, 13.sp, Modifier.testTag(Tags.REC_STATUS))
                 WatchText("${state.recordedSamples / RecordingSession.SAMPLE_RATE}s", WatchColors.White, 24.sp)
                 WatchText("Start stops | Hand: ${state.liveCount}", WatchColors.LightGray, 11.sp)
-                Spacer(Modifier.height(4.dp))
-                StartButton("Stop", onStart)
             }
             RecordingPhase.LABELING -> {
                 WatchText(
@@ -250,19 +274,16 @@ fun RecordingScreen(state: RecordingUiState, onStart: () -> Unit, onUp: () -> Un
                 )
                 WatchText("catches, watch hand", WatchColors.Yellow, 11.sp)
                 WatchText("Actual:", WatchColors.LightGray, 11.sp)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    ArrowButton("▼", Tags.DOWN, onDown)
+                Stepper(onDown = onDown, onUp = onUp) {
                     WatchText(
                         state.labelCount.toString(),
                         WatchColors.Green,
                         30.sp,
-                        Modifier.padding(horizontal = 8.dp).testTag(Tags.LABEL),
+                        Modifier.testTag(Tags.LABEL),
                         FontWeight.Bold,
                     )
-                    ArrowButton("▲", Tags.UP, onUp)
                 }
                 WatchText("Swipe back = discard", WatchColors.LightGray, 10.sp)
-                StartButton("Confirm", onStart)
             }
             RecordingPhase.SYNCING -> {
                 WatchText(Format.recordingSyncText(state), WatchColors.Yellow, 18.sp, Modifier.testTag(Tags.SYNC))

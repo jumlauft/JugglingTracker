@@ -26,8 +26,10 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * Every piece of text on every screen fits on one line, uncut, on the
- * smallest round watch (192 dp). Real font metrics need native graphics.
+ * Every piece of text on every screen fits on one line, without being cut
+ * off at the sides, on the smallest round watch (192 dp). Real font metrics
+ * need native graphics. The screens are driven by tapping, so this also shows
+ * the START button stays reachable at that size.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -48,7 +50,7 @@ class TextFitTest {
 
     private fun click(tag: String) = compose.onNodeWithTag(tag).performClick()
 
-    /** Records every text on screen that wraps or is cut off. */
+    /** Records every text on screen that wraps or is cut off at the sides. */
     private fun checkScreen(name: String) {
         compose.waitForIdle()
         val nodes = compose.onAllNodes(isRoot().not(), useUnmergedTree = true).fetchSemanticsNodes()
@@ -58,8 +60,8 @@ class TextFitTest {
             val results = mutableListOf<TextLayoutResult>()
             action.action?.invoke(results)
             val layout = results.firstOrNull() ?: continue
-            if (layout.lineCount > 1 || layout.hasVisualOverflow) {
-                problems += "$name: \"$text\" (${layout.lineCount} lines, overflow=${layout.hasVisualOverflow})"
+            if (layout.lineCount > 1 || layout.didOverflowWidth) {
+                problems += "$name: \"$text\" (${layout.lineCount} lines, too wide=${layout.didOverflowWidth})"
             }
         }
     }
