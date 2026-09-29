@@ -26,6 +26,7 @@ import androidx.wear.compose.material.ButtonDefaults
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.CompactButton
+import androidx.wear.compose.material.CompactChip
 import androidx.wear.compose.material.ListHeader
 import androidx.wear.compose.material.Text
 import com.juggling.tracker.wear.logic.Format
@@ -81,7 +82,10 @@ private fun WatchText(
         fontSize = size,
         fontWeight = weight,
         textAlign = TextAlign.Center,
-        maxLines = 2,
+        // Every line on these screens is written to fit on one line of the
+        // smallest round watch; letting it wrap broke words mid-screen.
+        maxLines = 1,
+        softWrap = false,
         modifier = modifier,
     )
 }
@@ -104,13 +108,28 @@ private fun ArrowButton(symbol: String, tag: String, onClick: () -> Unit) {
     ) { Text(symbol, fontSize = 12.sp) }
 }
 
+/**
+ * START/STOP. A pill-shaped chip rather than a round button: a round
+ * CompactButton is 32 dp wide, which broke "Start" and "Confirm" into
+ * fragments across lines.
+ */
 @Composable
 private fun StartButton(label: String, onClick: () -> Unit) {
-    CompactButton(
+    CompactChip(
         onClick = onClick,
-        colors = ButtonDefaults.primaryButtonColors(backgroundColor = WatchColors.Green, contentColor = Color.Black),
+        label = {
+            Text(
+                label,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
+        },
+        colors = ChipDefaults.primaryChipColors(backgroundColor = WatchColors.Green, contentColor = Color.Black),
         modifier = Modifier.testTag(Tags.START),
-    ) { Text(label, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp)) }
+    )
 }
 
 // ── Start-up screens ──────────────────────────────────────────────────
@@ -224,11 +243,12 @@ fun RecordingScreen(state: RecordingUiState, onStart: () -> Unit, onUp: () -> Un
             }
             RecordingPhase.LABELING -> {
                 WatchText(
-                    "Auto-detected ${state.detectedCount}\ncatches, watch hand",
+                    "Auto-detected ${state.detectedCount}",
                     WatchColors.Yellow,
                     11.sp,
                     Modifier.testTag(Tags.REC_STATUS),
                 )
+                WatchText("catches, watch hand", WatchColors.Yellow, 11.sp)
                 WatchText("Actual:", WatchColors.LightGray, 11.sp)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ArrowButton("▼", Tags.DOWN, onDown)
@@ -269,16 +289,16 @@ fun MenuScreen(menu: MenuSpec, onSelect: (String) -> Unit) {
     ) {
         item {
             ListHeader(modifier = Modifier.testTag(Tags.MENU_TITLE)) {
-                Text(menu.title, textAlign = TextAlign.Center, color = WatchColors.White)
+                Text(menu.title, textAlign = TextAlign.Center, color = WatchColors.White, maxLines = 1, softWrap = false)
             }
         }
         items(menu.items) { item ->
             val sub = item.subLabel
             Chip(
                 onClick = { onSelect(item.id) },
-                label = { Text(item.label) },
+                label = { Text(item.label, maxLines = 1, softWrap = false) },
                 secondaryLabel = if (sub != null) {
-                    { Text(sub) }
+                    { Text(sub, maxLines = 1, softWrap = false) }
                 } else {
                     null
                 },

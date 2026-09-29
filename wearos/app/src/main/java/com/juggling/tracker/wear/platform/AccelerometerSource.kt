@@ -8,6 +8,7 @@ import android.os.Handler
 import android.os.Looper
 import com.juggling.tracker.wear.logic.AccelSample
 import com.juggling.tracker.wear.logic.JugglingDetector
+import com.juggling.tracker.wear.logic.SampleThrottle
 
 /**
  * Delivers the accelerometer the way the Garmin sensor API does for the
@@ -26,16 +27,14 @@ class AccelerometerSource(
 
     private val handler = Handler(Looper.getMainLooper())
     private val batch = ArrayList<AccelSample>(BATCH_SIZE)
-    private var lastSampleMs: Long? = null
+    private val throttle = SampleThrottle()
     private var active = false
 
     private val listener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
             if (event.values.size < 3) return
             val timeMs = event.timestamp / 1_000_000L
-            val last = lastSampleMs
-            if (last != null && timeMs - last < JugglingDetector.SAMPLE_PERIOD_MS) return
-            lastSampleMs = timeMs
+            if (!throttle.accept(timeMs)) return
             batch += AccelSample(
                 x = (event.values[0] * MS2_TO_MILLI_G).toInt(),
                 y = (event.values[1] * MS2_TO_MILLI_G).toInt(),
@@ -66,7 +65,7 @@ class AccelerometerSource(
         sensorManager.unregisterListener(listener)
         active = false
         flush()
-        lastSampleMs = null
+        throttle.reset()
     }
 
     private fun flush() {
