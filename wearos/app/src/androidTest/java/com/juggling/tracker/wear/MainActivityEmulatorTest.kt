@@ -1,16 +1,18 @@
 package com.juggling.tracker.wear
 
+import android.os.SystemClock
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.lifecycle.Lifecycle
 import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.juggling.tracker.wear.logic.TrackerSession
 import com.juggling.tracker.wear.ui.Tags
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,8 +48,14 @@ class MainActivityEmulatorTest {
         click(Tags.START)
         click(Tags.START)
         compose.onNodeWithText("End session?").assertExists()
+        // Hold on to the scenario: once the activity is destroyed the rule
+        // can no longer hand it out.
+        val scenario = compose.activityRule.scenario
         click("menu_item_${TrackerSession.ITEM_NOSYNC_QUIT}")
-        compose.waitForIdle()
-        assertTrue(compose.activity.isFinishing)
+        val deadline = SystemClock.elapsedRealtime() + 5_000
+        while (scenario.state != Lifecycle.State.DESTROYED && SystemClock.elapsedRealtime() < deadline) {
+            SystemClock.sleep(50)
+        }
+        assertEquals(Lifecycle.State.DESTROYED, scenario.state)
     }
 }
