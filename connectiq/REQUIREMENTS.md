@@ -204,6 +204,11 @@ press into a no-op — with no way left to end or sync the session.
 vibration counter resets when a run finishes.
 *Verified by:* not automatically tested — needs device hardware.
 
+**JUG-8.** Choosing **Continue** after a failed sync clears the "Sync failed"
+banner, not just the pending-decision flag: nothing is actually failing
+anymore once the user is back to juggling instead of retrying.
+*Verified by:* `test_continuing_after_a_failed_sync_clears_the_error_banner`
+
 ---
 
 ## SENS — sensor lifecycle

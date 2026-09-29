@@ -739,6 +739,28 @@ def test_main_view_transmit_callbacks_check_the_sync_generation():
     )
 
 
+def test_continuing_after_a_failed_sync_clears_the_error_banner():
+    """Picking Continue after a failed sync must dismiss the failure banner.
+
+    onContinueSession() reset the session timer but left _errorMsg set, so
+    the red "Sync failed" banner promptRetryOrQuit() raised kept drawing over
+    the live tracker screen for the rest of the session even though nothing
+    was still failing -- the user had explicitly chosen to keep juggling
+    instead of retrying.
+    """
+    source = _read_source("connectiq", "source", "MainView.mc")
+
+    m = re.search(
+        r"public function onContinueSession\(\) as Void \{(.*?)\n    \}",
+        source, re.DOTALL,
+    )
+    assert m, "onContinueSession() not found in MainView.mc"
+    assert "_errorMsg = null;" in m.group(1), (
+        "onContinueSession() must clear _errorMsg, or a stale 'Sync failed' "
+        "banner keeps showing after the user chooses to keep juggling"
+    )
+
+
 # ── Requirements traceability ──────────────────────────────────────────────
 #
 # connectiq/REQUIREMENTS.md is the written specification of the watch app.
