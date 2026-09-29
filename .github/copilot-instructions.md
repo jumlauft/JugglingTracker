@@ -10,6 +10,7 @@ Two-platform juggling tracker: a Garmin watch app detects catches made by the ha
   - `JugglingDetector.mc` — watch-hand catch detection algorithm.
   - `MainView.mc` — normal tracking UI, sensor listener, sync logic.
   - `RecordingView.mc` — raw accelerometer capture and labeling mode for tuning data.
+- `wearos/` — Wear OS watch app, a Kotlin/Compose port of the Garmin app. Behaviour lives in plain-Kotlin `logic/` (detector, Juggle and Record sessions, navigation) and follows `connectiq/REQUIREMENTS.md`; it talks to the phone over the Wear OS Data Layer with the same payloads as the Garmin app. Keep its `JugglingDetector.kt` in sync with the other detector ports. See `wearos/README.md`.
 - `android/` — Kotlin/Compose Android app.
   - `MainActivity.kt` — Garmin Connect IQ SDK integration, permissions, message routing.
   - `logic/JugglingViewModel.kt` — State management, session import, CSV export.

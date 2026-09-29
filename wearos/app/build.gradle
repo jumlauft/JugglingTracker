@@ -1,0 +1,92 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.plugin.compose'
+}
+
+android {
+    namespace 'com.juggling.tracker.wear'
+    compileSdk 36
+
+    defaultConfig {
+        // The Wear OS Data Layer only delivers messages between apps that share
+        // a package name and signing key, so this must stay equal to the phone
+        // app's applicationId in ../android/app/build.gradle.
+        applicationId "com.juggling.tracker"
+        // Wear OS 3, the first release with the current Compose for Wear stack.
+        minSdk 30
+        targetSdk 36
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    buildFeatures {
+        compose true
+    }
+
+    sourceSets {
+        // The emulator tests replay real recordings through the watch UI.
+        androidTest.assets.srcDirs += ['../../connectiq/data']
+    }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
+        // Robolectric needs the merged resources and manifest for the Compose
+        // UI tests in src/test.
+        unitTests.includeAndroidResources = true
+    }
+}
+
+dependencies {
+    implementation "androidx.core:core-ktx:1.13.1"
+    implementation "androidx.activity:activity-compose:1.9.3"
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.8.7"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
+
+    // Wear OS Data Layer: carries sessions and recordings to the phone app and
+    // the phone's ack back, in place of Garmin's Communications.transmit.
+    implementation "com.google.android.gms:play-services-wearable:19.0.0"
+
+    def composeBom = platform('androidx.compose:compose-bom:2025.02.00')
+    implementation composeBom
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    implementation 'androidx.wear.compose:compose-material:1.4.1'
+    implementation 'androidx.wear.compose:compose-foundation:1.4.1'
+
+    debugImplementation 'androidx.compose.ui:ui-tooling'
+    debugImplementation 'androidx.compose.ui:ui-test-manifest'
+
+    testImplementation 'junit:junit:4.13.2'
+    // The logic layer encodes payloads with org.json, which the JVM test
+    // classpath otherwise only has as Android stubs.
+    testImplementation 'org.json:json:20231013'
+    testImplementation composeBom
+    testImplementation 'androidx.compose.ui:ui-test-junit4'
+    testImplementation 'org.robolectric:robolectric:4.15.1'
+
+    // Instrumented tests, run on a Wear OS emulator by CI (.github/workflows/ci.yml).
+    androidTestImplementation composeBom
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+}

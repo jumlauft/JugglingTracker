@@ -29,11 +29,14 @@ import com.garmin.android.connectiq.ConnectIQ
 import com.garmin.android.connectiq.IQApp
 import com.garmin.android.connectiq.IQDevice
 import com.garmin.android.connectiq.exception.ServiceUnavailableException
+import com.google.android.gms.wearable.MessageClient
+import com.google.android.gms.wearable.Wearable
 import com.juggling.tracker.logic.GarminConnectionStatus
 import com.juggling.tracker.logic.JugglingViewModel
 import com.juggling.tracker.data.SessionRepository
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.data.SettingsManager
+import com.juggling.tracker.data.WearMessageCodec
 import com.juggling.tracker.ui.JugglingTrackerApp
 import com.juggling.tracker.ui.theme.JugglingTrackerTheme
 import com.google.firebase.analytics.FirebaseAnalytics
@@ -127,6 +130,11 @@ class MainActivity : ComponentActivity() {
         }
 
         ensurePermissionsThenInitialize()
+
+        // The Wear OS watch app needs no pairing step here: the Data Layer
+        // delivers to this app as long as it is running, like the Garmin link.
+        Wearable.getMessageClient(this).addListener(wearMessageListener)
+            .addOnFailureListener { e -> Log.w(TAG, "Wear OS Data Layer unavailable", e) }
     }
 
     private fun checkBluetooth(): Boolean {
@@ -375,8 +383,29 @@ class MainActivity : ComponentActivity() {
         handler.removeCallbacks(heartbeatRunnable)
         handler.postDelayed(heartbeatRunnable, HEARTBEAT_TIMEOUT_MS)
 
-        // The watch sends one payload per finished session containing the ball
-        // count, a timestamp, and the watch-hand catch count of every run.
+        handleWatchPayload(payload, fromGarmin = true, sendAck = ::sendAck)
+    }
+
+    // A message from the Wear OS watch app. It carries the same payloads as the
+    // Garmin one, so it goes through the same handler; only the ack travels
+    // back over the Data Layer to the node that sent it.
+    private val wearMessageListener = MessageClient.OnMessageReceivedListener { event ->
+        if (event.path != WearMessageCodec.PATH_WATCH_TO_PHONE) return@OnMessageReceivedListener
+        val payload = WearMessageCodec.decode(event.data) ?: return@OnMessageReceivedListener
+        handleWatchPayload(payload, fromGarmin = false) { timestamp ->
+            sendWearAck(event.sourceNodeId, timestamp)
+        }
+    }
+
+    // Routes one watch payload, from either watch, into the view model. The
+    // watch sends one payload per finished session containing the ball count,
+    // a timestamp, and the watch-hand catch count of every run. The Garmin
+    // connection status is only touched for messages that came over Garmin.
+    private fun handleWatchPayload(
+        payload: Map<*, *>,
+        fromGarmin: Boolean,
+        sendAck: (Long?) -> Unit,
+    ) {
         val type = payload["type"] as? String ?: return
         if (type != "session" && type != "rec_start" &&
             type != "rec_chunk" && type != "rec_end"
@@ -394,7 +423,9 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        viewModel.garminStatus = GarminConnectionStatus.RECEIVING
+        if (fromGarmin) {
+            viewModel.garminStatus = GarminConnectionStatus.RECEIVING
+        }
 
         runOnUiThread {
             when (type) {
@@ -407,11 +438,13 @@ class MainActivity : ComponentActivity() {
             }
 
             // Return to ready after a short delay
-            handler.postDelayed({
-                if (viewModel.garminStatus == GarminConnectionStatus.RECEIVING) {
-                    viewModel.garminStatus = GarminConnectionStatus.READY
-                }
-            }, 1500)
+            if (fromGarmin) {
+                handler.postDelayed({
+                    if (viewModel.garminStatus == GarminConnectionStatus.RECEIVING) {
+                        viewModel.garminStatus = GarminConnectionStatus.READY
+                    }
+                }, 1500)
+            }
         }
 
         // rec_start is not acked; the watch advances on delivery, not on ack.
@@ -419,6 +452,17 @@ class MainActivity : ComponentActivity() {
             val ts = (payload["timestamp"] as? Number)?.toLong()
                 ?: (payload["id"] as? Number)?.toLong()
             sendAck(ts)
+        }
+    }
+
+    private fun sendWearAck(nodeId: String, timestamp: Long?) {
+        try {
+            Wearable.getMessageClient(this)
+                .sendMessage(nodeId, WearMessageCodec.PATH_PHONE_TO_WATCH, WearMessageCodec.encodeAck(timestamp))
+                .addOnFailureListener { e -> Log.e(TAG, "Error sending Wear OS ACK", e) }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending Wear OS ACK", e)
+            CrashlyticsUtils.recordException(e)
         }
     }
 
@@ -524,6 +568,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        Wearable.getMessageClient(this).removeListener(wearMessageListener)
         stopPhoneSensorListener()
         handler.removeCallbacks(heartbeatRunnable)
         if (::connectIQ.isInitialized && iqDevice != null && iqApp != null) {

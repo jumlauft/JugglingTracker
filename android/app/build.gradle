@@ -82,6 +82,9 @@ dependencies {
     // Garmin Connect IQ Mobile SDK for Android, published on Maven Central.
     implementation "com.garmin.connectiq:ciq-companion-app-sdk:2.4.0@aar"
 
+    // Wear OS Data Layer, for the Wear OS watch app in ../wearos.
+    implementation "com.google.android.gms:play-services-wearable:19.0.0"
+
     implementation "androidx.core:core-ktx:1.13.1"
     implementation "androidx.core:core-splashscreen:1.2.0"
     implementation "androidx.appcompat:appcompat:1.7.0"

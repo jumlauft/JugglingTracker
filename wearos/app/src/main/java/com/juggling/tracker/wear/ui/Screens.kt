@@ -1,0 +1,290 @@
+package com.juggling.tracker.wear.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.items
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
+import androidx.wear.compose.material.ButtonDefaults
+import androidx.wear.compose.material.Chip
+import androidx.wear.compose.material.ChipDefaults
+import androidx.wear.compose.material.CompactButton
+import androidx.wear.compose.material.ListHeader
+import androidx.wear.compose.material.Text
+import com.juggling.tracker.wear.logic.Format
+import com.juggling.tracker.wear.logic.MenuSpec
+import com.juggling.tracker.wear.logic.RecordingPhase
+import com.juggling.tracker.wear.logic.RecordingSession
+import com.juggling.tracker.wear.logic.RecordingUiState
+import com.juggling.tracker.wear.logic.TrackerUiState
+
+/** The Garmin palette the watch app draws with. */
+object WatchColors {
+    val Green = Color(0xFF00FF00)
+    val Yellow = Color(0xFFFFFF00)
+    val Red = Color(0xFFFF0000)
+    val LightGray = Color(0xFFAAAAAA)
+    val White = Color.White
+}
+
+/** Test tags, shared by the Robolectric and the emulator tests. */
+object Tags {
+    const val START = "start_button"
+    const val UP = "up_button"
+    const val DOWN = "down_button"
+    const val MODE = "mode_text"
+    const val BALLS = "ball_count"
+    const val RUN_STATE = "run_state"
+    const val COUNT = "current_count"
+    const val PREV = "prev"
+    const val RUNS = "runs"
+    const val AVG = "avg"
+    const val MAX = "max"
+    const val TIME = "time"
+    const val ERROR = "error_banner"
+    const val SYNC = "sync_status"
+    const val MENU_TITLE = "menu_title"
+    const val REC_STATUS = "rec_status"
+    const val LABEL = "label_count"
+
+    fun menuItem(id: String) = "menu_item_$id"
+}
+
+@Composable
+private fun WatchText(
+    text: String,
+    color: Color,
+    size: TextUnit,
+    modifier: Modifier = Modifier,
+    weight: FontWeight = FontWeight.Normal,
+) {
+    Text(
+        text = text,
+        color = color,
+        fontSize = size,
+        fontWeight = weight,
+        textAlign = TextAlign.Center,
+        maxLines = 2,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun CenteredColumn(content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) { content() }
+}
+
+@Composable
+private fun ArrowButton(symbol: String, tag: String, onClick: () -> Unit) {
+    CompactButton(
+        onClick = onClick,
+        colors = ButtonDefaults.secondaryButtonColors(),
+        modifier = Modifier.testTag(tag),
+    ) { Text(symbol, fontSize = 12.sp) }
+}
+
+@Composable
+private fun StartButton(label: String, onClick: () -> Unit) {
+    CompactButton(
+        onClick = onClick,
+        colors = ButtonDefaults.primaryButtonColors(backgroundColor = WatchColors.Green, contentColor = Color.Black),
+        modifier = Modifier.testTag(Tags.START),
+    ) { Text(label, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp)) }
+}
+
+// ── Start-up screens ──────────────────────────────────────────────────
+
+/** `ModeSelectView.mc`: Juggle or Record. */
+@Composable
+fun ModeSelectScreen(isRecordMode: Boolean, onToggle: () -> Unit, onStart: () -> Unit) {
+    CenteredColumn {
+        WatchText("Mode", WatchColors.Green, 14.sp)
+        ArrowButton("▲", Tags.UP, onToggle)
+        WatchText(
+            if (isRecordMode) "Record" else "Juggle",
+            WatchColors.White,
+            24.sp,
+            Modifier.testTag(Tags.MODE),
+            FontWeight.Bold,
+        )
+        WatchText(if (isRecordMode) "Save raw sensor data" else "Track catches live", WatchColors.LightGray, 11.sp)
+        ArrowButton("▼", Tags.DOWN, onToggle)
+        Spacer(Modifier.height(2.dp))
+        StartButton("Start", onStart)
+    }
+}
+
+/** `BallSelectView.mc`: 3 to 9 balls. */
+@Composable
+fun BallSelectScreen(ballCount: Int, onUp: () -> Unit, onDown: () -> Unit, onStart: () -> Unit) {
+    CenteredColumn {
+        WatchText("Balls", WatchColors.Green, 14.sp)
+        ArrowButton("▲", Tags.UP, onUp)
+        WatchText(ballCount.toString(), WatchColors.Green, 40.sp, Modifier.testTag(Tags.BALLS), FontWeight.Bold)
+        ArrowButton("▼", Tags.DOWN, onDown)
+        Spacer(Modifier.height(2.dp))
+        StartButton("Start", onStart)
+    }
+}
+
+// ── Juggle ────────────────────────────────────────────────────────────
+
+/** `MainView.mc`: run state, live count and session stats (JUG-1). */
+@Composable
+fun TrackerScreen(state: TrackerUiState, onStartStop: () -> Unit) {
+    if (state.sending) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            WatchText(Format.syncing(state.syncDots), WatchColors.Yellow, 18.sp, Modifier.testTag(Tags.SYNC))
+        }
+        return
+    }
+    CenteredColumn {
+        WatchText(
+            if (state.runActive) "RUN ACTIVE" else "WAITING",
+            if (state.runActive) WatchColors.Green else WatchColors.Yellow,
+            11.sp,
+            Modifier.testTag(Tags.RUN_STATE),
+        )
+        WatchText("Catches in watch hand", WatchColors.Green, 12.sp)
+        WatchText(
+            state.currentCount.toString(),
+            WatchColors.Green,
+            46.sp,
+            Modifier.testTag(Tags.COUNT),
+            FontWeight.Bold,
+        )
+        StatRow(
+            "Prev: ${Format.countOrDash(state.previousCount)}" to Tags.PREV,
+            "Runs: ${state.runs}" to Tags.RUNS,
+        )
+        StatRow(
+            "Avg: ${Format.averageOrDash(state.average)}" to Tags.AVG,
+            "Max: ${Format.countOrDash(state.max)}" to Tags.MAX,
+        )
+        WatchText("Time: ${Format.elapsed(state.elapsedSeconds)}", WatchColors.LightGray, 11.sp, Modifier.testTag(Tags.TIME))
+        state.errorMessage?.let {
+            WatchText(it, WatchColors.Red, 11.sp, Modifier.testTag(Tags.ERROR))
+        }
+        Spacer(Modifier.height(2.dp))
+        StartButton("End", onStartStop)
+    }
+}
+
+@Composable
+private fun StatRow(left: Pair<String, String>, right: Pair<String, String>) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+        WatchText(left.first, WatchColors.LightGray, 11.sp, Modifier.testTag(left.second))
+        WatchText(right.first, WatchColors.LightGray, 11.sp, Modifier.testTag(right.second))
+    }
+}
+
+// ── Record ────────────────────────────────────────────────────────────
+
+/** `RecordingView.mc`: idle, recording, labelling and syncing. */
+@Composable
+fun RecordingScreen(state: RecordingUiState, onStart: () -> Unit, onUp: () -> Unit, onDown: () -> Unit) {
+    CenteredColumn {
+        when (state.phase) {
+            RecordingPhase.IDLE -> {
+                WatchText("Ready to record", WatchColors.Yellow, 13.sp, Modifier.testTag(Tags.REC_STATUS))
+                WatchText("Press Start", WatchColors.Green, 20.sp)
+                if (state.runsCompleted > 0) {
+                    WatchText("Runs: ${state.runsCompleted}", WatchColors.LightGray, 11.sp)
+                }
+                Spacer(Modifier.height(4.dp))
+                StartButton("Start", onStart)
+            }
+            RecordingPhase.RECORDING -> {
+                WatchText("● REC", WatchColors.Red, 13.sp, Modifier.testTag(Tags.REC_STATUS))
+                WatchText("${state.recordedSamples / RecordingSession.SAMPLE_RATE}s", WatchColors.White, 24.sp)
+                WatchText("Start stops | Hand: ${state.liveCount}", WatchColors.LightGray, 11.sp)
+                Spacer(Modifier.height(4.dp))
+                StartButton("Stop", onStart)
+            }
+            RecordingPhase.LABELING -> {
+                WatchText(
+                    "Auto-detected ${state.detectedCount}\ncatches, watch hand",
+                    WatchColors.Yellow,
+                    11.sp,
+                    Modifier.testTag(Tags.REC_STATUS),
+                )
+                WatchText("Actual:", WatchColors.LightGray, 11.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ArrowButton("▼", Tags.DOWN, onDown)
+                    WatchText(
+                        state.labelCount.toString(),
+                        WatchColors.Green,
+                        30.sp,
+                        Modifier.padding(horizontal = 8.dp).testTag(Tags.LABEL),
+                        FontWeight.Bold,
+                    )
+                    ArrowButton("▲", Tags.UP, onUp)
+                }
+                WatchText("Swipe back = discard", WatchColors.LightGray, 10.sp)
+                StartButton("Confirm", onStart)
+            }
+            RecordingPhase.SYNCING -> {
+                WatchText(Format.recordingSyncText(state), WatchColors.Yellow, 18.sp, Modifier.testTag(Tags.SYNC))
+                state.errorMessage?.let { WatchText(it, WatchColors.Red, 11.sp, Modifier.testTag(Tags.ERROR)) }
+                if (state.errorMessage != null) {
+                    state.failReason?.let { WatchText(it, WatchColors.Red, 11.sp) }
+                    WatchText(if (state.dataPending) "data: pending" else "data: sent", WatchColors.Red, 11.sp)
+                }
+            }
+        }
+    }
+}
+
+// ── Menus ─────────────────────────────────────────────────────────────
+
+/** A Garmin `Menu2`: a title and a short list of choices. */
+@Composable
+fun MenuScreen(menu: MenuSpec, onSelect: (String) -> Unit) {
+    val listState = rememberScalingLazyListState(initialCenterItemIndex = 0)
+    ScalingLazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        item {
+            ListHeader(modifier = Modifier.testTag(Tags.MENU_TITLE)) {
+                Text(menu.title, textAlign = TextAlign.Center, color = WatchColors.White)
+            }
+        }
+        items(menu.items) { item ->
+            val sub = item.subLabel
+            Chip(
+                onClick = { onSelect(item.id) },
+                label = { Text(item.label) },
+                secondaryLabel = if (sub != null) {
+                    { Text(sub) }
+                } else {
+                    null
+                },
+                colors = ChipDefaults.secondaryChipColors(),
+                modifier = Modifier.fillMaxWidth().testTag(Tags.menuItem(item.id)),
+            )
+        }
+    }
+}
