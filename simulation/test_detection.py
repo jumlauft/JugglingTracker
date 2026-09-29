@@ -580,6 +580,36 @@ def test_menus_over_main_view_clear_the_pending_decision_flag_on_back():
         assert handler in back.group(1), f"{cls}.onBack must call _view.{handler}"
 
 
+def test_menus_over_recording_view_clear_the_pending_decision_flag_on_back():
+    """Backing out of a menu must not wedge RecordingView's _awaitingDecision.
+
+    Menu2InputDelegate's default onBack pops the menu without telling the
+    view. After a failed sync that left the view in STATE_SYNCING with its
+    timers stopped and _awaitingDecision set: BACK and START are both
+    ignored while syncing, so the Retry/Skip/Quit menu could never reopen.
+    Every menu pushed over RecordingView must override onBack and route it
+    to the choice that keeps the run.
+    """
+    source = _read_source("connectiq", "source", "RecordingView.mc")
+
+    for cls, handler in (
+        ("RecordingSyncDelegate", "onSyncRetry()"),
+        ("RecordingQuitDelegate", "onQuitCancelled()"),
+        ("RecordingDiscardDelegate", "onDiscardCancelled()"),
+    ):
+        m = re.search(
+            r"class %s extends WatchUi\.Menu2InputDelegate \{(.*?)\n\}" % cls,
+            source, re.DOTALL,
+        )
+        assert m, f"{cls} not found in RecordingView.mc"
+        body = m.group(1)
+        back = re.search(r"public function onBack\(\) as Void \{(.*?)\n    \}", body, re.DOTALL)
+        assert back, f"{cls} must override onBack()"
+        # Overriding replaces the default pop, so it has to pop itself.
+        assert "WatchUi.popView" in back.group(1), f"{cls}.onBack must pop the menu itself"
+        assert handler in back.group(1), f"{cls}.onBack must call _view.{handler}"
+
+
 def test_short_runs_are_ignored_as_false_starts():
     """A run under MIN_RUN_CATCHES catches must never reach session stats.
 
