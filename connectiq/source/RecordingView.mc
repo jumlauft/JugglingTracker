@@ -728,7 +728,7 @@ class RecordingView extends WatchUi.View {
         y += medH;
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y, Graphics.FONT_XTINY, "Start stops", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, y, Graphics.FONT_XTINY, "Press Start when finished", Graphics.TEXT_JUSTIFY_CENTER);
         y += hintH;
         dc.drawText(cx, y, Graphics.FONT_XTINY,
             "Catches per hand: " + _detector.currentCount, Graphics.TEXT_JUSTIFY_CENTER);
