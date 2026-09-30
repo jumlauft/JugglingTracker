@@ -1027,5 +1027,5 @@ def test_watch_shows_and_transfers_shape_consistency():
     assert "_shape.commitRun();" in detector
     assert "_shape.clearRun();" in detector
     assert "_shape.discardLastRun();" in detector
-    assert 'Lang.format("Shape: $1$", [shapeStr])' in main_view
+    assert 'Lang.format("Regularity: $1$", [shapeStr])' in main_view
     assert 'payload["shapeConsistency"] = shape;' in main_view

@@ -193,8 +193,8 @@ until a window counts. False starts contribute nothing.
 session score; discarding the run in progress drops its pending windows.
 *Verified by:* `shape3_discardRemovesTheRunsScore`, `test_shape_discard_removes_the_runs_score`
 
-**SHAPE-4.** The Juggle screen shows it below Time as `Shape: 83%`, or
-`Shape: -` before any score, and the session transfer carries it (SYNC-1).
+**SHAPE-4.** The Juggle screen shows it below Time as `Regularity: 83%`, or
+`Regularity: -` before any score, and the phone lists it as Regularity, and the session transfer carries it (SYNC-1).
 On four labelled 3-ball runs in `../simulation/regularity_data` it scores the
 two regular runs 90 and 86 and the two messy runs 51 and 55.
 *Verified by:* `test_watch_shows_and_transfers_shape_consistency`, `test_shape_separates_regular_from_messy_juggling`
@@ -204,8 +204,9 @@ two regular runs 90 and 86 and the two messy runs 51 and 55.
 ## JUG — Juggle mode screen
 
 **JUG-1.** The screen shows: run state (**RUN ACTIVE** green / **WAITING**
-yellow), the live watch-hand count, and then Prev, Runs, Avg, Max, elapsed
-session time and the session's shape consistency (SHAPE-4). A failed transfer
+yellow), the live watch-hand count with **Catches per hand** below it, and
+then Prev, Runs, Avg, Max, elapsed session time and the session's shape
+consistency as **Regularity** (SHAPE-4). A failed transfer
 adds a red banner.
 *Verified by:* `test_main_view_displays_run_state`, `test_main_view_displays_and_transfers_session_duration`, `test_watch_shows_and_transfers_shape_consistency`
 

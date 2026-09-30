@@ -59,7 +59,7 @@ object Tags {
     const val AVG = "avg"
     const val MAX = "max"
     const val TIME = "time"
-    const val SHAPE = "shape"
+    const val REGULARITY = "regularity"
     const val ERROR = "error_banner"
     const val SYNC = "sync_status"
     const val MENU_TITLE = "menu_title"
@@ -210,7 +210,6 @@ fun TrackerScreen(state: TrackerUiState, onStartStop: () -> Unit) {
             11.sp,
             Modifier.testTag(Tags.RUN_STATE),
         )
-        WatchText("Catches in watch hand", WatchColors.Green, 12.sp)
         WatchText(
             state.currentCount.toString(),
             WatchColors.Green,
@@ -218,6 +217,7 @@ fun TrackerScreen(state: TrackerUiState, onStartStop: () -> Unit) {
             Modifier.testTag(Tags.COUNT),
             FontWeight.Bold,
         )
+        WatchText("Catches per hand", WatchColors.LightGray, 12.sp)
         StatRow(
             "Prev: ${Format.countOrDash(state.previousCount)}" to Tags.PREV,
             "Runs: ${state.runs}" to Tags.RUNS,
@@ -227,7 +227,7 @@ fun TrackerScreen(state: TrackerUiState, onStartStop: () -> Unit) {
             "Max: ${Format.countOrDash(state.max)}" to Tags.MAX,
         )
         WatchText("Time: ${Format.elapsed(state.elapsedSeconds)}", WatchColors.LightGray, 11.sp, Modifier.testTag(Tags.TIME))
-        WatchText("Shape: ${Format.percentOrDash(state.shapeConsistency)}", WatchColors.LightGray, 11.sp, Modifier.testTag(Tags.SHAPE))
+        WatchText("Regularity: ${Format.percentOrDash(state.shapeConsistency)}", WatchColors.LightGray, 11.sp, Modifier.testTag(Tags.REGULARITY))
         state.errorMessage?.let {
             WatchText(it, WatchColors.Red, 11.sp, Modifier.testTag(Tags.ERROR))
         }

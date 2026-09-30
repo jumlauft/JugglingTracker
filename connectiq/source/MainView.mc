@@ -137,7 +137,7 @@ class MainView extends WatchUi.View {
         var statsH = dc.getFontHeight(Graphics.FONT_XTINY);
         var statusH = dc.getFontHeight(Graphics.FONT_XTINY);
 
-        // Layout: run state, top section (label + big number), then stats below.
+        // Layout: run state, big number with its label below, then stats.
         var blockH = statusH + labelH + numberH + statsH * 4;
         var y = cy - blockH / 2;
 
@@ -147,17 +147,18 @@ class MainView extends WatchUi.View {
         dc.drawText(cx, y, Graphics.FONT_XTINY, statusText, Graphics.TEXT_JUSTIFY_CENTER);
         y += statusH;
 
-        // Count label, just above the big number (no large gap).
-        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y, Graphics.FONT_TINY, "Catches in watch hand", Graphics.TEXT_JUSTIFY_CENTER);
-        y += labelH;
-
         // Current run count, large, centered.
+        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, y, Graphics.FONT_NUMBER_THAI_HOT, _detector.currentCount.toString(), Graphics.TEXT_JUSTIFY_CENTER);
         y += numberH;
 
-        // Two columns of stats below the big number.
+        // Its label goes just below, in the same colour as the stats. The
+        // watch sees one hand, so the count is catches per hand.
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_TINY, "Catches per hand", Graphics.TEXT_JUSTIFY_CENTER);
+        y += labelH;
+
+        // Two columns of stats below the label.
         
         // Row 1: Prev (left) | Runs (right)
         var prevStr = _detector.previousCount == 0 ? "-" : _detector.previousCount.toString();
@@ -177,10 +178,11 @@ class MainView extends WatchUi.View {
         dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Time: $1$", [elapsedStr]), Graphics.TEXT_JUSTIFY_CENTER);
         y += statsH;
 
-        // Session shape consistency: how alike each hand cycle is to the last.
+        // Regularity: the session's shape consistency, how alike each hand
+        // cycle is to the last.
         var shape = _detector.shapeConsistencyPercent();
         var shapeStr = shape < 0 ? "-" : shape.toString() + "%";
-        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Shape: $1$", [shapeStr]), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Regularity: $1$", [shapeStr]), Graphics.TEXT_JUSTIFY_CENTER);
 
         // Error banner at the bottom if a transfer failed.
         if (_errorMsg != null) {
