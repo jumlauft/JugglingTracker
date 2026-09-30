@@ -812,6 +812,47 @@ def test_recording_view_swallows_back_while_syncing():
     )
 
 
+def test_back_steps_back_through_the_selection_screens():
+    """BACK walks back record screen -> ball selection -> mode screen.
+
+    Before, BACK on ball selection fell through to the system and closed the
+    app, and BACK on the idle record screen offered "Quit app?". Now ball
+    selection steps back to the mode screen (APP-5) when that is where the
+    user came from, and the idle record screen steps back to ball selection
+    (REC-11) after releasing the sensor, its timers and the phone listener.
+    Recording, labelling and syncing keep their own BACK handling.
+    """
+    ball = _read_source("connectiq", "source", "BallSelectView.mc")
+    m = re.search(r"public function onBack\(\) as Boolean \{(.*?)\n    \}", ball, re.DOTALL)
+    assert m, "BallSelectDelegate must handle onBack()"
+    body = m.group(1)
+    assert "_view.backToModeSelect" in body
+    assert "return false;" in body, "without a mode screen behind it, BACK closes the app"
+    assert "new ModeSelectView()" in body and "isRecordMode" in body, (
+        "BACK must reopen the mode screen with the chosen mode kept"
+    )
+
+    mode = _read_source("connectiq", "source", "ModeSelectView.mc")
+    assert "ballView.backToModeSelect = true;" in mode
+
+    rec = _read_source("connectiq", "source", "RecordingView.mc")
+    m = re.search(r"public function handleBackButton\(\) as Boolean \{(.*?)\n    \}", rec, re.DOTALL)
+    assert m, "handleBackButton() not found in RecordingView.mc"
+    m = re.search(r"if \(_state == STATE_IDLE\) \{(.*?)\n        \}", m.group(1), re.DOTALL)
+    assert m, "handleBackButton() must special-case STATE_IDLE"
+    assert "returnToBallSelect();" in m.group(1)
+
+    m = re.search(r"public function returnToBallSelect\(\) as Void \{(.*?)\n    \}", rec, re.DOTALL)
+    assert m, "returnToBallSelect() not found in RecordingView.mc"
+    body = m.group(1)
+    for call in ("stopSensor();", "cancelSyncTimer();", "cancelStatusTimer();",
+                 "cancelNextPartTimer();", "registerForPhoneAppMessages(null)",
+                 "new BallSelectView(:record)", "ballView.ballCount = _ballCount;",
+                 "ballView.backToModeSelect = true;"):
+        assert call in body, f"returnToBallSelect() must include {call}"
+    assert '"Quit app?"' not in rec, "the idle screen no longer offers to quit"
+
+
 def test_continuing_after_a_failed_sync_clears_the_error_banner():
     """Picking Continue after a failed sync must dismiss the failure banner.
 

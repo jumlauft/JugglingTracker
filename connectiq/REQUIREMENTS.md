@@ -50,6 +50,13 @@ earlier — `MainView` for Juggle, `RecordingView` for Record — carrying the
 selected ball count.
 *Verified by:* `app4_ballSelectionRemembersTheChosenMode`
 
+**APP-5.** BACK steps back one screen instead of closing the app. On ball
+selection it returns to the mode screen, with the mode chosen there still
+selected. Only BACK on the first screen closes the app: the mode screen, or
+ball selection when `ENABLE_RECORDING_MODE` is `false` and the app starts
+there.
+*Verified by:* `app5_ballSelectionStepsBackOnlyWhenReachedFromModeSelect`, `test_back_steps_back_through_the_selection_screens`
+
 ---
 
 ## DET — catch detection
@@ -262,8 +269,9 @@ current by then — aborting a retry that might otherwise have been succeeding.
 
 **REC-1.** Record mode cycles `IDLE → RECORDING → LABELING → SYNCING → IDLE`.
 START drives every transition: it starts a run, stops it, and confirms the
-label. BACK offers to discard while labelling, and to quit elsewhere; during
-syncing it is ignored.
+label. BACK returns to ball selection while idle (REC-11), offers to discard
+while labelling, and offers to quit while recording; during syncing it is
+ignored.
 *Verified by:* not automatically tested — needs a device context.
 
 **REC-2.** A run stops automatically at **3000 samples (120 s)**, or earlier if
@@ -320,6 +328,12 @@ the view, which left the flag set and, after a failed sync, left the view
 stuck in `SYNCING` with BACK and START both ignored and no way to reopen the
 menu.
 *Verified by:* `test_menus_over_recording_view_clear_the_pending_decision_flag_on_back`
+
+**REC-11.** BACK on the idle *Press Start* screen goes straight back to ball
+selection, keeping Record mode and the ball count, with no quit prompt. Every
+earlier run has already synced or been skipped by then, so nothing is lost.
+The sensor, the timers and the phone-message listener are released first.
+*Verified by:* `test_back_steps_back_through_the_selection_screens`
 
 ---
 
