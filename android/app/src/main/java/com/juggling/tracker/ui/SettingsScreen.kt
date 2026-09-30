@@ -56,14 +56,15 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
         }
     }
 
-    // The export waiting on the juggler's name and watch hand, asked for first.
+    // The export waiting on the juggler's name, watch hand and first-throw hand, asked for first.
     var pendingExport by remember { mutableStateOf<(() -> Unit)?>(null) }
     pendingExport?.let { export ->
         ExportDetailsDialog(
             initialName = viewModel.jugglerName,
             initialHand = viewModel.watchHand,
-            onConfirm = { name, hand ->
-                viewModel.setExportDetails(name, hand)
+            initialFirstThrow = viewModel.firstThrowHand,
+            onConfirm = { name, hand, firstThrow ->
+                viewModel.setExportDetails(name, hand, firstThrow)
                 pendingExport = null
                 export()
             },
@@ -192,20 +193,23 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
 }
 
 /**
- * Asks who juggled and which wrist wore the watch before recordings are
- * exported, prefilled with the previous answers. Both go into every exported
- * CSV header.
+ * Asks who juggled, which wrist wore the watch and which hand made the first
+ * throw before recordings are exported, prefilled with the previous answers.
+ * All three go into every exported CSV header.
  */
 @Composable
 private fun ExportDetailsDialog(
     initialName: String,
     initialHand: String?,
-    onConfirm: (name: String, hand: String) -> Unit,
+    initialFirstThrow: String?,
+    onConfirm: (name: String, hand: String, firstThrow: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var name by remember { mutableStateOf(initialName) }
     var hand by remember { mutableStateOf(initialHand) }
+    var firstThrow by remember { mutableStateOf(initialFirstThrow) }
     val selectedHand = hand
+    val selectedFirstThrow = firstThrow
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.dialog_export_details_title)) },
@@ -218,28 +222,18 @@ private fun ExportDetailsDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Text(
-                    text = stringResource(R.string.label_watch_hand),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(
-                        RecordingRepository.HAND_LEFT to stringResource(R.string.watch_hand_left),
-                        RecordingRepository.HAND_RIGHT to stringResource(R.string.watch_hand_right),
-                    ).forEach { (value, label) ->
-                        FilterChip(
-                            selected = hand == value,
-                            onClick = { hand = value },
-                            label = { Text(label) },
-                        )
-                    }
-                }
+                HandChoice(stringResource(R.string.label_watch_hand), hand) { hand = it }
+                HandChoice(stringResource(R.string.label_first_throw_hand), firstThrow) { firstThrow = it }
             }
         },
         confirmButton = {
             Button(
-                onClick = { if (selectedHand != null) onConfirm(name.trim(), selectedHand) },
-                enabled = name.isNotBlank() && selectedHand != null,
+                onClick = {
+                    if (selectedHand != null && selectedFirstThrow != null) {
+                        onConfirm(name.trim(), selectedHand, selectedFirstThrow)
+                    }
+                },
+                enabled = name.isNotBlank() && selectedHand != null && selectedFirstThrow != null,
             ) {
                 Text(stringResource(R.string.action_continue_export))
             }
@@ -250,6 +244,26 @@ private fun ExportDetailsDialog(
             }
         },
     )
+}
+
+/** A question answered with Left or Right. */
+@Composable
+private fun HandChoice(question: String, selected: String?, onSelect: (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(text = question, style = MaterialTheme.typography.bodyMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(
+                RecordingRepository.HAND_LEFT to stringResource(R.string.watch_hand_left),
+                RecordingRepository.HAND_RIGHT to stringResource(R.string.watch_hand_right),
+            ).forEach { (value, label) ->
+                FilterChip(
+                    selected = selected == value,
+                    onClick = { onSelect(value) },
+                    label = { Text(label) },
+                )
+            }
+        }
+    }
 }
 
 @Composable

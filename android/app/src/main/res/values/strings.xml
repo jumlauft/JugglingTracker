@@ -23,6 +23,7 @@
     <string name="dialog_export_details_title">Who is juggling?</string>
     <string name="label_juggler_name">Your name</string>
     <string name="label_watch_hand">Which wrist was the watch on?</string>
+    <string name="label_first_throw_hand">Which hand made the first throw?</string>
     <string name="watch_hand_left">Left</string>
     <string name="watch_hand_right">Right</string>
     <string name="action_continue_export">Continue</string>

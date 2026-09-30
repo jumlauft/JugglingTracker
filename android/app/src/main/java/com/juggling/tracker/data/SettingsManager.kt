@@ -27,10 +27,19 @@ class SettingsManager(context: Context) {
     var watchHand: String? by mutableStateOf(prefs.getString(KEY_WATCH_HAND, null))
         private set
 
-    fun updateExportDetails(name: String, hand: String) {
+    /** The hand that made the first throw, as last picked when exporting; null until then. */
+    var firstThrowHand: String? by mutableStateOf(prefs.getString(KEY_FIRST_THROW, null))
+        private set
+
+    fun updateExportDetails(name: String, hand: String, firstThrow: String) {
         jugglerName = name
         watchHand = hand
-        prefs.edit().putString(KEY_JUGGLER_NAME, name).putString(KEY_WATCH_HAND, hand).apply()
+        firstThrowHand = firstThrow
+        prefs.edit()
+            .putString(KEY_JUGGLER_NAME, name)
+            .putString(KEY_WATCH_HAND, hand)
+            .putString(KEY_FIRST_THROW, firstThrow)
+            .apply()
     }
 
     fun updateAnalyticsEnabled(enabled: Boolean) {
@@ -54,5 +63,6 @@ class SettingsManager(context: Context) {
         private const val KEY_VOICE_INTERVAL = "voice_interval"
         private const val KEY_JUGGLER_NAME = "juggler_name"
         private const val KEY_WATCH_HAND = "watch_hand"
+        private const val KEY_FIRST_THROW = "first_throw_hand"
     }
 }

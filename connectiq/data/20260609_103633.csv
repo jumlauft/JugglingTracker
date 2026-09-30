@@ -1,4 +1,4 @@
-# run=20260609_103633,timestamp=1780994193,balls=4,catches=4,sampleRate=25,units=milli_g,source=watch,countMode=watch_hand,detectedAtCapture=10,juggler=Jonas Umlauft,hand=left
+# run=20260609_103633,timestamp=1780994193,balls=4,catches=4,sampleRate=25,units=milli_g,source=watch,countMode=watch_hand,detectedAtCapture=10,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 348,-244,-728
 628,1640,92

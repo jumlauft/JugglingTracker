@@ -77,10 +77,11 @@ class JugglingViewModel(
     val voiceInterval get() = settings?.voiceInterval ?: 10
     val jugglerName get() = settings?.jugglerName ?: ""
     val watchHand get() = settings?.watchHand
+    val firstThrowHand get() = settings?.firstThrowHand
 
-    /** Remember who juggled and the watch wrist; the next export writes them. */
-    fun setExportDetails(name: String, hand: String) {
-        settings?.updateExportDetails(name.trim(), hand)
+    /** Remember who juggled, the watch wrist and the first-throw hand; the next export writes them. */
+    fun setExportDetails(name: String, hand: String, firstThrow: String) {
+        settings?.updateExportDetails(name.trim(), hand, firstThrow)
     }
 
     fun toggleAnalytics(enabled: Boolean) {
@@ -368,13 +369,14 @@ class JugglingViewModel(
 
     /**
      * Zip of all stored recordings for export, each header tagged with the
-     * juggler and watch hand from [setExportDetails].
+     * juggler, watch hand and first-throw hand from [setExportDetails].
      */
     fun writeRecordingsZip(out: java.io.OutputStream) {
         recordingRepository?.exportAllZip(
             out,
             juggler = jugglerName,
             hand = watchHand ?: RecordingRepository.HAND_LEFT,
+            firstThrow = firstThrowHand ?: RecordingRepository.HAND_RIGHT,
         )
     }
 

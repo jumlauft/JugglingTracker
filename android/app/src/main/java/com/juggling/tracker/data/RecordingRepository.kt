@@ -28,8 +28,8 @@ import java.util.zip.ZipOutputStream
  * hand wearing the watch, not both-hands totals. All sample values are raw
  * milli-g integers as reported by the watch sensor.
  * Call [exportAllZip] to produce a zip of every run for analysis. The export
- * adds who juggled and which wrist wore the watch to each header, as
- * juggler=<name>,hand=left|right.
+ * adds who juggled, which wrist wore the watch and which hand made the first
+ * throw to each header, as juggler=<name>,hand=left|right,firstThrow=left|right.
  */
 class RecordingRepository(private val recordingsDir: File) {
     companion object {
@@ -39,6 +39,7 @@ class RecordingRepository(private val recordingsDir: File) {
         const val SOURCE_PHONE = "phone"
         const val HAND_LEFT = "left"
         const val HAND_RIGHT = "right"
+        private val EXPORT_KEYS = setOf("juggler", "hand", "firstThrow")
 
         /**
          * The juggler's name as a header value: the characters that separate
@@ -48,17 +49,19 @@ class RecordingRepository(private val recordingsDir: File) {
             name.replace(Regex("[,=#\\r\\n]"), " ").replace(Regex("\\s+"), " ").trim()
 
         /**
-         * [header] with juggler and hand set, replacing any values it already
-         * carries so a re-export under another name does not leave both.
+         * [header] with juggler, hand and firstThrow set, replacing any values
+         * it already carries so a re-export under another name does not leave
+         * both.
          */
-        fun withJuggler(header: String, juggler: String, hand: String): String {
+        fun withJuggler(header: String, juggler: String, hand: String, firstThrow: String): String {
             val kept = header.removePrefix("#").trim()
                 .split(",")
                 .filter { part ->
                     val key = part.substringBefore("=").trim()
-                    part.isNotBlank() && key != "juggler" && key != "hand"
+                    part.isNotBlank() && key !in EXPORT_KEYS
                 }
-            return "# " + (kept + "juggler=${headerSafe(juggler)}" + "hand=$hand").joinToString(",")
+            return "# " + (kept + "juggler=${headerSafe(juggler)}" + "hand=$hand" + "firstThrow=$firstThrow")
+                .joinToString(",")
         }
     }
 
@@ -201,17 +204,17 @@ class RecordingRepository(private val recordingsDir: File) {
 
     /**
      * Read one recording, keeping only the x,y,z columns and tagging its header
-     * with [juggler] and [hand]. Runs captured during the abandoned gyroscope
+     * with [juggler], [hand] and [firstThrow]. Runs captured during the abandoned gyroscope
      * experiment carry three further columns that the watch only ever filled
      * with zeros, and they have to be dropped so every exported run matches
      * the three-column corpus format.
      */
-    private fun normalizedCsv(file: File, juggler: String, hand: String): String {
+    private fun normalizedCsv(file: File, juggler: String, hand: String, firstThrow: String): String {
         val sb = StringBuilder()
         file.forEachLine { line ->
             if (line.isBlank()) return@forEachLine
             val kept = if (line.startsWith("#")) {
-                withJuggler(line, juggler, hand)
+                withJuggler(line, juggler, hand, firstThrow)
             } else {
                 line.split(",").take(3).joinToString(",")
             }
@@ -223,14 +226,14 @@ class RecordingRepository(private val recordingsDir: File) {
     /**
      * Write every stored recording to [out] as a zip holding one CSV per run,
      * named and formatted to drop straight into connectiq/data. [juggler] is
-     * who juggled and [hand] which wrist wore the watch, [HAND_LEFT] or
-     * [HAND_RIGHT].
+     * who juggled, [hand] which wrist wore the watch and [firstThrow] which
+     * hand threw first, each [HAND_LEFT] or [HAND_RIGHT].
      */
-    fun exportAllZip(out: OutputStream, juggler: String, hand: String) {
+    fun exportAllZip(out: OutputStream, juggler: String, hand: String, firstThrow: String) {
         ZipOutputStream(out.buffered()).use { zip ->
             csvFiles().forEach { file ->
                 zip.putNextEntry(ZipEntry(file.name))
-                zip.write(normalizedCsv(file, juggler, hand).toByteArray())
+                zip.write(normalizedCsv(file, juggler, hand, firstThrow).toByteArray())
                 zip.closeEntry()
             }
         }

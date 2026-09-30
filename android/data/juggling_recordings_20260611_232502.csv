@@ -1,4 +1,4 @@
-# balls=3,catches=23,detected=19,sampleRate=200,timestamp=1781212397,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
+# balls=3,catches=23,detected=19,sampleRate=200,timestamp=1781212397,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 464,303,839
 462,305,842
@@ -5464,7 +5464,7 @@ x,y,z
 325,265,796
 325,275,793
 321,277,804
-# balls=3,catches=20,detected=14,sampleRate=200,timestamp=1781212463,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
+# balls=3,catches=20,detected=14,sampleRate=200,timestamp=1781212463,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 364,176,909
 354,178,909
@@ -9878,7 +9878,7 @@ x,y,z
 341,270,911
 343,267,905
 349,273,895
-# balls=5,catches=18,detected=10,sampleRate=200,timestamp=1781212501,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
+# balls=5,catches=18,detected=10,sampleRate=200,timestamp=1781212501,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 536,107,848
 531,111,849
@@ -14277,7 +14277,7 @@ x,y,z
 295,421,839
 297,417,829
 292,415,825
-# balls=5,catches=4,detected=0,sampleRate=200,timestamp=1781212526,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
+# balls=5,catches=4,detected=0,sampleRate=200,timestamp=1781212526,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 414,343,827
 410,348,826
@@ -15668,7 +15668,7 @@ x,y,z
 352,464,789
 356,474,776
 356,476,772
-# balls=5,catches=12,detected=0,sampleRate=200,timestamp=1781212543,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
+# balls=5,catches=12,detected=0,sampleRate=200,timestamp=1781212543,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 407,394,811
 404,400,813
@@ -16624,7 +16624,7 @@ x,y,z
 163,495,795
 167,487,777
 181,493,763
-# balls=5,catches=7,detected=2,sampleRate=200,timestamp=1781212566,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
+# balls=5,catches=7,detected=2,sampleRate=200,timestamp=1781212566,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 286,424,855
 284,426,864
@@ -18018,7 +18018,7 @@ x,y,z
 209,535,805
 215,518,802
 224,517,798
-# balls=5,catches=9,detected=1,sampleRate=200,timestamp=1781212584,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
+# balls=5,catches=9,detected=1,sampleRate=200,timestamp=1781212584,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 397,487,807
 385,490,810
@@ -19113,7 +19113,7 @@ x,y,z
 252,539,827
 250,521,822
 256,515,813
-# balls=5,catches=9,detected=5,sampleRate=200,timestamp=1781212608,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
+# balls=5,catches=9,detected=5,sampleRate=200,timestamp=1781212608,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 598,419,650
 589,419,652
@@ -21586,7 +21586,7 @@ x,y,z
 191,48,1016
 190,71,1010
 179,88,1000
-# balls=5,catches=16,detected=9,sampleRate=200,timestamp=1781212629,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
+# balls=5,catches=16,detected=9,sampleRate=200,timestamp=1781212629,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 539,488,663
 538,485,670
@@ -24673,7 +24673,7 @@ x,y,z
 170,426,909
 149,426,890
 144,421,870
-# balls=5,catches=12,detected=7,sampleRate=200,timestamp=1781212653,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
+# balls=5,catches=12,detected=7,sampleRate=200,timestamp=1781212653,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 358,603,717
 350,603,722
@@ -27162,7 +27162,7 @@ x,y,z
 426,379,824
 424,372,822
 420,372,820
-# balls=5,catches=9,detected=6,sampleRate=200,timestamp=1781212669,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
+# balls=5,catches=9,detected=6,sampleRate=200,timestamp=1781212669,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 484,312,814
 480,306,813
@@ -29612,7 +29612,7 @@ x,y,z
 219,596,818
 216,589,819
 211,566,815
-# balls=5,catches=10,detected=0,sampleRate=200,timestamp=1781212691,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
+# balls=5,catches=10,detected=0,sampleRate=200,timestamp=1781212691,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 399,519,731
 397,523,731
@@ -32377,7 +32377,7 @@ x,y,z
 192,442,1032
 144,426,1020
 109,393,987
-# balls=4,catches=23,detected=19,sampleRate=200,timestamp=1781212815,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
+# balls=4,catches=23,detected=19,sampleRate=200,timestamp=1781212815,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 422,239,887
 398,240,883
@@ -37061,7 +37061,7 @@ x,y,z
 165,281,927
 163,258,915
 169,253,912
-# balls=4,catches=51,detected=41,sampleRate=200,timestamp=1781212958,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
+# balls=4,catches=51,detected=41,sampleRate=200,timestamp=1781212958,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 396,224,901
 389,231,902
@@ -46011,7 +46011,7 @@ x,y,z
 337,452,882
 351,422,867
 365,399,855
-# balls=4,catches=32,detected=21,sampleRate=200,timestamp=1781213005,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
+# balls=4,catches=32,detected=21,sampleRate=200,timestamp=1781213005,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 390,356,827
 384,358,826
@@ -50821,7 +50821,7 @@ x,y,z
 343,436,862
 343,436,859
 352,436,851
-# balls=5,catches=39,detected=0,sampleRate=200,timestamp=1781213069,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
+# balls=5,catches=39,detected=0,sampleRate=200,timestamp=1781213069,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 652,245,717
 647,246,715
