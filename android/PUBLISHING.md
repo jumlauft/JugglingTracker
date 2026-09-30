@@ -112,6 +112,27 @@ Add these under *Settings → Secrets and variables → Actions*:
 | `ANDROID_KEY_PASSWORD` | Key password. |
 | `PLAY_SERVICE_ACCOUNT_JSON` | Service-account JSON key contents (step c). |
 
+### Wear OS
+
+The Wear OS watch app in `wearos/` is published in the same Play listing as
+the phone app (same package, `com.juggling.tracker`, and the same upload key,
+which the Data Layer needs). The release workflow uploads it to the Wear OS
+internal testing track, `wear:internal`, in the same run. Its `versionCode` is
+the phone's plus 1,000,000, so the two never collide.
+
+One-time setup in the Play Console, before the first tag that includes it:
+
+1. *Test and release → Advanced settings → Form factors*: add **Wear OS**.
+   This creates the Wear OS tracks.
+2. In the new Wear OS section, upload the first Wear OS bundle by hand to
+   *Internal testing*, as for the phone app (step b). Build it with the
+   signing env vars set: `cd wearos && ./gradlew bundleRelease`.
+3. Add Wear OS screenshots (at least one, 384×384 or larger, round) to the
+   store listing and accept the Wear OS review terms.
+4. Testers get the watch app from the Play Store on the watch, or from the
+   phone listing's "Available on more devices" section, once they are on
+   the internal testing list.
+
 ### Garmin
 
 The Connect IQ store has no publishing API, so the watch app is **not** part of
