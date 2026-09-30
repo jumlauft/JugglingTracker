@@ -4,17 +4,22 @@ import Toybox.WatchUi;
 
 // Startup screen letting the user pick how many balls (3-9) they are juggling.
 // Up/down adjust the count; select/enter confirms and opens the main tracker.
+// Back returns to the mode screen when the user came from there (APP-5).
 class BallSelectView extends WatchUi.View {
     public static const MIN_BALLS = 3;
     public static const MAX_BALLS = 9;
 
     public var ballCount as Number;
     public var mode as Symbol;
+    // True when the mode screen led here, so BACK steps back to it instead of
+    // closing the app. False when the app starts directly on this screen.
+    public var backToModeSelect as Boolean;
 
     public function initialize(selectedMode as Symbol) {
         WatchUi.View.initialize();
         ballCount = MIN_BALLS;
         mode = selectedMode;
+        backToModeSelect = false;
     }
 
     public function increment() as Void {
@@ -81,6 +86,18 @@ class BallSelectDelegate extends WatchUi.BehaviorDelegate {
             return true;
         }
         return false;
+    }
+
+    // APP-5: step back to the mode screen, keeping the mode chosen there.
+    // Returning false leaves BACK to the system, which closes the app.
+    public function onBack() as Boolean {
+        if (!_view.backToModeSelect) {
+            return false;
+        }
+        var modeView = new ModeSelectView();
+        modeView.isRecordMode = (_view.mode == :record);
+        WatchUi.switchToView(modeView, new ModeSelectDelegate(modeView), WatchUi.SLIDE_RIGHT);
+        return true;
     }
 
     // Confirm the selection and switch to the appropriate screen.

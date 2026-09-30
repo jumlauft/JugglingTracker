@@ -21,7 +21,17 @@ data class SessionSummary(
     val runHistory: List<Int>,
     val durationSeconds: Long = 0L,
     val runDurationsMillis: List<Long> = emptyList(),
+    /**
+     * How alike each hand cycle was to the one before it, as a whole percent
+     * averaged over the session. Null when the watch sent none: older watch
+     * builds, phone recordings, or no run long enough to score.
+     */
+    val shapeConsistency: Int? = null,
 )
+
+/** The watch sends a whole percent; anything outside 0..100 is not one. */
+internal fun parseShapeConsistency(value: Any?): Int? =
+    (value as? Number)?.toInt()?.takeIf { it in 0..100 }
 
 /**
  * Forces one duration per run: extra entries dropped, missing ones zero-filled,

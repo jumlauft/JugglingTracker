@@ -52,6 +52,16 @@ function app4_ballSelectionRemembersTheChosenMode(logger as Logger) as Boolean {
     return true;
 }
 
+// APP-5: BACK on ball selection steps back only when the mode screen led
+// there; the mode screen marks the picker it opens, and a picker the app
+// starts on directly lets BACK close the app.
+(:test)
+function app5_ballSelectionStepsBackOnlyWhenReachedFromModeSelect(logger as Logger) as Boolean {
+    Test.assertMessage(!new BallSelectView(:juggle).backToModeSelect,
+        "a picker the app starts on has no screen to step back to");
+    return true;
+}
+
 // ── APP: mode selection ────────────────────────────────────────────────
 
 // APP-1: the mode screen opens on Juggle, so the normal path is the default

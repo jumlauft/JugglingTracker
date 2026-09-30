@@ -175,8 +175,29 @@ class RecordingView extends WatchUi.View {
             // silently abandoning a transfer that was already in flight.
             return true;
         }
+        if (_state == STATE_IDLE) {
+            // REC-11: every earlier run has already synced or been dropped,
+            // so nothing is lost by stepping back to ball selection.
+            returnToBallSelect();
+            return true;
+        }
         promptQuit();
         return true;
+    }
+
+    // Leave the idle screen for ball selection, keeping mode and ball count.
+    // Record mode is only reachable through the mode screen, so BACK there
+    // steps back once more.
+    public function returnToBallSelect() as Void {
+        stopSensor();
+        cancelSyncTimer();
+        cancelStatusTimer();
+        cancelNextPartTimer();
+        Communications.registerForPhoneAppMessages(null);
+        var ballView = new BallSelectView(:record);
+        ballView.ballCount = _ballCount;
+        ballView.backToModeSelect = true;
+        WatchUi.switchToView(ballView, new BallSelectDelegate(ballView), WatchUi.SLIDE_RIGHT);
     }
 
     public function promptDiscard() as Void {
@@ -219,15 +240,14 @@ class RecordingView extends WatchUi.View {
         WatchUi.requestUpdate();
     }
 
-    // Back always offers to leave the app. Start drives every run transition,
-    // so Back has no other job here.
+    // Back while recording offers to leave the app. Start drives every run
+    // transition, so Back has no other job here.
     public function promptQuit() as Void {
         if (_awaitingDecision) {
             return;
         }
         _awaitingDecision = true;
-        var title = (_state == STATE_RECORDING) ? "Quit? Lose run" : "Quit app?";
-        var menu = new WatchUi.Menu2({ :title => title });
+        var menu = new WatchUi.Menu2({ :title => "Quit? Lose run" });
         menu.addItem(new WatchUi.MenuItem("Yes", null, :quit_confirm, null));
         menu.addItem(new WatchUi.MenuItem("Continue", null, :quit_continue, null));
         WatchUi.pushView(

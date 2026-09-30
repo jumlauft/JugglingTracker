@@ -51,6 +51,21 @@ The Data Layer only connects apps that share a package name and signing key,
 so this app's `applicationId` is `com.juggling.tracker`, like the phone app,
 and release builds must be signed with the same key.
 
+## Screenshots
+
+`screenshots/` holds the emulator screenshots (454×454, API 30, large round)
+used for the Wear OS store listing on Google Play. They are copies of the
+`wear-emulator-screenshots` artifact that CI uploads on every run; to refresh
+them, download that artifact from a green run and replace the files.
+
+| | |
+|---|---|
+| <img src="screenshots/01_mode_select.png" width="180"> Choose Juggle or Record | <img src="screenshots/02_ball_select.png" width="180"> Choose the ball count |
+| <img src="screenshots/03_tracker_waiting.png" width="180"> Waiting for a run | <img src="screenshots/04_tracker_after_recording.png" width="180"> Run in progress |
+| <img src="screenshots/07_discard_prompt.png" width="180"> Discard a run | <img src="screenshots/05_session_end_menu.png" width="180"> End the session |
+| <img src="screenshots/06_syncing.png" width="180"> Sync to the phone | <img src="screenshots/08_record_idle.png" width="180"> Record mode: ball count |
+| <img src="screenshots/09_recording.png" width="180"> Recording | <img src="screenshots/10_labeling.png" width="180"> Enter the real count |
+
 ## Build and test
 
 ```sh

@@ -1,6 +1,7 @@
 package com.juggling.tracker.wear.logic
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -80,13 +81,14 @@ class RecordingSessionTest {
     }
 
     @Test
-    fun `REC-1 back elsewhere offers to quit`() {
+    fun `REC-1 back while recording offers to quit`() {
+        session.onStart()
         session.onBack()
-        assertEquals("Quit app?", state.menu!!.title)
+        assertEquals("Quit? Lose run", state.menu!!.title)
         session.onMenuSelect(RecordingSession.ITEM_QUIT_CONTINUE)
         assertEquals(0, effects.exits)
+        assertEquals(RecordingPhase.RECORDING, state.phase)
 
-        session.onStart()
         session.onBack()
         assertEquals("Quit? Lose run", state.menu!!.title)
         session.onMenuSelect(RecordingSession.ITEM_QUIT_CONFIRM)
@@ -249,12 +251,32 @@ class RecordingSessionTest {
     }
 
     @Test
+    fun `REC-11 back on the idle screen leaves without a prompt`() {
+        assertTrue(session.onBack())
+        assertNull(state.menu)
+        assertEquals(0, effects.exits)
+        // Closed: it ignores any input that still arrives.
+        assertFalse(session.onStart())
+        assertEquals(RecordingPhase.IDLE, state.phase)
+    }
+
+    @Test
+    fun `REC-11 back after a synced run still leaves`() {
+        recordRun(3)
+        session.onStart()
+        link.ack(epoch)
+        assertEquals(RecordingPhase.IDLE, state.phase)
+        assertTrue(session.onBack())
+        assertEquals(0, effects.exits)
+    }
+
+    @Test
     fun `REC-10 backing out of the quit or discard prompt means continue`() {
+        session.onStart()
         session.onBack()
         session.onMenuBack()
         assertNull(state.menu)
         assertEquals(0, effects.exits)
-        assertTrue(session.onStart())
         assertEquals(RecordingPhase.RECORDING, state.phase)
 
         feed(Feeds.warmup())

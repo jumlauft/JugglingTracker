@@ -242,8 +242,22 @@ class TrackerSessionTest {
         assertEquals(42L, payload["durationSeconds"])
         assertEquals(listOf(3, 4), payload["runs"])
         assertEquals(2, (payload["runDurationsMillis"] as List<*>).size)
+        // SHAPE-4: the session's shape consistency goes along with it.
+        assertTrue(state.shapeConsistency in 0..100)
+        assertEquals(state.shapeConsistency, payload["shapeConsistency"])
         assertTrue(state.sending)
         assertEquals("Sync to phone.", Format.syncing(state.syncDots))
+    }
+
+    @Test
+    fun `SYNC-1 shape consistency is left out until a run has been scored`() {
+        warmUp()
+        catches(3) // far too short for one window
+        session.onStartStop()
+        select(TrackerSession.ITEM_SYNC_QUIT)
+
+        assertEquals(-1, state.shapeConsistency)
+        assertFalse(link.sent.single().containsKey("shapeConsistency"))
     }
 
     // ── SYNC-2 ────────────────────────────────────────────────────────

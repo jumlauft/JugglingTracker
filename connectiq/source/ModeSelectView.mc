@@ -81,6 +81,7 @@ class ModeSelectDelegate extends WatchUi.BehaviorDelegate {
     public function onSelect() as Boolean {
         var mode = _view.isRecordMode ? :record : :juggle;
         var ballView = new BallSelectView(mode);
+        ballView.backToModeSelect = true;
         WatchUi.switchToView(ballView, new BallSelectDelegate(ballView), WatchUi.SLIDE_LEFT);
         return true;
     }

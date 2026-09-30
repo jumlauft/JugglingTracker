@@ -169,6 +169,16 @@ class SessionRepositoryTest {
     }
 
     @Test
+    fun `shape consistency survives save and reload`() {
+        repository.importSession(3, 1000L, listOf(10, 20), shapeConsistency = 83)
+        repository.importSession(3, 2000L, listOf(10))
+
+        val sessions = SessionRepository(prefs).getSessions()
+        assertEquals(null, sessions[0].shapeConsistency)
+        assertEquals(83, sessions[1].shapeConsistency)
+    }
+
+    @Test
     fun `reloaded sessions have correct statistics`() {
         repository.importSession(3, 1000L, listOf(10, 20, 30))
 

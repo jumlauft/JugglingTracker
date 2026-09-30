@@ -7,6 +7,7 @@ import com.juggling.tracker.util.CrashlyticsUtils
 import androidx.core.content.edit
 import com.juggling.tracker.model.SessionSummary
 import com.juggling.tracker.model.normalizeRunDurations
+import com.juggling.tracker.model.parseShapeConsistency
 import androidx.compose.runtime.mutableStateListOf
 import kotlin.math.sqrt
 
@@ -41,6 +42,7 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
         runs: List<Int>,
         durationSeconds: Long = 0L,
         runDurationsMillis: List<Long> = emptyList(),
+        shapeConsistency: Int? = null,
     ) {
         if (runs.isEmpty()) return
 
@@ -64,6 +66,7 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
             runHistory = runs,
             durationSeconds = durationSeconds,
             runDurationsMillis = normalizeRunDurations(runs.size, runDurationsMillis),
+            shapeConsistency = shapeConsistency?.takeIf { it in 0..100 },
         )
         sessionsCache.add(0, session)
         saveSessionsToStorage()
@@ -114,6 +117,9 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
                         runHistory = runHistory,
                         durationSeconds = obj.optLong("durationSeconds", 0L),
                         runDurationsMillis = runDurationsMillis,
+                        shapeConsistency = if (obj.has("shapeConsistency")) {
+                            parseShapeConsistency(obj.getInt("shapeConsistency"))
+                        } else null,
                     )
                 )
             }
@@ -144,6 +150,7 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
             json.put("runHistory", org.json.JSONArray(session.runHistory))
             json.put("durationSeconds", session.durationSeconds)
             json.put("runDurationsMillis", org.json.JSONArray(session.runDurationsMillis))
+            session.shapeConsistency?.let { json.put("shapeConsistency", it) }
             json.toString()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to build session JSON", e)

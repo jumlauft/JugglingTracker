@@ -128,18 +128,26 @@ class RecordingSession(
     }
 
     /**
-     * BACK offers to discard while labelling and to quit elsewhere. While
-     * syncing it is consumed and does nothing (REC-9): falling through would
-     * close the app mid-transfer.
+     * BACK on the idle "Press Start" screen closes this session and returns
+     * true, so the caller goes back to ball selection (REC-11): every run has
+     * already synced or been dropped, so nothing is lost. Otherwise it offers
+     * to discard while labelling and to quit while recording. While syncing
+     * it is consumed and does nothing (REC-9): falling through would close
+     * the app mid-transfer.
      */
-    fun onBack() {
-        if (menu != null || exited) return
+    fun onBack(): Boolean {
+        if (menu != null || exited) return false
         when (phase) {
+            RecordingPhase.IDLE -> {
+                close()
+                return true
+            }
             RecordingPhase.LABELING -> promptDiscard()
             RecordingPhase.SYNCING -> Unit
-            else -> promptQuit()
+            RecordingPhase.RECORDING -> promptQuit()
         }
         publish()
+        return false
     }
 
     fun onUp() {
@@ -166,10 +174,9 @@ class RecordingSession(
     }
 
     private fun promptQuit() {
-        val title = if (phase == RecordingPhase.RECORDING) "Quit? Lose run" else "Quit app?"
         menu = MenuSpec(
             MENU_QUIT,
-            title,
+            "Quit? Lose run",
             listOf(MenuItemSpec(ITEM_QUIT_CONFIRM, "Yes"), MenuItemSpec(ITEM_QUIT_CONTINUE, "Continue")),
         )
     }
@@ -492,12 +499,18 @@ class RecordingSession(
 
     private fun exit() {
         if (exited) return
+        close()
+        effects.exit()
+    }
+
+    /** Stops every timer and the phone listener; the session ignores all input after. */
+    private fun close() {
         exited = true
         cancelSyncTimer()
         cancelStatusTimer()
         cancelNextPartTimer()
         link.setMessageListener(null)
-        effects.exit()
+        publish()
     }
 
     private fun publish() {

@@ -50,6 +50,13 @@ earlier — `MainView` for Juggle, `RecordingView` for Record — carrying the
 selected ball count.
 *Verified by:* `app4_ballSelectionRemembersTheChosenMode`
 
+**APP-5.** BACK steps back one screen instead of closing the app. On ball
+selection it returns to the mode screen, with the mode chosen there still
+selected. Only BACK on the first screen closes the app: the mode screen, or
+ball selection when `ENABLE_RECORDING_MODE` is `false` and the app starts
+there.
+*Verified by:* `app5_ballSelectionStepsBackOnlyWhenReachedFromModeSelect`, `test_back_steps_back_through_the_selection_screens`
+
 ---
 
 ## DET — catch detection
@@ -168,12 +175,47 @@ nothing, so repeated stops cannot inflate the run count.
 
 ---
 
+## SHAPE — shape consistency
+
+How regular the juggling is, as how alike each hand cycle is to the one before
+it. Reference: `../simulation/shape_consistency.py`; the watch code is
+`source/ShapeConsistency.mc`, fed by the detector.
+
+**SHAPE-1.** Each sample is highpassed per axis with the detector's 0.7 Hz
+filter. Once a second during a run, the last 50 samples (2 s) are correlated
+with the 50 samples one cycle earlier, for every lag from 9 to 35 samples
+(0.36 s to 1.4 s); the window's score is the best normalised 3-axis
+correlation, clamped to 0..1. A wrist repeating the same motion scores 100 %,
+unrelated motion scores low. It uses no catch timing and no integration.
+*Verified by:* `shape1_periodicMotionScoresFull`, `shape1_unrelatedCyclesScoreLow`, `test_shape_periodic_motion_scores_full`, `test_shape_unrelated_cycles_score_low`, `test_shape_constants_match_on_every_watch`
+
+**SHAPE-2.** A window counts only if it starts at or after the run's first
+watch-hand catch and a later watch-hand catch confirms it, so start-up throws
+and the drop at the end are left out. The session score is the mean over
+every counted window of every recorded run, as a whole percent, or none (-1)
+until a window counts. False starts contribute nothing.
+*Verified by:* `shape2_onlyWindowsInsideTheRunCount`, `test_shape_only_windows_inside_the_run_count`
+
+**SHAPE-3.** Discarding the last completed run removes its windows from the
+session score; discarding the run in progress drops its pending windows.
+*Verified by:* `shape3_discardRemovesTheRunsScore`, `test_shape_discard_removes_the_runs_score`
+
+**SHAPE-4.** The Juggle screen shows it below Time as `Regularity: 83%`, or
+`Regularity: -` before any score, and the phone lists it as Regularity, and the session transfer carries it (SYNC-1).
+On four labelled 3-ball runs in `../simulation/regularity_data` it scores the
+two regular runs 90 and 86 and the two messy runs 51 and 55.
+*Verified by:* `test_watch_shows_and_transfers_shape_consistency`, `test_shape_separates_regular_from_messy_juggling`
+
+---
+
 ## JUG — Juggle mode screen
 
 **JUG-1.** The screen shows: run state (**RUN ACTIVE** green / **WAITING**
-yellow), the live watch-hand count, and then Prev, Runs, Avg, Max and elapsed
-session time. A failed transfer adds a red banner.
-*Verified by:* `test_main_view_displays_run_state`, `test_main_view_displays_and_transfers_session_duration`
+yellow), the live watch-hand count with **Catches per hand** below it, and
+then Prev, Runs, Avg, Max, elapsed session time and the session's shape
+consistency as **Regularity** (SHAPE-4). A failed transfer
+adds a red banner.
+*Verified by:* `test_main_view_displays_run_state`, `test_main_view_displays_and_transfers_session_duration`, `test_watch_shows_and_transfers_shape_consistency`
 
 **JUG-2.** **START/STOP** opens the session-end menu: *Sync and quit*, *Quit
 without sync*, *Continue*. This is the only way to end a session.
@@ -239,8 +281,9 @@ kills the app.
 
 **SYNC-1.** A session is transmitted as one message: `type: "session"`,
 `countMode: "watch_hand"`, `balls`, `timestamp` (epoch **seconds**),
-`durationSeconds`, `runDurationsMillis` and `runs`.
-*Verified by:* `test_main_view_displays_and_transfers_session_duration`, `test_watch_transfers_run_durations`
+`durationSeconds`, `runDurationsMillis` and `runs`, plus `shapeConsistency`
+(whole percent) once any run has been scored; before that the key is left out.
+*Verified by:* `test_main_view_displays_and_transfers_session_duration`, `test_watch_transfers_run_durations`, `test_watch_shows_and_transfers_shape_consistency`
 
 **SYNC-2.** The app closes **only** on the phone's `ack`, so data is never
 assumed delivered. Failure or a 10 s timeout opens a retry menu instead.
@@ -262,8 +305,9 @@ current by then — aborting a retry that might otherwise have been succeeding.
 
 **REC-1.** Record mode cycles `IDLE → RECORDING → LABELING → SYNCING → IDLE`.
 START drives every transition: it starts a run, stops it, and confirms the
-label. BACK offers to discard while labelling, and to quit elsewhere; during
-syncing it is ignored.
+label. BACK returns to ball selection while idle (REC-11), offers to discard
+while labelling, and offers to quit while recording; during syncing it is
+ignored.
 *Verified by:* not automatically tested — needs a device context.
 
 **REC-2.** A run stops automatically at **3000 samples (120 s)**, or earlier if
@@ -321,6 +365,12 @@ the view, which left the flag set and, after a failed sync, left the view
 stuck in `SYNCING` with BACK and START both ignored and no way to reopen the
 menu.
 *Verified by:* `test_menus_over_recording_view_clear_the_pending_decision_flag_on_back`
+
+**REC-11.** BACK on the idle *Press Start* screen goes straight back to ball
+selection, keeping Record mode and the ball count, with no quit prompt. Every
+earlier run has already synced or been skipped by then, so nothing is lost.
+The sensor, the timers and the phone-message listener are released first.
+*Verified by:* `test_back_steps_back_through_the_selection_screens`
 
 ---
 
