@@ -32,6 +32,29 @@ class SettingsManager(context: Context) {
         prefs.edit().putString(KEY_WATCH_TYPE, type.name).apply()
     }
 
+    /** Who juggles, as last entered when exporting recordings; blank until then. */
+    var jugglerName: String by mutableStateOf(prefs.getString(KEY_JUGGLER_NAME, null) ?: "")
+        private set
+
+    /** The wrist the watch is on, as last picked when exporting; null until then. */
+    var watchHand: String? by mutableStateOf(prefs.getString(KEY_WATCH_HAND, null))
+        private set
+
+    /** The hand that made the first throw, as last picked when exporting; null until then. */
+    var firstThrowHand: String? by mutableStateOf(prefs.getString(KEY_FIRST_THROW, null))
+        private set
+
+    fun updateExportDetails(name: String, hand: String, firstThrow: String) {
+        jugglerName = name
+        watchHand = hand
+        firstThrowHand = firstThrow
+        prefs.edit()
+            .putString(KEY_JUGGLER_NAME, name)
+            .putString(KEY_WATCH_HAND, hand)
+            .putString(KEY_FIRST_THROW, firstThrow)
+            .apply()
+    }
+
     fun updateAnalyticsEnabled(enabled: Boolean) {
         isAnalyticsEnabled = enabled
         prefs.edit().putBoolean(KEY_ANALYTICS, enabled).apply()
@@ -52,5 +75,8 @@ class SettingsManager(context: Context) {
         private const val KEY_VOICE = "voice_enabled"
         private const val KEY_VOICE_INTERVAL = "voice_interval"
         private const val KEY_WATCH_TYPE = "watch_type"
+        private const val KEY_JUGGLER_NAME = "juggler_name"
+        private const val KEY_WATCH_HAND = "watch_hand"
+        private const val KEY_FIRST_THROW = "first_throw_hand"
     }
 }
