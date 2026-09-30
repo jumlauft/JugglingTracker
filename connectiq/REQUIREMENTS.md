@@ -276,9 +276,10 @@ label; UP and DOWN adjust it and it never goes below 0. The point is comparing
 the algorithm against ground truth.
 *Verified by:* not automatically tested — needs a device context.
 
-**REC-4.** Each confirmed run is written to the log as
-`RUN_DATA,...` / `S,x,y,z` per sample / `RUN_DATA_END`, which is the format the
-offline tooling in `../simulation/` parses.
+**REC-4.** Each confirmed run writes one `RUN_DATA,...` summary line to the
+log (balls, label, detected count, rate, sample count). The samples themselves
+are not logged: they reach the phone (REC-5), and printing them one line each
+delayed the transfer by seconds on the watch.
 *Verified by:* not automatically tested — output is a console side effect.
 
 **REC-5.** Runs transfer to the phone in chunks: `rec_start`, then one

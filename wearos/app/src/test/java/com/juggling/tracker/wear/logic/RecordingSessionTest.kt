@@ -119,17 +119,14 @@ class RecordingSessionTest {
     // ── REC-4 ─────────────────────────────────────────────────────────
 
     @Test
-    fun `REC-4 each confirmed run is logged in the corpus format`() {
+    fun `REC-4 each confirmed run logs a one-line summary without the samples`() {
         recordRun(3)
         session.onUp()
         session.onStart()
         assertEquals(
-            "RUN_DATA,balls=3,catches=4,detected=3,rate=25,countMode=watch_hand,samples=${state.recordedSamples}",
-            logLines.first(),
+            listOf("RUN_DATA,balls=3,catches=4,detected=3,rate=25,countMode=watch_hand,samples=${state.recordedSamples}"),
+            logLines,
         )
-        assertEquals(state.recordedSamples + 2, logLines.size)
-        assertEquals("S,0,0,1000", logLines[1])
-        assertEquals("RUN_DATA_END", logLines.last())
     }
 
     // ── REC-5 ─────────────────────────────────────────────────────────

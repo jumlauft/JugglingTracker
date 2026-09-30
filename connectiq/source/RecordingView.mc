@@ -260,17 +260,14 @@ class RecordingView extends WatchUi.View {
 
     // User confirmed the watch-hand catch count: log, transmit, and wait for ACK.
     public function confirmLabel() as Void {
-        // ── Parseable CSV log (for simulator console capture) ──
+        // One-line summary only. The samples reach the phone below; printing
+        // them here as well held up the transfer by seconds on the watch.
         System.println("RUN_DATA,balls=" + _ballCount +
             ",catches=" + _labelCount +
             ",detected=" + _detectedCount +
             ",rate=" + SAMPLE_RATE +
             ",countMode=watch_hand" +
             ",samples=" + _accelX.size());
-        for (var i = 0; i < _accelX.size(); i++) {
-            System.println("S," + _accelX[i] + "," + _accelY[i] + "," + _accelZ[i]);
-        }
-        System.println("RUN_DATA_END");
 
         // ── Transmit to the companion phone app, in chunks ──
         _sessionId = Time.now().value();

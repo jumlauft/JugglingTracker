@@ -267,15 +267,11 @@ class RecordingSession(
     }
 
     private fun confirmLabel() {
-        // REC-4: the parseable log the offline tooling in simulation/ reads.
+        // REC-4: a one-line summary; the samples themselves go to the phone.
         log(
             "RUN_DATA,balls=$ballCount,catches=$labelCount,detected=$detectedCount," +
                 "rate=$SAMPLE_RATE,countMode=watch_hand,samples=${accelX.size}",
         )
-        for (i in accelX.indices) {
-            log("S,${accelX[i]},${accelY[i]},${accelZ[i]}")
-        }
-        log("RUN_DATA_END")
 
         sessionId = epochSeconds()
         totalChunks = (accelX.size + CHUNK_SAMPLES - 1) / CHUNK_SAMPLES
