@@ -59,6 +59,7 @@ object Tags {
     const val AVG = "avg"
     const val MAX = "max"
     const val TIME = "time"
+    const val SHAPE = "shape"
     const val ERROR = "error_banner"
     const val SYNC = "sync_status"
     const val MENU_TITLE = "menu_title"
@@ -226,6 +227,7 @@ fun TrackerScreen(state: TrackerUiState, onStartStop: () -> Unit) {
             "Max: ${Format.countOrDash(state.max)}" to Tags.MAX,
         )
         WatchText("Time: ${Format.elapsed(state.elapsedSeconds)}", WatchColors.LightGray, 11.sp, Modifier.testTag(Tags.TIME))
+        WatchText("Shape: ${Format.percentOrDash(state.shapeConsistency)}", WatchColors.LightGray, 11.sp, Modifier.testTag(Tags.SHAPE))
         state.errorMessage?.let {
             WatchText(it, WatchColors.Red, 11.sp, Modifier.testTag(Tags.ERROR))
         }

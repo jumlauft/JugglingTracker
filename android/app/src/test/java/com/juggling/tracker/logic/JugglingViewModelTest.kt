@@ -54,6 +54,34 @@ class JugglingViewModelTest {
     }
 
     @Test
+    fun `import session keeps the watch's shape consistency`() = runTest {
+        viewModel.importSessionFromWatch(mapOf(
+            "type" to "session",
+            "balls" to 3,
+            "timestamp" to 1716931200L,
+            "runs" to listOf(10, 20),
+            "shapeConsistency" to 83,
+        ))
+        advanceUntilIdle()
+
+        assertEquals(83, viewModel.completedSessions[0].shapeConsistency)
+    }
+
+    @Test
+    fun `import session without shape consistency or with a bad one stores none`() = runTest {
+        viewModel.importSessionFromWatch(mapOf(
+            "type" to "session", "balls" to 3, "timestamp" to 1716931200L, "runs" to listOf(10),
+        ))
+        viewModel.importSessionFromWatch(mapOf(
+            "type" to "session", "balls" to 3, "timestamp" to 1716931300L, "runs" to listOf(10),
+            "shapeConsistency" to 140,
+        ))
+        advanceUntilIdle()
+
+        assertEquals(listOf<Int?>(null, null), viewModel.completedSessions.map { it.shapeConsistency })
+    }
+
+    @Test
     fun `import session converts epoch seconds to milliseconds`() = runTest {
         val epochSeconds = 1716931200L
         val payload = mapOf(

@@ -9,6 +9,7 @@ The expected detection counts come from the delayed burst-clustering algorithm
 with alternating watch-hand burst counting: total absolute error = 189 and
 positive overcount error = 69 across 102 runs (2459 actual watch-hand catches).
 """
+import math
 import os
 import re
 import sys
@@ -848,7 +849,7 @@ def _requirement_verifications():
     found = {}
     current = None
     for line in doc.splitlines():
-        m = re.match(r"\*\*((?:APP|DET|RUN|JUG|SENS|SYNC|REC)-\d+)\.\*\*", line)
+        m = re.match(r"\*\*((?:APP|DET|RUN|SHAPE|JUG|SENS|SYNC|REC)-\d+)\.\*\*", line)
         if m:
             current = m.group(1)
             found.setdefault(current, [])
@@ -910,3 +911,121 @@ def test_every_watch_unit_test_backs_a_requirement():
         "these watch unit tests are not cited by any requirement in "
         f"REQUIREMENTS.md: {orphans}"
     )
+
+
+# ── Shape consistency (SHAPE-*) ──────────────────────────────────────────
+# simulation/shape_consistency.py is the reference for ShapeConsistency.mc and
+# the Wear OS ShapeConsistency.kt. The labelled runs in regularity_data were
+# juggled on purpose as regular or messy.
+
+# Session score of each labelled run. The Wear OS ShapeConsistencyTest reads
+# this table, so the Kotlin port must reproduce it exactly.
+EXPECTED_SHAPE = [
+    ("20260930_184904", "regular-low", 90),
+    ("20260930_185035", "regular-high", 86),
+    ("20260930_185258", "very-messy", 51),
+    ("20260930_185440", "medium-messy", 55),
+]
+
+
+def _shape_tracker_fed(signal, first_catch_ms=0):
+    """A tracker fed `signal(i) -> (x, y, z)` for 400 samples inside one run."""
+    from shape_consistency import ShapeConsistency
+    tracker = ShapeConsistency()
+    for i in range(400):
+        x, y, z = signal(i)
+        tracker.add_sample(x, y, z, i * 40, True, True, first_catch_ms)
+    return tracker
+
+
+def _periodic(i):
+    phase = 2 * math.pi * i / 20
+    return (round(500 * math.sin(phase)), round(300 * math.cos(phase)),
+            1000 + round(200 * math.sin(2 * phase)))
+
+
+def _unrelated(i, _state=[12345]):
+    def nxt():
+        _state[0] = (_state[0] * 1103515245 + 12345) % 2147483648
+        return _state[0] % 1001 - 500
+    return (nxt(), nxt(), 1000 + nxt())
+
+
+def test_shape_periodic_motion_scores_full():
+    tracker = _shape_tracker_fed(_periodic)
+    tracker.on_catch(400 * 40)
+    tracker.commit_run()
+    assert tracker.session_percent() >= 99
+
+
+def test_shape_unrelated_cycles_score_low():
+    tracker = _shape_tracker_fed(_unrelated)
+    tracker.on_catch(400 * 40)
+    tracker.commit_run()
+    assert 0 <= tracker.session_percent() < 50
+
+
+def test_shape_only_windows_inside_the_run_count():
+    from shape_consistency import HISTORY
+    # Nothing is scored until a catch confirms it.
+    tracker = _shape_tracker_fed(_periodic)
+    tracker.commit_run()
+    assert tracker.session_percent() == -1
+    # A window reaching back before the first catch never counts.
+    tracker = _shape_tracker_fed(_periodic, first_catch_ms=(400 - HISTORY + 2) * 40)
+    tracker.on_catch(400 * 40)
+    tracker.commit_run()
+    assert tracker.session_percent() == -1
+
+
+def test_shape_discard_removes_the_runs_score():
+    from shape_consistency import ShapeConsistency
+    tracker = ShapeConsistency()
+    for i in range(800):
+        x, y, z = _periodic(i) if i < 400 else _unrelated(i)
+        tracker.add_sample(x, y, z, i * 40, True, True, 0 if i < 400 else 400 * 40)
+        if i == 399:
+            tracker.on_catch(i * 40)
+            tracker.commit_run()
+    tracker.on_catch(800 * 40)
+    tracker.commit_run()
+    mixed = tracker.session_percent()
+    tracker.discard_last_run()
+    assert tracker.session_percent() >= 99 > mixed
+
+
+def test_shape_separates_regular_from_messy_juggling():
+    from shape_consistency import load_regularity_runs, session_percent_for_recording
+    scores = {r["meta"]["run"]: session_percent_for_recording(r) for r in load_regularity_runs()}
+    assert sorted(scores) == sorted(run_id for run_id, _, _ in EXPECTED_SHAPE)
+    for run_id, label, expected in EXPECTED_SHAPE:
+        assert scores[run_id] == expected, f"{run_id} ({label})"
+    regular = [scores[rid] for rid, label, _ in EXPECTED_SHAPE if label.startswith("regular")]
+    messy = [scores[rid] for rid, label, _ in EXPECTED_SHAPE if label.endswith("messy")]
+    assert min(regular) - max(messy) >= 20
+
+
+def test_shape_constants_match_on_every_watch():
+    """Window, lags and cadence are the same in the reference and both watches."""
+    import shape_consistency as ref
+    mc = _read_source("connectiq", "source", "ShapeConsistency.mc")
+    kt = _read_source("wearos", "app", "src", "main", "java", "com", "juggling", "tracker",
+                      "wear", "logic", "ShapeConsistency.kt")
+    for name in ("WINDOW", "MIN_LAG", "MAX_LAG", "SCORE_EVERY", "MAX_PENDING"):
+        value = getattr(ref, name)
+        assert re.search(rf"const {name} = {value};", mc), f"{name} in ShapeConsistency.mc"
+        assert re.search(rf"const val {name} = {value}\b", kt), f"{name} in ShapeConsistency.kt"
+    assert f"const HISTORY = {ref.HISTORY};" in mc
+
+
+def test_watch_shows_and_transfers_shape_consistency():
+    detector = _read_source("connectiq", "source", "JugglingDetector.mc")
+    main_view = _read_source("connectiq", "source", "MainView.mc")
+    assert "public function shapeConsistencyPercent() as Number" in detector
+    assert "_shape.addSample(gxMilliG, gyMilliG, gzMilliG, nowMs," in detector
+    assert "_shape.onCatch(_lastCatchTime);" in detector
+    assert "_shape.commitRun();" in detector
+    assert "_shape.clearRun();" in detector
+    assert "_shape.discardLastRun();" in detector
+    assert 'Lang.format("Shape: $1$", [shapeStr])' in main_view
+    assert 'payload["shapeConsistency"] = shape;' in main_view

@@ -138,7 +138,7 @@ class MainView extends WatchUi.View {
         var statusH = dc.getFontHeight(Graphics.FONT_XTINY);
 
         // Layout: run state, top section (label + big number), then stats below.
-        var blockH = statusH + labelH + numberH + statsH * 3;
+        var blockH = statusH + labelH + numberH + statsH * 4;
         var y = cy - blockH / 2;
 
         var runActive = _detector.isRunActive();
@@ -175,6 +175,12 @@ class MainView extends WatchUi.View {
 
         var elapsedStr = formatElapsedSeconds(sessionDurationSeconds());
         dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Time: $1$", [elapsedStr]), Graphics.TEXT_JUSTIFY_CENTER);
+        y += statsH;
+
+        // Session shape consistency: how alike each hand cycle is to the last.
+        var shape = _detector.shapeConsistencyPercent();
+        var shapeStr = shape < 0 ? "-" : shape.toString() + "%";
+        dc.drawText(cx, y, Graphics.FONT_XTINY, Lang.format("Shape: $1$", [shapeStr]), Graphics.TEXT_JUSTIFY_CENTER);
 
         // Error banner at the bottom if a transfer failed.
         if (_errorMsg != null) {
@@ -281,7 +287,7 @@ class MainView extends WatchUi.View {
             System.exit();
         }
 
-        _pendingPayload = {
+        var payload = {
             "type" => "session",
             "countMode" => "watch_hand",
             "balls" => _detector.ballCount,
@@ -290,6 +296,13 @@ class MainView extends WatchUi.View {
             "runDurationsMillis" => _detector.runDurationsMillis(),
             "runs" => runs
         };
+        // Left out until a run has been long enough to score, so the phone
+        // shows no value rather than a made-up one.
+        var shape = _detector.shapeConsistencyPercent();
+        if (shape >= 0) {
+            payload["shapeConsistency"] = shape;
+        }
+        _pendingPayload = payload;
 
         attemptSync();
     }

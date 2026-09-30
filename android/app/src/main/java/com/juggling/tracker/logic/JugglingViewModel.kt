@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.juggling.tracker.model.SessionSummary
 import com.juggling.tracker.model.normalizeRunDurations
+import com.juggling.tracker.model.parseShapeConsistency
 import com.juggling.tracker.data.SessionRepository
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.data.SettingsManager
@@ -204,7 +205,8 @@ class JugglingViewModel(
     // Import a single finished session transferred from the Garmin watch.
     // Payload shape: { type: "session", countMode: "watch_hand", balls: Int,
     // timestamp: Long (epoch s), durationSeconds: Long,
-    // runDurationsMillis: List<Number>, runs: List<Number> }.
+    // runDurationsMillis: List<Number>, runs: List<Number>,
+    // shapeConsistency: Number (optional, whole percent) }.
     // Runs are watch-hand catch counts; the phone only listens and records what it receives.
     fun importSessionFromWatch(payload: Map<String, Any>) {
         val balls = (payload["balls"] as? Number)?.toInt() ?: return
@@ -225,7 +227,9 @@ class JugglingViewModel(
 
         val runDurationsMillis = normalizeRunDurations(runs.size, parseLongList(payload["runDurationsMillis"]))
 
-        storeFinishedSession(balls, timestamp, runs, durationSeconds, runDurationsMillis)
+        val shapeConsistency = parseShapeConsistency(payload["shapeConsistency"])
+
+        storeFinishedSession(balls, timestamp, runs, durationSeconds, runDurationsMillis, shapeConsistency)
 
         viewModelScope.launch {
             _events.emit(JugglingEvent.SyncCompleted(runs.size, balls))
@@ -238,9 +242,10 @@ class JugglingViewModel(
         runs: List<Int>,
         durationSeconds: Long,
         runDurationsMillis: List<Long>,
+        shapeConsistency: Int? = null,
     ) {
         if (repository != null) {
-            repository.importSession(balls, timestamp, runs, durationSeconds, runDurationsMillis)
+            repository.importSession(balls, timestamp, runs, durationSeconds, runDurationsMillis, shapeConsistency)
 
             // Reload sessions from repository so the UI reflects the new data.
             repository.getSessions().let { sessions ->
@@ -270,6 +275,7 @@ class JugglingViewModel(
                 runHistory = runs,
                 durationSeconds = durationSeconds,
                 runDurationsMillis = runDurationsMillis,
+                shapeConsistency = shapeConsistency,
             )
             completedSessions.add(0, summary)
         }

@@ -110,6 +110,9 @@ class JugglingDetector(val ballCount: Int) {
     private var pendingPeakScore = 0.0
     private var clusterLastCandidateTimeMs = 0L
 
+    // How alike each hand cycle is to the one before it, per run and session.
+    private val shape = ShapeConsistency()
+
     val hpThreshold: Double
     val refractoryMs: Long
     val minRawMag: Double
@@ -166,8 +169,17 @@ class JugglingDetector(val ballCount: Int) {
 
     fun isRunActive(): Boolean = hasActiveRun()
 
+    /**
+     * Session shape consistency as a whole percentage, or -1 before any run
+     * has lasted long enough to be scored. See [ShapeConsistency].
+     */
+    fun shapeConsistencyPercent(): Int = shape.sessionPercent()
+
     /** Feed one raw accelerometer sample in milli-g at time [nowMs]. */
     fun processSample(gxMilliG: Int, gyMilliG: Int, gzMilliG: Int, nowMs: Long) {
+        // Before detection, so it sees every sample, warmup included.
+        shape.addSample(gxMilliG, gyMilliG, gzMilliG, nowMs, hasActiveRun(), hasFirstCatchTime, firstCatchTimeMs)
+
         val ax = gxMilliG * MILLI_G_TO_MS2
         val ay = gyMilliG * MILLI_G_TO_MS2
         val az = gzMilliG * MILLI_G_TO_MS2
@@ -280,6 +292,7 @@ class JugglingDetector(val ballCount: Int) {
         // happens to have the same catch count.
         val removed = runCatches.removeAt(n - 1)
         runDurationsMillis.removeAt(n - 1)
+        shape.discardLastRun()
         sessionRuns -= 1
         sessionTotal -= removed
 
@@ -304,6 +317,7 @@ class JugglingDetector(val ballCount: Int) {
         if (catches > sessionMax) sessionMax = catches
         runCatches.add(catches)
         runDurationsMillis.add(currentRunDurationMillis())
+        shape.commitRun()
     }
 
     private fun currentRunDurationMillis(): Long {
@@ -326,6 +340,7 @@ class JugglingDetector(val ballCount: Int) {
         hasFirstCatchTime = false
         firstCatchTimeMs = 0L
         lastCatchTimeMs = 0L
+        shape.clearRun()
     }
 
     private fun commitPendingPeak(nowMs: Long) {
@@ -339,6 +354,7 @@ class JugglingDetector(val ballCount: Int) {
                 hasFirstCatchTime = true
             }
             lastCatchTimeMs = pendingPeakTimeMs
+            shape.onCatch(lastCatchTimeMs)
         }
         lastActiveTimeMs = nowMs
         hasPendingPeak = false

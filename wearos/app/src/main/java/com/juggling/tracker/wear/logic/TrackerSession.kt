@@ -17,6 +17,8 @@ data class TrackerUiState(
     val average: Double = 0.0,
     val max: Int = 0,
     val elapsedSeconds: Long = 0,
+    /** Session shape consistency in percent, -1 until a run has been scored. */
+    val shapeConsistency: Int = -1,
     val errorMessage: String? = null,
     val sending: Boolean = false,
     val syncDots: Int = 0,
@@ -232,7 +234,7 @@ class TrackerSession(
             return
         }
 
-        pendingPayload = mapOf(
+        val payload = mutableMapOf<String, Any>(
             "type" to "session",
             "countMode" to "watch_hand",
             "balls" to detector.ballCount,
@@ -241,6 +243,11 @@ class TrackerSession(
             "runDurationsMillis" to detector.runDurationsMillis(),
             "runs" to runs,
         )
+        // Left out until a run has been long enough to score, so the phone
+        // shows no value rather than a made-up one (SYNC-1).
+        val shape = detector.shapeConsistencyPercent()
+        if (shape >= 0) payload["shapeConsistency"] = shape
+        pendingPayload = payload
         attemptSync()
     }
 
@@ -363,6 +370,7 @@ class TrackerSession(
         average = detector.sessionAverage(),
         max = detector.sessionMax,
         elapsedSeconds = sessionDurationSeconds(),
+        shapeConsistency = detector.shapeConsistencyPercent(),
         errorMessage = errorMessage,
         sending = sending,
         syncDots = syncDots,

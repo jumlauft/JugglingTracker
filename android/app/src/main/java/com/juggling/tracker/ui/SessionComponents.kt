@@ -256,6 +256,9 @@ fun SessionHistoryItem(session: SessionSummary, onClick: () -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 StatItem(stringResource(R.string.label_average), stringResource(R.string.format_avg_with_stddev, session.avgThrows, session.stdDevThrows))
                 StatItem(stringResource(R.string.label_best), session.bestRun.toString())
+                session.shapeConsistency?.let {
+                    StatItem(stringResource(R.string.label_shape), stringResource(R.string.format_percent, it))
+                }
             }
         }
     }
@@ -301,6 +304,9 @@ fun SessionDetailsDialog(session: SessionSummary, onDismiss: () -> Unit) {
                     StatItem(stringResource(R.string.stat_avg), "%.1f".format(session.avgThrows))
                     StatItem(stringResource(R.string.stat_max), session.bestRun.toString())
                     StatItem(stringResource(R.string.stat_total), session.totalThrows.toString())
+                    session.shapeConsistency?.let {
+                        StatItem(stringResource(R.string.label_shape), stringResource(R.string.format_percent, it))
+                    }
                 }
 
                 if (session.runDurationsMillis.isNotEmpty()) {
