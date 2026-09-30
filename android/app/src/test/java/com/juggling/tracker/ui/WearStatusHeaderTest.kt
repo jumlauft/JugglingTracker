@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -139,6 +140,19 @@ class WearStatusHeaderTest {
             setStatus(status)
             composeTestRule.onNodeWithText(labelFor(status)).assertIsDisplayed()
         }
+    }
+
+    @Test
+    fun `the card keeps one size in every state`() {
+        val setStatus = renderDrivenBy(WearConnectionStatus.READY)
+
+        val sizes = WearConnectionStatus.entries.map { status ->
+            setStatus(status)
+            val bounds = composeTestRule.onNodeWithText(labelFor(status)).getBoundsInRoot()
+            status to (bounds.right - bounds.left to bounds.bottom - bounds.top)
+        }
+
+        assertEquals("card sizes: $sizes", 1, sizes.map { it.second }.distinct().size)
     }
 
     @Test

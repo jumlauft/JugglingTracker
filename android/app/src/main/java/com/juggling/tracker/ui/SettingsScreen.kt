@@ -5,8 +5,6 @@ import android.widget.Toast
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.filled.Settings
@@ -66,37 +64,11 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
         verticalArrangement = Arrangement.spacedBy(space = 16.dp),
     ) {
         // Watch
-        Text(text = stringResource(R.string.section_watch), style = MaterialTheme.typography.titleLarge)
-
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Card(
-                modifier = Modifier.fillMaxWidth().selectableGroup(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                listOf(
-                    WatchType.GARMIN to stringResource(R.string.watch_type_garmin),
-                    WatchType.WEAR_OS to stringResource(R.string.watch_type_wear_os),
-                ).forEach { (type, label) ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .selectable(
-                                selected = viewModel.watchType == type,
-                                onClick = { viewModel.setWatchType(type) },
-                                role = Role.RadioButton,
-                            )
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(selected = viewModel.watchType == type, onClick = null)
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.padding(start = 16.dp),
-                        )
-                    }
-                }
-            }
+            WatchTypeDropdown(
+                selected = viewModel.watchType,
+                onSelect = { viewModel.setWatchType(it) },
+            )
             Text(
                 text = stringResource(R.string.desc_watch),
                 style = MaterialTheme.typography.bodySmall,
@@ -213,6 +185,42 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
             ) {
                 Text(stringResource(R.string.action_clear_recordings))
+            }
+        }
+    }
+}
+
+/** Garmin or Wear OS, as a compact drop-down. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WatchTypeDropdown(selected: WatchType, onSelect: (WatchType) -> Unit) {
+    val options = listOf(
+        WatchType.GARMIN to stringResource(R.string.watch_type_garmin),
+        WatchType.WEAR_OS to stringResource(R.string.watch_type_wear_os),
+    )
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = options.first { it.first == selected }.second,
+            onValueChange = {},
+            readOnly = true,
+            singleLine = true,
+            label = { Text(stringResource(R.string.section_watch)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { (type, label) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = {
+                        onSelect(type)
+                        expanded = false
+                    },
+                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                )
             }
         }
     }

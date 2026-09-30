@@ -9,6 +9,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -51,7 +53,17 @@ fun GarminStatusHeader(
         WatchType.GARMIN -> garminCardState(status, message, onGarminLinkClick, onGarminSessionClick)
         WatchType.WEAR_OS -> wearCardState(wearStatus, onWearLinkClick, onWearSessionClick)
     }
-    WatchHeaderRow(card, onPhoneRecordClick)
+    // Every text this watch's card can show, so the card is sized for the
+    // longest and keeps one size as it turns green, red or amber.
+    val allTexts = when (watchType) {
+        WatchType.GARMIN -> GarminConnectionStatus.entries.map {
+            garminCardState(it, message, onGarminLinkClick, onGarminSessionClick)
+        }
+        WatchType.WEAR_OS -> WearConnectionStatus.entries.map {
+            wearCardState(it, onWearLinkClick, onWearSessionClick)
+        }
+    }.map { it.title to it.detail }
+    WatchHeaderRow(card, allTexts, onPhoneRecordClick)
 }
 
 @Composable
@@ -167,7 +179,11 @@ private fun garminCardState(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun WatchHeaderRow(card: WatchCardState, onPhoneRecordClick: () -> Unit) {
+private fun WatchHeaderRow(
+    card: WatchCardState,
+    allTexts: List<Pair<String, String?>>,
+    onPhoneRecordClick: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -197,22 +213,16 @@ private fun WatchHeaderRow(card: WatchCardState, onPhoneRecordClick: () -> Unit)
                     tint = card.content
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = card.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = card.content,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-
-                if (card.detail != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = card.detail,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = card.content.copy(alpha = 0.8f),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
+                // The other states' texts are laid out invisibly underneath,
+                // so the card is as tall as its tallest state in every state.
+                Box(contentAlignment = Alignment.Center) {
+                    allTexts.forEach { (title, detail) ->
+                        WatchCardText(
+                            title, detail, card.content,
+                            Modifier.alpha(0f).clearAndSetSemantics {},
+                        )
+                    }
+                    WatchCardText(card.title, card.detail, card.content)
                 }
             }
         }
@@ -245,6 +255,34 @@ private fun WatchHeaderRow(card: WatchCardState, onPhoneRecordClick: () -> Unit)
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun WatchCardText(
+    title: String,
+    detail: String?,
+    color: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = color,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+
+        if (detail != null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = color.copy(alpha = 0.8f),
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
