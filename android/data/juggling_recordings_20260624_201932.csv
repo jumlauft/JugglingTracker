@@ -1,4 +1,4 @@
-# balls=5,catches=26,detected=22,sampleRate=200,timestamp=1781806692,countMode=watch_hand
+# balls=5,catches=26,detected=22,sampleRate=200,timestamp=1781806692,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 416,166,911
 388,151,917
@@ -6623,7 +6623,7 @@ x,y,z
 426,-233,988
 400,-226,975
 380,-205,956
-# balls=5,catches=10,detected=7,sampleRate=200,timestamp=1781806748,countMode=watch_hand
+# balls=5,catches=10,detected=7,sampleRate=200,timestamp=1781806748,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 201,-181,960
 183,-198,962
@@ -9061,7 +9061,7 @@ x,y,z
 376,-140,948
 368,-177,946
 363,-206,940
-# balls=5,catches=15,detected=12,sampleRate=200,timestamp=1781806782,countMode=watch_hand
+# balls=5,catches=15,detected=12,sampleRate=200,timestamp=1781806782,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 316,-256,896
 300,-268,900
@@ -12301,7 +12301,7 @@ x,y,z
 277,-265,932
 273,-264,932
 269,-254,935
-# balls=5,catches=49,detected=36,sampleRate=200,timestamp=1781806812,countMode=watch_hand
+# balls=5,catches=49,detected=36,sampleRate=200,timestamp=1781806812,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 317,-146,953
 315,-149,955
@@ -19682,7 +19682,7 @@ x,y,z
 518,-94,880
 506,-62,869
 495,-28,860
-# balls=5,catches=58,detected=39,sampleRate=200,timestamp=1781806862,countMode=watch_hand
+# balls=5,catches=58,detected=39,sampleRate=200,timestamp=1781806862,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 399,-228,914
 368,-239,913
@@ -28481,7 +28481,7 @@ x,y,z
 173,-372,1028
 154,-342,1030
 150,-299,1036
-# balls=5,catches=81,detected=54,sampleRate=200,timestamp=1781806926,countMode=watch_hand
+# balls=5,catches=81,detected=54,sampleRate=200,timestamp=1781806926,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 243,-281,938
 228,-281,941
@@ -40353,7 +40353,7 @@ x,y,z
 283,-181,946
 279,-164,945
 273,-157,937
-# balls=5,catches=60,detected=41,sampleRate=200,timestamp=1781806998,countMode=watch_hand
+# balls=5,catches=60,detected=41,sampleRate=200,timestamp=1781806998,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 152,-207,924
 139,-220,928
@@ -49050,7 +49050,7 @@ x,y,z
 203,-332,927
 202,-318,919
 199,-312,913
-# balls=5,catches=135,detected=1,sampleRate=200,timestamp=1781807052,countMode=watch_hand
+# balls=5,catches=135,detected=1,sampleRate=200,timestamp=1781807052,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 32,-150,957
 4,-129,968
@@ -63424,7 +63424,7 @@ x,y,z
 488,331,846
 497,333,840
 494,333,829
-# balls=3,catches=4,detected=9,sampleRate=200,timestamp=1781807386,countMode=watch_hand
+# balls=3,catches=4,detected=9,sampleRate=200,timestamp=1781807386,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 365,-295,880
 373,-281,898
@@ -65951,7 +65951,7 @@ x,y,z
 199,-121,965
 195,-105,948
 198,-107,942
-# balls=7,catches=5,detected=0,sampleRate=200,timestamp=1781807427,countMode=watch_hand
+# balls=7,catches=5,detected=0,sampleRate=200,timestamp=1781807427,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 408,-319,872
 397,-315,876
@@ -68657,7 +68657,7 @@ x,y,z
 172,-80,1092
 165,-97,1055
 149,-125,1025
-# balls=7,catches=10,detected=0,sampleRate=200,timestamp=1781807571,countMode=watch_hand
+# balls=7,catches=10,detected=0,sampleRate=200,timestamp=1781807571,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 588,-169,787
 575,-181,800
@@ -71515,7 +71515,7 @@ x,y,z
 235,-293,979
 244,-280,979
 250,-266,970
-# balls=7,catches=14,detected=0,sampleRate=200,timestamp=1781807617,countMode=watch_hand
+# balls=7,catches=14,detected=0,sampleRate=200,timestamp=1781807617,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 73,-119,992
 88,-110,997
@@ -74977,7 +74977,7 @@ x,y,z
 181,-175,941
 217,-148,923
 246,-137,913
-# balls=7,catches=17,detected=14,sampleRate=200,timestamp=1781807659,countMode=watch_hand
+# balls=7,catches=17,detected=14,sampleRate=200,timestamp=1781807659,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 216,-254,959
 211,-240,959
@@ -78489,7 +78489,7 @@ x,y,z
 204,-115,1077
 158,-120,1071
 128,-116,1052
-# balls=7,catches=7,detected=0,sampleRate=200,timestamp=1781807695,countMode=watch_hand
+# balls=7,catches=7,detected=0,sampleRate=200,timestamp=1781807695,countMode=watch_hand,juggler=Jonas Umlauft,hand=left,firstThrow=right
 x,y,z
 338,-105,946
 344,-121,956
