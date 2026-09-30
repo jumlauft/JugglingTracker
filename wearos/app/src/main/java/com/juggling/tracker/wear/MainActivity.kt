@@ -29,8 +29,8 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     companion object {
         private const val TAG = "MainActivity"
-        // Record mode writes each run to logcat under this tag, in the
-        // RUN_DATA format the tooling in simulation/ parses (REC-4).
+        // Record mode writes a one-line RUN_DATA summary of each confirmed
+        // run to logcat under this tag (REC-4).
         private const val RECORDING_LOG_TAG = "JugglingRecording"
     }
 

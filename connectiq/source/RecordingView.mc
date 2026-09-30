@@ -280,17 +280,14 @@ class RecordingView extends WatchUi.View {
 
     // User confirmed the watch-hand catch count: log, transmit, and wait for ACK.
     public function confirmLabel() as Void {
-        // ── Parseable CSV log (for simulator console capture) ──
+        // One-line summary only. The samples reach the phone below; printing
+        // them here as well held up the transfer by seconds on the watch.
         System.println("RUN_DATA,balls=" + _ballCount +
             ",catches=" + _labelCount +
             ",detected=" + _detectedCount +
             ",rate=" + SAMPLE_RATE +
             ",countMode=watch_hand" +
             ",samples=" + _accelX.size());
-        for (var i = 0; i < _accelX.size(); i++) {
-            System.println("S," + _accelX[i] + "," + _accelY[i] + "," + _accelZ[i]);
-        }
-        System.println("RUN_DATA_END");
 
         // ── Transmit to the companion phone app, in chunks ──
         _sessionId = Time.now().value();
@@ -718,11 +715,11 @@ class RecordingView extends WatchUi.View {
         var medH = dc.getFontHeight(Graphics.FONT_MEDIUM);
         var hintH = dc.getFontHeight(Graphics.FONT_XTINY);
 
-        var blockH = labelH + medH + hintH;
+        var blockH = labelH + medH + 2 * hintH;
         var y = cy - blockH / 2;
 
         dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y, Graphics.FONT_TINY, "● REC", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, y, Graphics.FONT_TINY, "RECORDING", Graphics.TEXT_JUSTIFY_CENTER);
         y += labelH;
 
         var seconds = _accelX.size() / SAMPLE_RATE;
@@ -731,8 +728,10 @@ class RecordingView extends WatchUi.View {
         y += medH;
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_XTINY, "Press Start when finished", Graphics.TEXT_JUSTIFY_CENTER);
+        y += hintH;
         dc.drawText(cx, y, Graphics.FONT_XTINY,
-            "Start stops | Hand: " + _detector.currentCount, Graphics.TEXT_JUSTIFY_CENTER);
+            "Catches per hand: " + _detector.currentCount, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     private function drawSyncingState(dc as Dc, cx as Number, cy as Number) as Void {
