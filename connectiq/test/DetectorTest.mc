@@ -1,4 +1,5 @@
 import Toybox.Lang;
+import Toybox.Math;
 import Toybox.Test;
 
 // Executable tests for the behaviour specified in REQUIREMENTS.md.
@@ -323,5 +324,100 @@ function run6_finishWithNoRunInProgressRecordsNothing(logger as Logger) as Boole
 
     Test.assertEqualMessage(d.finishCurrentRun(), 0, "nothing to finish");
     Test.assertEqualMessage(d.sessionRuns(), 0, "no phantom run recorded");
+    return true;
+}
+
+// ── Shape consistency ────────────────────────────────────────────────────
+// The tracker is fed directly, inside one run, so these pin the scoring
+// itself. simulation/test_detection.py replays real runs through the
+// reference and checks the detector's wiring.
+
+// A wrist motion that repeats every 20 samples (0.8 s).
+function shapePeriodicSample(i as Number) as Array<Number> {
+    var phase = 2.0 * Math.PI * i / 20.0;
+    return [
+        Math.round(500.0 * Math.sin(phase)).toNumber(),
+        Math.round(300.0 * Math.cos(phase)).toNumber(),
+        1000 + Math.round(200.0 * Math.sin(2.0 * phase)).toNumber()
+    ] as Array<Number>;
+}
+
+// Motion with no cycle at all: a small linear congruential generator.
+function shapeUnrelatedSample(state as Array<Number>) as Array<Number> {
+    var out = [0, 0, 0] as Array<Number>;
+    for (var a = 0; a < 3; a++) {
+        state[0] = (state[0] * 75 + 74) % 65537;
+        out[a] = state[0] % 1001 - 500;
+    }
+    out[2] += 1000;
+    return out;
+}
+
+function shapeFed(periodic as Boolean, firstCatchMs as Number) as ShapeConsistency {
+    var tracker = new ShapeConsistency();
+    var state = [12345] as Array<Number>;
+    for (var i = 0; i < 400; i++) {
+        var s = periodic ? shapePeriodicSample(i) : shapeUnrelatedSample(state);
+        tracker.addSample(s[0], s[1], s[2], i * SAMPLE_PERIOD_MS, true, true, firstCatchMs);
+    }
+    return tracker;
+}
+
+// SHAPE-1: a wrist that repeats the same motion every cycle scores 100 %.
+(:test)
+function shape1_periodicMotionScoresFull(logger as Logger) as Boolean {
+    var tracker = shapeFed(true, 0);
+    tracker.onCatch(400 * SAMPLE_PERIOD_MS);
+    tracker.commitRun();
+    Test.assertMessage(tracker.sessionPercent() >= 99, "periodic motion scored " + tracker.sessionPercent());
+    return true;
+}
+
+// SHAPE-1: motion where one cycle says nothing about the next scores low.
+(:test)
+function shape1_unrelatedCyclesScoreLow(logger as Logger) as Boolean {
+    var tracker = shapeFed(false, 0);
+    tracker.onCatch(400 * SAMPLE_PERIOD_MS);
+    tracker.commitRun();
+    var score = tracker.sessionPercent();
+    Test.assertMessage(score >= 0 && score < 50, "unrelated motion scored " + score);
+    return true;
+}
+
+// SHAPE-2: only windows confirmed by a later catch, and lying wholly after the
+// first catch, count; until one does, the session has no score (-1).
+(:test)
+function shape2_onlyWindowsInsideTheRunCount(logger as Logger) as Boolean {
+    var tracker = shapeFed(true, 0);
+    tracker.commitRun();
+    Test.assertEqualMessage(tracker.sessionPercent(), -1, "no catch confirmed any window");
+
+    tracker = shapeFed(true, (400 - 85 + 2) * SAMPLE_PERIOD_MS);
+    tracker.onCatch(400 * SAMPLE_PERIOD_MS);
+    tracker.commitRun();
+    Test.assertEqualMessage(tracker.sessionPercent(), -1, "every window reached back before the first catch");
+    return true;
+}
+
+// SHAPE-3: discarding the last run removes its windows from the session score.
+(:test)
+function shape3_discardRemovesTheRunsScore(logger as Logger) as Boolean {
+    var tracker = new ShapeConsistency();
+    var state = [12345] as Array<Number>;
+    for (var i = 0; i < 800; i++) {
+        var s = i < 400 ? shapePeriodicSample(i) : shapeUnrelatedSample(state);
+        tracker.addSample(s[0], s[1], s[2], i * SAMPLE_PERIOD_MS, true, true,
+                          i < 400 ? 0 : 400 * SAMPLE_PERIOD_MS);
+        if (i == 399) {
+            tracker.onCatch(i * SAMPLE_PERIOD_MS);
+            tracker.commitRun();
+        }
+    }
+    tracker.onCatch(800 * SAMPLE_PERIOD_MS);
+    tracker.commitRun();
+    var mixed = tracker.sessionPercent();
+    tracker.discardLastRun();
+    Test.assertMessage(tracker.sessionPercent() >= 99, "the periodic run is left");
+    Test.assertMessage(mixed < 99, "the messy run had pulled the score down");
     return true;
 }

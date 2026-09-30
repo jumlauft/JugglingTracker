@@ -22,6 +22,9 @@ object Format {
     fun averageOrDash(value: Double): String =
         if (value == 0.0) "-" else String.format(Locale.US, "%.1f", value)
 
+    /** Shape consistency: "-" until a run has been scored (-1), else "83%". */
+    fun percentOrDash(value: Int): String = if (value < 0) "-" else "$value%"
+
     fun syncing(dots: Int): String = "Sync to phone" + ".".repeat(dots.coerceAtLeast(0))
 
     /** While chunks are going over, the record screen shows progress instead. */

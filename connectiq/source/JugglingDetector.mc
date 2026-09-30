@@ -141,6 +141,9 @@ class JugglingDetector {
     private var _minRawMag as Float;
     private var _mergeWindowMs as Number;
 
+    // How alike each hand cycle is to the one before it, per run and session.
+    private var _shape as ShapeConsistency;
+
     public function initialize(balls as Number) {
         ballCount = balls;
         _gravityX = 0.0f;
@@ -173,6 +176,7 @@ class JugglingDetector {
         _pendingPeakTime = 0;
         _pendingPeakScore = 0.0f;
         _clusterLastCandidateTime = 0;
+        _shape = new ShapeConsistency();
 
         // Cache ball-count-adaptive parameters.
         if (balls <= 3) {
@@ -234,6 +238,7 @@ class JugglingDetector {
         }
         _runCatches.add(catches);
         _runDurationsMillis.add(currentRunDurationMillis());
+        _shape.commitRun();
     }
 
     private function currentRunDurationMillis() as Number {
@@ -266,6 +271,7 @@ class JugglingDetector {
         _hasFirstCatchTime = false;
         _firstCatchTime = 0;
         _lastCatchTime = 0;
+        _shape.clearRun();
     }
 
     private function commitPendingPeak(nowMs as Number) as Void {
@@ -280,6 +286,7 @@ class JugglingDetector {
                 _hasFirstCatchTime = true;
             }
             _lastCatchTime = _pendingPeakTime;
+            _shape.onCatch(_lastCatchTime);
         }
         _lastActiveTime = nowMs;
         _hasPendingPeak = false;
@@ -359,6 +366,7 @@ class JugglingDetector {
         // so drop the last element via slice instead.
         _runCatches = _runCatches.slice(0, n - 1);
         _runDurationsMillis = _runDurationsMillis.slice(0, n - 1);
+        _shape.discardLastRun();
         _sessionRuns -= 1;
         _sessionTotal -= removed;
 
@@ -396,6 +404,12 @@ class JugglingDetector {
         return _sessionTotal.toFloat() / _sessionRuns;
     }
 
+    // Session shape consistency as a whole percentage, or -1 before any run
+    // has lasted long enough to be scored. See ShapeConsistency.
+    public function shapeConsistencyPercent() as Number {
+        return _shape.sessionPercent();
+    }
+
     // Number of completed runs in the current session.
     public function sessionRuns() as Number {
         return _sessionRuns;
@@ -403,6 +417,10 @@ class JugglingDetector {
 
     // Feed one raw accelerometer sample (milli-g) at time nowMs.
     public function processSample(gxMilliG as Number, gyMilliG as Number, gzMilliG as Number, nowMs as Number) as Void {
+        // Before detection, so it sees every sample, warmup included.
+        _shape.addSample(gxMilliG, gyMilliG, gzMilliG, nowMs,
+                         hasActiveRun(), _hasFirstCatchTime, _firstCatchTime);
+
         var ax = gxMilliG * MILLI_G_TO_MS2;
         var ay = gyMilliG * MILLI_G_TO_MS2;
         var az = gzMilliG * MILLI_G_TO_MS2;
