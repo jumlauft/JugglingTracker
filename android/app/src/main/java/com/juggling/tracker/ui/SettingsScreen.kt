@@ -18,6 +18,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.juggling.tracker.R
+import com.juggling.tracker.data.WatchType
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.logic.JugglingViewModel
 import java.util.*
@@ -79,6 +80,22 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             .verticalScroll(state = rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(space = 16.dp),
     ) {
+        // Watch
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            WatchTypeDropdown(
+                selected = viewModel.watchType,
+                onSelect = { viewModel.setWatchType(it) },
+            )
+            Text(
+                text = stringResource(R.string.desc_watch),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+        }
+
+        HorizontalDivider()
+
         // Voice Settings
         Text(text = stringResource(R.string.section_voice), style = MaterialTheme.typography.titleLarge)
         
@@ -187,6 +204,42 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
             ) {
                 Text(stringResource(R.string.action_clear_recordings))
+            }
+        }
+    }
+}
+
+/** Garmin or Wear OS, as a compact drop-down. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WatchTypeDropdown(selected: WatchType, onSelect: (WatchType) -> Unit) {
+    val options = listOf(
+        WatchType.GARMIN to stringResource(R.string.watch_type_garmin),
+        WatchType.WEAR_OS to stringResource(R.string.watch_type_wear_os),
+    )
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = options.first { it.first == selected }.second,
+            onValueChange = {},
+            readOnly = true,
+            singleLine = true,
+            label = { Text(stringResource(R.string.section_watch)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { (type, label) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = {
+                        onSelect(type)
+                        expanded = false
+                    },
+                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                )
             }
         }
     }

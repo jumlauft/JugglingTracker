@@ -61,6 +61,11 @@
     <string name="label_record_with_garmin">Record with Garmin watch</string>
     <string name="garmin_receiving">Receiving data...</string>
     <string name="garmin_connecting">Connecting to Garmin...</string>
+    <string name="wear_ready">Ready to record with Wear OS</string>
+    <string name="wear_missing">Watch is not connected to phone</string>
+    <string name="wear_no_watch">No Wear OS watch is connected</string>
+    <string name="wear_unavailable">Wear OS is not available on this phone</string>
+    <string name="label_record_with_wear">Record with Wear OS watch</string>
 
     <string name="stat_catches">CATCHES</string>
     <string name="stat_previous_hand">PREVIOUS HAND</string>
@@ -102,6 +107,18 @@
     <string name="dialog_garmin_condition_range">6. Your watch is within Bluetooth range of your phone.</string>
     <string name="action_open_play_store">Open Play Store</string>
 
+    <string name="dialog_wear_link_title">Wear OS Connectivity Checklist</string>
+    <string name="dialog_wear_link_intro">To sync with your watch, please ensure:</string>
+    <string name="dialog_wear_condition_bluetooth">1. Bluetooth is turned ON.</string>
+    <string name="dialog_wear_condition_paired">2. Your watch is paired with this phone in its companion app (for example \"Pixel Watch\" or \"Galaxy Wearable\").</string>
+    <string name="dialog_wear_condition_app">3. The \"Juggling Tracker\" app is installed on the watch. Open the Play Store on the watch to install it.</string>
+    <string name="dialog_wear_condition_range">4. Your watch is within Bluetooth range of your phone.</string>
+    <string name="dialog_wear_session_title">Start Wear OS Session</string>
+    <string name="dialog_wear_session_text">Your watch is connected. Open \"Juggling Tracker\" on your watch, choose Juggle and the number of balls, and press Start. \nEnd the session with \"Sync and quit\" while the phone is nearby to transfer the session data to the phone.</string>
+    <string name="section_watch">Watch</string>
+    <string name="desc_watch">The watch you record with. The card on the home screen shows whether it is connected.</string>
+    <string name="watch_type_garmin">Garmin</string>
+    <string name="watch_type_wear_os">Wear OS</string>
     <string name="dialog_garmin_session_title">Start Garmin Session</string>
     <string name="dialog_garmin_session_text">Your setup is looking good. Download the \"Juggling Tracker\" app from the Connect IQ Store to your Garmin watch, and start the \"Juggling\" activity on your watch. \nTerminate the session while the phone is nearby to transfer the session data to the phone.</string>
 

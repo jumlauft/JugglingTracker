@@ -110,6 +110,13 @@ jobs:
         if: ${{ !cancelled() }}
         run: ./gradlew :app:lintDebug
 
+      - name: Release bundle builds (minified, unsigned)
+        # The Play release uploads this bundle, so R8 problems show up here
+        # rather than on release day.
+        working-directory: wearos
+        if: ${{ !cancelled() }}
+        run: ./gradlew bundleRelease
+
       - name: Enable KVM
         # Hosted Linux runners support hardware acceleration once the device
         # node is opened up; without it the emulator will not boot in time.

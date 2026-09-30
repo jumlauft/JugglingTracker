@@ -8,6 +8,7 @@ import com.juggling.tracker.model.normalizeRunDurations
 import com.juggling.tracker.data.SessionRepository
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.data.SettingsManager
+import com.juggling.tracker.data.WatchType
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
@@ -31,6 +32,30 @@ enum class GarminConnectionStatus {
     WATCH_APP_MISSING,
     DISCONNECTED,
     SDK_ERROR
+}
+
+/** The Wear OS watch app's link to this phone, over the Data Layer. */
+enum class WearConnectionStatus {
+    CHECKING,
+    READY,
+    RECEIVING,
+    NO_WATCH,
+    WATCH_APP_MISSING,
+    UNAVAILABLE;
+
+    companion object {
+        /**
+         * [connectedWatches] is how many watches the phone is connected to, and
+         * [watchesWithApp] how many of them are running a reachable copy of the
+         * watch app; null when the Data Layer could not be asked at all.
+         */
+        fun classify(connectedWatches: Int?, watchesWithApp: Int): WearConnectionStatus = when {
+            connectedWatches == null -> UNAVAILABLE
+            watchesWithApp > 0 -> READY
+            connectedWatches == 0 -> NO_WATCH
+            else -> WATCH_APP_MISSING
+        }
+    }
 }
 
 data class PhoneSessionUiState(
@@ -71,10 +96,19 @@ class JugglingViewModel(
     var garminStatus by mutableStateOf(GarminConnectionStatus.NOT_INITIALIZED)
     var statusMessage by mutableStateOf("")
 
+    // Wear OS status
+    var wearStatus by mutableStateOf(WearConnectionStatus.CHECKING)
+
     // Settings
     val isAnalyticsEnabled get() = settings?.isAnalyticsEnabled ?: true
     val isVoiceEnabled get() = settings?.isVoiceEnabled ?: true
     val voiceInterval get() = settings?.voiceInterval ?: 10
+    val watchType get() = settings?.watchType ?: WatchType.GARMIN
+
+    fun setWatchType(type: WatchType) {
+        settings?.updateWatchType(type)
+    }
+
     val jugglerName get() = settings?.jugglerName ?: ""
     val watchHand get() = settings?.watchHand
     val firstThrowHand get() = settings?.firstThrowHand

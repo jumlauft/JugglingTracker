@@ -9,15 +9,33 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.juggling.tracker.R
+import com.juggling.tracker.data.WatchType
 import com.juggling.tracker.logic.GarminConnectionStatus
+import com.juggling.tracker.logic.WearConnectionStatus
 import com.juggling.tracker.ui.theme.LocalStatusColors
 
-/** The two cards at the top of the home screen: watch status, and start-with-phone. */
+/** What the watch card shows and does in one state. */
+private data class WatchCardState(
+    val background: androidx.compose.ui.graphics.Color,
+    val content: androidx.compose.ui.graphics.Color,
+    val title: String,
+    val detail: String?,
+    val onClick: () -> Unit,
+)
+
+/**
+ * The two cards at the top of the home screen: the status of the watch picked
+ * in Settings, and start-with-phone. Both watches follow the same rules: green
+ * when ready (a tap explains how to start a session), red when not (a tap
+ * shows how to connect), and inert while connecting or receiving.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GarminStatusHeader(
@@ -26,7 +44,70 @@ fun GarminStatusHeader(
     onPhoneRecordClick: () -> Unit,
     onGarminLinkClick: () -> Unit,
     onGarminSessionClick: () -> Unit,
+    watchType: WatchType = WatchType.GARMIN,
+    wearStatus: WearConnectionStatus = WearConnectionStatus.CHECKING,
+    onWearLinkClick: () -> Unit = {},
+    onWearSessionClick: () -> Unit = {},
 ) {
+    val card = when (watchType) {
+        WatchType.GARMIN -> garminCardState(status, message, onGarminLinkClick, onGarminSessionClick)
+        WatchType.WEAR_OS -> wearCardState(wearStatus, onWearLinkClick, onWearSessionClick)
+    }
+    // Every text this watch's card can show, so the card is sized for the
+    // longest and keeps one size as it turns green, red or amber.
+    val allTexts = when (watchType) {
+        WatchType.GARMIN -> GarminConnectionStatus.entries.map {
+            garminCardState(it, message, onGarminLinkClick, onGarminSessionClick)
+        }
+        WatchType.WEAR_OS -> WearConnectionStatus.entries.map {
+            wearCardState(it, onWearLinkClick, onWearSessionClick)
+        }
+    }.map { it.title to it.detail }
+    WatchHeaderRow(card, allTexts, onPhoneRecordClick)
+}
+
+@Composable
+private fun wearCardState(
+    status: WearConnectionStatus,
+    onLinkClick: () -> Unit,
+    onSessionClick: () -> Unit,
+): WatchCardState {
+    val statusColors = LocalStatusColors.current
+    val errorBackground = MaterialTheme.colorScheme.errorContainer
+    val errorContent = MaterialTheme.colorScheme.onErrorContainer
+    val notConnected = stringResource(R.string.wear_missing)
+    return when (status) {
+        WearConnectionStatus.READY -> WatchCardState(
+            statusColors.successContainer, statusColors.onSuccessContainer,
+            stringResource(R.string.wear_ready), null, onSessionClick,
+        )
+        WearConnectionStatus.RECEIVING -> WatchCardState(
+            statusColors.warningContainer, statusColors.onWarningContainer,
+            stringResource(R.string.garmin_receiving), null, {},
+        )
+        WearConnectionStatus.CHECKING -> WatchCardState(
+            MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant,
+            stringResource(R.string.label_record_with_wear), null, {},
+        )
+        WearConnectionStatus.NO_WATCH -> WatchCardState(
+            errorBackground, errorContent, notConnected, stringResource(R.string.wear_no_watch), onLinkClick,
+        )
+        WearConnectionStatus.WATCH_APP_MISSING -> WatchCardState(
+            errorBackground, errorContent, stringResource(R.string.garmin_watch_app_missing), null, onLinkClick,
+        )
+        WearConnectionStatus.UNAVAILABLE -> WatchCardState(
+            errorBackground, errorContent, notConnected, stringResource(R.string.wear_unavailable), onLinkClick,
+        )
+    }
+}
+
+@Composable
+private fun garminCardState(
+    status: GarminConnectionStatus,
+    message: String,
+    onGarminLinkClick: () -> Unit,
+    onGarminSessionClick: () -> Unit,
+): WatchCardState {
     // Every state's colours come from the theme: the failure states from
     // Material's own error container, "ready" and "receiving" from
     // LocalStatusColors, which has no Material token. These used to be literal
@@ -74,6 +155,35 @@ fun GarminStatusHeader(
         )
     }
 
+    val onClick: () -> Unit = {
+        when (status) {
+            GarminConnectionStatus.READY -> onGarminSessionClick()
+            GarminConnectionStatus.RECEIVING,
+            GarminConnectionStatus.NOT_INITIALIZED -> {}
+            else -> onGarminLinkClick() // Show checklist for any error/disconnected state
+        }
+    }
+    val title = if (status == GarminConnectionStatus.READY ||
+        status == GarminConnectionStatus.RECEIVING ||
+        status == GarminConnectionStatus.WATCH_APP_MISSING
+    ) {
+        statusText
+    } else if (status == GarminConnectionStatus.NOT_INITIALIZED) {
+        stringResource(R.string.label_record_with_garmin)
+    } else {
+        stringResource(R.string.garmin_missing)
+    }
+    val detail = if (status == GarminConnectionStatus.RECEIVING) statusText else null
+    return WatchCardState(backgroundColor, textColor, title, detail, onClick)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WatchHeaderRow(
+    card: WatchCardState,
+    allTexts: List<Pair<String, String?>>,
+    onPhoneRecordClick: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -81,20 +191,13 @@ fun GarminStatusHeader(
             .animateContentSize(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Garmin Column
+        // Watch Column
         Card(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight(),
-            onClick = {
-                when (status) {
-                    GarminConnectionStatus.READY -> onGarminSessionClick()
-                    GarminConnectionStatus.RECEIVING,
-                    GarminConnectionStatus.NOT_INITIALIZED -> {}
-                    else -> onGarminLinkClick() // Show checklist for any error/disconnected state
-                }
-            },
-            colors = CardDefaults.cardColors(containerColor = backgroundColor)
+            onClick = card.onClick,
+            colors = CardDefaults.cardColors(containerColor = card.background)
         ) {
             Column(
                 modifier = Modifier
@@ -107,34 +210,19 @@ fun GarminStatusHeader(
                 Icon(
                     imageVector = Icons.Default.Watch,
                     contentDescription = null,
-                    tint = textColor
+                    tint = card.content
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = if (status == GarminConnectionStatus.READY ||
-                        status == GarminConnectionStatus.RECEIVING ||
-                        status == GarminConnectionStatus.WATCH_APP_MISSING
-                    ) {
-                        statusText
-                    } else if (status == GarminConnectionStatus.NOT_INITIALIZED) {
-                        stringResource(R.string.label_record_with_garmin)
-                    } else {
-                        stringResource(R.string.garmin_missing)
-                    },
-                    style = MaterialTheme.typography.titleSmall,
-                    color = textColor,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-
-                if (status == GarminConnectionStatus.RECEIVING) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = statusText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = textColor.copy(alpha = 0.8f),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
+                // The other states' texts are laid out invisibly underneath,
+                // so the card is as tall as its tallest state in every state.
+                Box(contentAlignment = Alignment.Center) {
+                    allTexts.forEach { (title, detail) ->
+                        WatchCardText(
+                            title, detail, card.content,
+                            Modifier.alpha(0f).clearAndSetSemantics {},
+                        )
+                    }
+                    WatchCardText(card.title, card.detail, card.content)
                 }
             }
         }
@@ -167,6 +255,34 @@ fun GarminStatusHeader(
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun WatchCardText(
+    title: String,
+    detail: String?,
+    color: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = color,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+
+        if (detail != null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = color.copy(alpha = 0.8f),
+                textAlign = TextAlign.Center
+            )
         }
     }
 }

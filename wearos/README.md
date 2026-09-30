@@ -43,6 +43,10 @@ same dictionaries the Garmin sends (`session`, `rec_start`, `rec_chunk`,
 phone app registers a Data Layer listener next to its Garmin one and routes
 both into the same import code.
 
+In the phone app, Settings > Watch picks Garmin or Wear OS. With Wear OS
+picked, the watch card on the home screen is green when a connected watch has
+this app, and red otherwise; tapping the red card shows how to connect.
+
 The Data Layer only connects apps that share a package name and signing key,
 so this app's `applicationId` is `com.juggling.tracker`, like the phone app,
 and release builds must be signed with the same key.

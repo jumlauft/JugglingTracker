@@ -7,6 +7,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
+/** Which watch the user records with; it decides what the home screen's watch card shows. */
+enum class WatchType { GARMIN, WEAR_OS }
+
 class SettingsManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("juggling_settings", Context.MODE_PRIVATE)
 
@@ -18,6 +21,16 @@ class SettingsManager(context: Context) {
 
     var voiceInterval: Int by mutableIntStateOf(prefs.getInt(KEY_VOICE_INTERVAL, 10))
         private set
+
+    var watchType: WatchType by mutableStateOf(
+        WatchType.entries.firstOrNull { it.name == prefs.getString(KEY_WATCH_TYPE, null) } ?: WatchType.GARMIN
+    )
+        private set
+
+    fun updateWatchType(type: WatchType) {
+        watchType = type
+        prefs.edit().putString(KEY_WATCH_TYPE, type.name).apply()
+    }
 
     /** Who juggles, as last entered when exporting recordings; blank until then. */
     var jugglerName: String by mutableStateOf(prefs.getString(KEY_JUGGLER_NAME, null) ?: "")
@@ -61,6 +74,7 @@ class SettingsManager(context: Context) {
         private const val KEY_ANALYTICS = "analytics_enabled"
         private const val KEY_VOICE = "voice_enabled"
         private const val KEY_VOICE_INTERVAL = "voice_interval"
+        private const val KEY_WATCH_TYPE = "watch_type"
         private const val KEY_JUGGLER_NAME = "juggler_name"
         private const val KEY_WATCH_HAND = "watch_hand"
         private const val KEY_FIRST_THROW = "first_throw_hand"
