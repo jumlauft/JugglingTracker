@@ -21,6 +21,9 @@ object WearMessageCodec {
     /** Phone to watch: the `ack`. */
     const val PATH_PHONE_TO_WATCH = "/juggling_tracker/phone_message"
 
+    /** Declared by the watch app (`wearos/.../res/values/wear.xml`); reachable means installed and connected. */
+    const val WATCH_CAPABILITY = "juggling_tracker_watch"
+
     /** Returns the payload as a map with lists for arrays, or null if it is not a JSON object. */
     fun decode(bytes: ByteArray): Map<String, Any>? = try {
         toMap(JSONObject(String(bytes, Charsets.UTF_8)))

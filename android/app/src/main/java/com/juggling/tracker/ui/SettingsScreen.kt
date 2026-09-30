@@ -5,6 +5,8 @@ import android.widget.Toast
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.filled.Settings
@@ -18,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.juggling.tracker.R
+import com.juggling.tracker.data.WatchType
 import com.juggling.tracker.logic.JugglingViewModel
 import java.util.*
 
@@ -62,6 +65,48 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             .verticalScroll(state = rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(space = 16.dp),
     ) {
+        // Watch
+        Text(text = stringResource(R.string.section_watch), style = MaterialTheme.typography.titleLarge)
+
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Card(
+                modifier = Modifier.fillMaxWidth().selectableGroup(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                listOf(
+                    WatchType.GARMIN to stringResource(R.string.watch_type_garmin),
+                    WatchType.WEAR_OS to stringResource(R.string.watch_type_wear_os),
+                ).forEach { (type, label) ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .selectable(
+                                selected = viewModel.watchType == type,
+                                onClick = { viewModel.setWatchType(type) },
+                                role = Role.RadioButton,
+                            )
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = viewModel.watchType == type, onClick = null)
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(start = 16.dp),
+                        )
+                    }
+                }
+            }
+            Text(
+                text = stringResource(R.string.desc_watch),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+        }
+
+        HorizontalDivider()
+
         // Voice Settings
         Text(text = stringResource(R.string.section_voice), style = MaterialTheme.typography.titleLarge)
         

@@ -41,6 +41,8 @@ fun JugglingTrackerApp(
     var showQuitConfirmation by remember { mutableStateOf(false) }
     var showGarminLinkInstructions by remember { mutableStateOf(false) }
     var showGarminSessionInstructions by remember { mutableStateOf(false) }
+    var showWearLinkInstructions by remember { mutableStateOf(false) }
+    var showWearSessionInstructions by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     if (showGarminLinkInstructions) {
@@ -49,6 +51,14 @@ fun JugglingTrackerApp(
 
     if (showGarminSessionInstructions) {
         GarminSessionDialog(onDismiss = { showGarminSessionInstructions = false })
+    }
+
+    if (showWearLinkInstructions) {
+        WearLinkDialog(onDismiss = { showWearLinkInstructions = false })
+    }
+
+    if (showWearSessionInstructions) {
+        WearSessionDialog(onDismiss = { showWearSessionInstructions = false })
     }
 
     RawRecordingFlow(
@@ -215,6 +225,8 @@ fun JugglingTrackerApp(
                     onPhoneRecordClick = { currentScreen = Screen.PhoneSession },
                     onGarminLinkClick = { showGarminLinkInstructions = true },
                     onGarminSessionClick = { showGarminSessionInstructions = true },
+                    onWearLinkClick = { showWearLinkInstructions = true },
+                    onWearSessionClick = { showWearSessionInstructions = true },
                 ) { selectedSessionForDetails.value = it }
             } else if (currentScreen == Screen.PhoneSession) {
                 PhoneSessionScreen(

@@ -17,7 +17,7 @@ import com.juggling.tracker.R
 import com.juggling.tracker.logic.JugglingViewModel
 import com.juggling.tracker.model.SessionSummary
 
-/** The home screen: Garmin/phone header, ball-count tabs and session history. */
+/** The home screen: watch/phone header, ball-count tabs and session history. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackerScreen(
@@ -26,6 +26,8 @@ fun TrackerScreen(
     onPhoneRecordClick: () -> Unit,
     onGarminLinkClick: () -> Unit,
     onGarminSessionClick: () -> Unit,
+    onWearLinkClick: () -> Unit,
+    onWearSessionClick: () -> Unit,
     onSessionClick: (SessionSummary) -> Unit,
 ) {
     var sessionToDelete by remember { mutableStateOf<SessionSummary?>(null) }
@@ -69,6 +71,10 @@ fun TrackerScreen(
             onPhoneRecordClick = onPhoneRecordClick,
             onGarminLinkClick = onGarminLinkClick,
             onGarminSessionClick = onGarminSessionClick,
+            watchType = viewModel.watchType,
+            wearStatus = viewModel.wearStatus,
+            onWearLinkClick = onWearLinkClick,
+            onWearSessionClick = onWearSessionClick,
         )
 
         if (viewModel.completedSessions.isNotEmpty()) {

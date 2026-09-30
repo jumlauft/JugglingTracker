@@ -29,10 +29,13 @@ import com.garmin.android.connectiq.ConnectIQ
 import com.garmin.android.connectiq.IQApp
 import com.garmin.android.connectiq.IQDevice
 import com.garmin.android.connectiq.exception.ServiceUnavailableException
+import com.google.android.gms.tasks.Tasks
+import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.Wearable
 import com.juggling.tracker.logic.GarminConnectionStatus
 import com.juggling.tracker.logic.JugglingViewModel
+import com.juggling.tracker.logic.WearConnectionStatus
 import com.juggling.tracker.data.SessionRepository
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.data.SettingsManager
@@ -135,6 +138,32 @@ class MainActivity : ComponentActivity() {
         // delivers to this app as long as it is running, like the Garmin link.
         Wearable.getMessageClient(this).addListener(wearMessageListener)
             .addOnFailureListener { e -> Log.w(TAG, "Wear OS Data Layer unavailable", e) }
+        Wearable.getCapabilityClient(this)
+            .addListener(wearCapabilityListener, WearMessageCodec.WATCH_CAPABILITY)
+            .addOnFailureListener { e -> Log.w(TAG, "Cannot watch the Wear OS capability", e) }
+    }
+
+    // The watch app coming into or out of reach (installed, uninstalled,
+    // Bluetooth dropped) changes its capability, so the card follows along.
+    private val wearCapabilityListener = CapabilityClient.OnCapabilityChangedListener { refreshWearStatus() }
+
+    // Asks the Data Layer whether a watch is connected and whether it has the
+    // watch app, for the Wear OS card. Receiving keeps its own status until the
+    // transfer's timer puts it back.
+    private fun refreshWearStatus() {
+        val nodes = Wearable.getNodeClient(this).connectedNodes
+        val capable = Wearable.getCapabilityClient(this)
+            .getCapability(WearMessageCodec.WATCH_CAPABILITY, CapabilityClient.FILTER_REACHABLE)
+        Tasks.whenAllComplete(nodes, capable).addOnCompleteListener(this) {
+            val status = WearConnectionStatus.classify(
+                connectedWatches = if (nodes.isSuccessful) nodes.result.size else null,
+                watchesWithApp = if (capable.isSuccessful) capable.result.nodes.size else 0,
+            )
+            if (!nodes.isSuccessful) Log.w(TAG, "Wear OS Data Layer unavailable", nodes.exception)
+            if (viewModel.wearStatus != WearConnectionStatus.RECEIVING) {
+                viewModel.wearStatus = status
+            }
+        }
     }
 
     private fun checkBluetooth(): Boolean {
@@ -425,6 +454,8 @@ class MainActivity : ComponentActivity() {
 
         if (fromGarmin) {
             viewModel.garminStatus = GarminConnectionStatus.RECEIVING
+        } else {
+            runOnUiThread { viewModel.wearStatus = WearConnectionStatus.RECEIVING }
         }
 
         runOnUiThread {
@@ -442,6 +473,13 @@ class MainActivity : ComponentActivity() {
                 handler.postDelayed({
                     if (viewModel.garminStatus == GarminConnectionStatus.RECEIVING) {
                         viewModel.garminStatus = GarminConnectionStatus.READY
+                    }
+                }, 1500)
+            } else {
+                handler.postDelayed({
+                    if (viewModel.wearStatus == WearConnectionStatus.RECEIVING) {
+                        viewModel.wearStatus = WearConnectionStatus.READY
+                        refreshWearStatus()
                     }
                 }, 1500)
             }
@@ -547,6 +585,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        refreshWearStatus()
         val isRecordingActive = viewModel.phoneSessionState.isRecording || 
                 viewModel.rawRecordingState.step == com.juggling.tracker.logic.RawRecordingStep.RECORDING
         
@@ -569,6 +608,7 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         Wearable.getMessageClient(this).removeListener(wearMessageListener)
+        Wearable.getCapabilityClient(this).removeListener(wearCapabilityListener)
         stopPhoneSensorListener()
         handler.removeCallbacks(heartbeatRunnable)
         if (::connectIQ.isInitialized && iqDevice != null && iqApp != null) {
