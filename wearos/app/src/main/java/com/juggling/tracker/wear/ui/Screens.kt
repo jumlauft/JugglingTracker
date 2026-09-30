@@ -265,7 +265,8 @@ fun RecordingScreen(state: RecordingUiState, onStart: () -> Unit, onUp: () -> Un
             RecordingPhase.RECORDING -> {
                 WatchText("● REC", WatchColors.Red, 13.sp, Modifier.testTag(Tags.REC_STATUS))
                 WatchText("${state.recordedSamples / RecordingSession.SAMPLE_RATE}s", WatchColors.White, 24.sp)
-                WatchText("Start stops | Hand: ${state.liveCount}", WatchColors.LightGray, 11.sp)
+                WatchText("Start stops", WatchColors.LightGray, 11.sp)
+                WatchText("Catches per hand: ${state.liveCount}", WatchColors.LightGray, 11.sp)
             }
             RecordingPhase.LABELING -> {
                 WatchText(

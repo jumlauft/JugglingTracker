@@ -715,7 +715,7 @@ class RecordingView extends WatchUi.View {
         var medH = dc.getFontHeight(Graphics.FONT_MEDIUM);
         var hintH = dc.getFontHeight(Graphics.FONT_XTINY);
 
-        var blockH = labelH + medH + hintH;
+        var blockH = labelH + medH + 2 * hintH;
         var y = cy - blockH / 2;
 
         dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
@@ -728,8 +728,10 @@ class RecordingView extends WatchUi.View {
         y += medH;
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_XTINY, "Start stops", Graphics.TEXT_JUSTIFY_CENTER);
+        y += hintH;
         dc.drawText(cx, y, Graphics.FONT_XTINY,
-            "Start stops | Hand: " + _detector.currentCount, Graphics.TEXT_JUSTIFY_CENTER);
+            "Catches per hand: " + _detector.currentCount, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     private function drawSyncingState(dc as Dc, cx as Number, cy as Number) as Void {
