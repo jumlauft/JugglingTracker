@@ -14,6 +14,7 @@ Two-platform juggling tracker focused on a single counting hand. A Garmin Foreru
   - `source/MainView.mc` - normal tracking UI, sensor listener, session sync.
   - `source/RecordingView.mc` - developer-only raw accelerometer capture and labeling mode.
   - `manifest.xml`, `monkey.jungle`, `resources/` - Connect IQ configuration and assets.
+- `wearos/` - Wear OS watch app, a Kotlin/Compose port of the Garmin app with the same behaviour. It sends sessions and recordings to the Android app over the Wear OS Data Layer. See `wearos/README.md`.
 - `android/` - Android companion app in Kotlin and Jetpack Compose.
   - `MainActivity.kt` - Garmin Connect IQ SDK integration, permissions, message routing.
   - `logic/JugglingViewModel.kt` - UI/session state, imports, CSV export, voice events.
