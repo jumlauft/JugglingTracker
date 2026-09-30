@@ -175,7 +175,7 @@ class WearAppTest {
         click(Tags.START)
         compose.onNodeWithTag(Tags.REC_STATUS).assertTextEquals("Ready to record")
         click(Tags.START)
-        compose.onNodeWithTag(Tags.REC_STATUS).assertTextEquals("● REC")
+        compose.onNodeWithTag(Tags.REC_STATUS).assertTextEquals("RECORDING")
         val session = (navigator.screen.value as Screen.Recording).session
         compose.runOnUiThread {
             val warm = Feeds.warmup()

@@ -719,7 +719,7 @@ class RecordingView extends WatchUi.View {
         var y = cy - blockH / 2;
 
         dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y, Graphics.FONT_TINY, "● REC", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, y, Graphics.FONT_TINY, "RECORDING", Graphics.TEXT_JUSTIFY_CENTER);
         y += labelH;
 
         var seconds = _accelX.size() / SAMPLE_RATE;
