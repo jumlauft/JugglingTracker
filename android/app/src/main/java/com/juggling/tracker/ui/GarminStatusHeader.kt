@@ -9,6 +9,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -47,11 +49,24 @@ fun GarminStatusHeader(
     onWearLinkClick: () -> Unit = {},
     onWearSessionClick: () -> Unit = {},
 ) {
-    val card = when (watchType) {
-        WatchType.GARMIN -> garminCardState(status, message, onGarminLinkClick, onGarminSessionClick)
-        WatchType.WEAR_OS -> wearCardState(wearStatus, onWearLinkClick, onWearSessionClick)
+    // Every state of the picked watch is built, not just the current one, so
+    // the card can reserve the height of the tallest. Otherwise it grew and
+    // shrank as the status flipped between green and red.
+    val (current, all) = when (watchType) {
+        WatchType.GARMIN -> {
+            val cards = GarminConnectionStatus.entries.associateWith {
+                garminCardState(it, message, onGarminLinkClick, onGarminSessionClick)
+            }
+            cards.getValue(status) to cards.values.toList()
+        }
+        WatchType.WEAR_OS -> {
+            val cards = WearConnectionStatus.entries.associateWith {
+                wearCardState(it, onWearLinkClick, onWearSessionClick)
+            }
+            cards.getValue(wearStatus) to cards.values.toList()
+        }
     }
-    WatchHeaderRow(card, onPhoneRecordClick)
+    WatchHeaderRow(current, all, onPhoneRecordClick)
 }
 
 @Composable
@@ -167,7 +182,11 @@ private fun garminCardState(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun WatchHeaderRow(card: WatchCardState, onPhoneRecordClick: () -> Unit) {
+private fun WatchHeaderRow(
+    card: WatchCardState,
+    sizingStates: List<WatchCardState>,
+    onPhoneRecordClick: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -183,37 +202,24 @@ private fun WatchHeaderRow(card: WatchCardState, onPhoneRecordClick: () -> Unit)
             onClick = card.onClick,
             colors = CardDefaults.cardColors(containerColor = card.background)
         ) {
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(12.dp)
                     .fillMaxHeight(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Watch,
-                    contentDescription = null,
-                    tint = card.content
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = card.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = card.content,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-
-                if (card.detail != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = card.detail,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = card.content.copy(alpha = 0.8f),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                // The other states are laid out invisibly and hidden from
+                // TalkBack; they only size the Box.
+                sizingStates.forEach { other ->
+                    WatchCardContent(
+                        other,
+                        Modifier
+                            .alpha(0f)
+                            .clearAndSetSemantics {}
                     )
                 }
+                WatchCardContent(card)
             }
         }
 
@@ -245,6 +251,39 @@ private fun WatchHeaderRow(card: WatchCardState, onPhoneRecordClick: () -> Unit)
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun WatchCardContent(card: WatchCardState, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Watch,
+            contentDescription = null,
+            tint = card.content
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = card.title,
+            style = MaterialTheme.typography.titleSmall,
+            color = card.content,
+            fontWeight = FontWeight.Bold,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+
+        if (card.detail != null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = card.detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = card.content.copy(alpha = 0.8f),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         }
     }
 }
