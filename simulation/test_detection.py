@@ -6,8 +6,8 @@ datasets with the current JugglingDetector.mc parameters, asserting that
 detection performance does not regress.
 
 The expected detection counts come from the delayed burst-clustering algorithm
-with alternating watch-hand burst counting: total absolute error = 189 and
-positive overcount error = 69 across 102 runs (2459 actual watch-hand catches).
+with alternating watch-hand burst counting: total absolute error = 203 and
+positive overcount error = 83 across 108 runs (2554 actual watch-hand catches).
 """
 import math
 import os

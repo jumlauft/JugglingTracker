@@ -8,9 +8,9 @@ import Toybox.Timer;
 import Toybox.WatchUi;
 
 // Recording mode: Start starts/stops each raw accelerometer run, then the user
-// labels the actual watch-hand catch count. Data is transmitted to the phone
-// and also logged via System.println() in a parseable CSV format so it can be
-// used to tune the detection algorithm offline.
+// labels the actual watch-hand catch count. The samples are transmitted to the
+// phone, which stores them as CSV for tuning the detection algorithm offline;
+// the debug log gets one RUN_DATA summary line per run, not the samples.
 class RecordingView extends WatchUi.View {
     private const SAMPLE_RATE = 25;
     private const PERIOD_SECONDS = 1;
