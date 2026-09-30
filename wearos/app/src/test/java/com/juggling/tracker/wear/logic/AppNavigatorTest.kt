@@ -83,10 +83,53 @@ class AppNavigatorTest {
     }
 
     @Test
-    fun `back on the selection screens closes the app`() {
+    fun `back on the mode screen closes the app`() {
         val nav = navigator()
         nav.onBack()
         assertEquals(1, effects.exits)
+    }
+
+    @Test
+    fun `APP-5 back on ball selection returns to the mode screen with the mode kept`() {
+        val nav = navigator()
+        nav.onUp()
+        nav.onStart()
+        nav.onBack()
+        assertEquals(Screen.ModeSelect(isRecordMode = true), nav.screen.value)
+        assertEquals(0, effects.exits)
+    }
+
+    @Test
+    fun `APP-5 with record mode disabled back on ball selection closes the app`() {
+        val nav = navigator(enableRecordingMode = false)
+        nav.onBack()
+        assertEquals(1, effects.exits)
+    }
+
+    @Test
+    fun `REC-11 back on the idle record screen returns to ball selection`() {
+        val nav = navigator()
+        nav.onUp()
+        nav.onStart()
+        nav.onUp()
+        nav.onStart()
+        assertTrue(nav.screen.value is Screen.Recording)
+        nav.onBack()
+        assertEquals(Screen.BallSelect(TrackingMode.RECORD, 4), nav.screen.value)
+        assertEquals(0, effects.exits)
+    }
+
+    @Test
+    fun `back while recording still asks before quitting`() {
+        val nav = navigator()
+        nav.onUp()
+        nav.onStart()
+        nav.onStart()
+        nav.onStart() // start a run
+        nav.onBack()
+        val session = (nav.screen.value as Screen.Recording).session
+        assertEquals("Quit? Lose run", session.state.value.menu!!.title)
+        assertEquals(0, effects.exits)
     }
 
     @Test

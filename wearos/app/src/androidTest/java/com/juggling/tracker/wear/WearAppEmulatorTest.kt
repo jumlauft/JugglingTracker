@@ -127,6 +127,23 @@ class WearAppEmulatorTest {
     }
 
     @Test
+    fun swipingBackStepsBackThroughTheRecordScreens() {
+        compose.setContent { WearApp(navigator) }
+        click(Tags.UP)
+        click(Tags.START)
+        click(Tags.UP)
+        click(Tags.START)
+        compose.onNodeWithTag(Tags.REC_STATUS).assertTextEquals("Ready to record")
+        swipeBack()
+        compose.onNodeWithTag(Tags.BALLS).assertTextEquals("4")
+        swipeBack()
+        compose.onNodeWithTag(Tags.MODE).assertTextEquals("Record")
+        assertEquals(0, effects.exits)
+        swipeBack()
+        assertEquals(1, effects.exits)
+    }
+
+    @Test
     fun recordModeLabelsARun() {
         compose.setContent { WearApp(navigator) }
         click(Tags.UP)

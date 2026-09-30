@@ -34,7 +34,7 @@ class AppNavigator(
     private val newTracker: (balls: Int) -> TrackerSession,
     private val newRecording: (balls: Int) -> RecordingSession,
     private val effects: WatchEffects,
-    enableRecordingMode: Boolean = ENABLE_RECORDING_MODE,
+    private val enableRecordingMode: Boolean = ENABLE_RECORDING_MODE,
 ) {
     companion object {
         /**
@@ -86,19 +86,31 @@ class AppNavigator(
     }
 
     /**
-     * BACK. The selection screens leave it to the system, which closes the
-     * app; the tracking screens never let it through.
+     * BACK steps back one screen (APP-5): ball selection returns to the mode
+     * screen, and the idle record screen returns to ball selection. The first
+     * screen leaves it to the system, which closes the app; the tracking
+     * screens otherwise never let it through.
      */
     fun onBack() {
         when (val s = _screen.value) {
-            is Screen.ModeSelect, is Screen.BallSelect -> effects.exit()
+            is Screen.ModeSelect -> effects.exit()
+            is Screen.BallSelect ->
+                if (enableRecordingMode) {
+                    _screen.value = Screen.ModeSelect(isRecordMode = s.mode == TrackingMode.RECORD)
+                } else {
+                    effects.exit()
+                }
             is Screen.Tracker -> {
                 val menu = s.session.state.value.menu
                 if (menu != null) s.session.onMenuBack() else s.session.onBack()
             }
             is Screen.Recording -> {
-                val menu = s.session.state.value.menu
-                if (menu != null) s.session.onMenuBack() else s.session.onBack()
+                val state = s.session.state.value
+                if (state.menu != null) {
+                    s.session.onMenuBack()
+                } else if (s.session.onBack()) {
+                    _screen.value = Screen.BallSelect(TrackingMode.RECORD, state.ballCount)
+                }
             }
         }
     }
