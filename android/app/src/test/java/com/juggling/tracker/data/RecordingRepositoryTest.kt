@@ -111,9 +111,12 @@ class RecordingRepositoryTest {
 
     // ── exportAllZip ────────────────────────────────────────────────────
 
-    private fun zipEntries(): Map<String, String> {
+    private fun zipEntries(
+        juggler: String = "Test Juggler",
+        hand: String = RecordingRepository.HAND_LEFT,
+    ): Map<String, String> {
         val out = java.io.ByteArrayOutputStream()
-        repository.exportAllZip(out)
+        repository.exportAllZip(out, juggler, hand)
         val entries = mutableMapOf<String, String>()
         java.util.zip.ZipInputStream(out.toByteArray().inputStream()).use { zip ->
             while (true) {
@@ -143,6 +146,38 @@ class RecordingRepositoryTest {
         assertTrue(all.contains("balls=5"))
         assertTrue(all.contains("10,20,30"))
         assertTrue(all.contains("40,50,60"))
+    }
+
+    @Test
+    fun `export tags every header with the juggler and watch hand`() {
+        repository.saveRecording(3, 1, 1, 25, 1L, listOf(10), listOf(20), listOf(30), RecordingRepository.SOURCE_WATCH)
+
+        val csv = zipEntries(juggler = "Ada Lovelace", hand = RecordingRepository.HAND_RIGHT).values.single()
+        val header = csv.lines().first()
+
+        assertTrue(header, header.startsWith("# run="))
+        assertTrue(header, header.endsWith(",detectedAtCapture=1,juggler=Ada Lovelace,hand=right"))
+        // the stored file itself is left as recorded
+        assertFalse(tempDir.listFiles()!!.single().readText().contains("juggler="))
+    }
+
+    @Test
+    fun `export replaces a juggler and hand the header already carries`() {
+        File(tempDir, "20260101_120000.csv").writeText(
+            "# run=20260101_120000,balls=3,juggler=Someone Else,hand=right,catches=1\n" +
+                "x,y,z\n" +
+                "10,20,30\n"
+        )
+
+        val header = zipEntries(juggler = "Ada", hand = RecordingRepository.HAND_LEFT).values.single().lines().first()
+
+        assertEquals("# run=20260101_120000,balls=3,catches=1,juggler=Ada,hand=left", header)
+    }
+
+    @Test
+    fun `a name cannot break the header format`() {
+        assertEquals("Doe John", RecordingRepository.headerSafe("Doe, John"))
+        assertEquals("a b c", RecordingRepository.headerSafe(" a=b#\nc "))
     }
 
     @Test

@@ -1,4 +1,4 @@
-# balls=5,catches=3,detected=0,sampleRate=200,timestamp=1781240988,countMode=watch_hand
+# balls=5,catches=3,detected=0,sampleRate=200,timestamp=1781240988,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
 x,y,z
 278,71,943
 280,66,945
@@ -2313,7 +2313,7 @@ x,y,z
 363,326,858
 358,311,851
 359,314,851
-# balls=5,catches=16,detected=0,sampleRate=200,timestamp=1781241011,countMode=watch_hand
+# balls=5,catches=16,detected=0,sampleRate=200,timestamp=1781241011,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
 x,y,z
 532,87,829
 521,90,836
@@ -6686,7 +6686,7 @@ x,y,z
 320,170,913
 289,175,899
 267,167,894
-# balls=5,catches=20,detected=0,sampleRate=200,timestamp=1781241047,countMode=watch_hand
+# balls=5,catches=20,detected=0,sampleRate=200,timestamp=1781241047,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
 x,y,z
 388,115,896
 382,132,898
@@ -10618,7 +10618,7 @@ x,y,z
 228,337,841
 242,339,838
 264,349,840
-# balls=5,catches=11,detected=7,sampleRate=200,timestamp=1781241072,countMode=watch_hand
+# balls=5,catches=11,detected=7,sampleRate=200,timestamp=1781241072,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
 x,y,z
 584,168,792
 587,168,795
@@ -12871,7 +12871,7 @@ x,y,z
 303,326,913
 284,332,913
 262,333,916
-# balls=5,catches=17,detected=14,sampleRate=200,timestamp=1781241095,countMode=watch_hand
+# balls=5,catches=17,detected=14,sampleRate=200,timestamp=1781241095,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
 x,y,z
 535,275,857
 520,287,859
@@ -15888,7 +15888,7 @@ x,y,z
 246,313,947
 277,339,932
 314,360,915
-# balls=5,catches=6,detected=5,sampleRate=200,timestamp=1781241137,countMode=watch_hand
+# balls=5,catches=6,detected=5,sampleRate=200,timestamp=1781241137,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
 x,y,z
 495,250,835
 499,265,839
@@ -17585,7 +17585,7 @@ x,y,z
 234,105,880
 256,112,889
 294,139,884
-# balls=5,catches=19,detected=0,sampleRate=200,timestamp=1781241156,countMode=watch_hand
+# balls=5,catches=19,detected=0,sampleRate=200,timestamp=1781241156,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
 x,y,z
 411,41,928
 389,44,925
@@ -21027,7 +21027,7 @@ x,y,z
 245,120,977
 233,136,967
 229,147,956
-# balls=5,catches=10,detected=0,sampleRate=200,timestamp=1781241182,countMode=watch_hand
+# balls=5,catches=10,detected=0,sampleRate=200,timestamp=1781241182,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
 x,y,z
 417,128,868
 430,130,865
@@ -23691,7 +23691,7 @@ x,y,z
 227,-106,839
 238,-84,842
 254,-72,848
-# balls=5,catches=15,detected=11,sampleRate=200,timestamp=1781241204,countMode=watch_hand
+# balls=5,catches=15,detected=11,sampleRate=200,timestamp=1781241204,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
 x,y,z
 469,439,771
 472,441,779
@@ -26275,7 +26275,7 @@ x,y,z
 322,229,897
 308,218,900
 306,212,906
-# balls=5,catches=47,detected=0,sampleRate=200,timestamp=1781241226,countMode=watch_hand
+# balls=5,catches=47,detected=0,sampleRate=200,timestamp=1781241226,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
 x,y,z
 490,-32,896
 488,-24,906
@@ -32819,7 +32819,7 @@ x,y,z
 123,261,915
 109,271,914
 105,277,911
-# balls=5,catches=30,detected=25,sampleRate=200,timestamp=1781241262,countMode=watch_hand
+# balls=5,catches=30,detected=25,sampleRate=200,timestamp=1781241262,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
 x,y,z
 318,243,899
 313,261,901
@@ -37878,7 +37878,7 @@ x,y,z
 245,196,912
 236,191,906
 232,188,895
-# balls=5,catches=71,detected=52,sampleRate=200,timestamp=1781241293,countMode=watch_hand
+# balls=5,catches=71,detected=52,sampleRate=200,timestamp=1781241293,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
 x,y,z
 413,179,833
 421,198,845
@@ -47076,7 +47076,7 @@ x,y,z
 232,304,854
 218,312,854
 210,313,857
-# balls=4,catches=31,detected=30,sampleRate=200,timestamp=1781241343,countMode=watch_hand
+# balls=4,catches=31,detected=30,sampleRate=200,timestamp=1781241343,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
 x,y,z
 257,347,879
 253,348,876
@@ -52782,7 +52782,7 @@ x,y,z
 254,342,804
 238,358,801
 233,366,810
-# balls=4,catches=32,detected=0,sampleRate=200,timestamp=1781241380,countMode=watch_hand
+# balls=4,catches=32,detected=0,sampleRate=200,timestamp=1781241380,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
 x,y,z
 365,273,884
 369,267,882
@@ -58357,7 +58357,7 @@ x,y,z
 204,285,887
 178,275,885
 164,265,886
-# balls=4,catches=55,detected=0,sampleRate=200,timestamp=1781241414,countMode=watch_hand
+# balls=4,catches=55,detected=0,sampleRate=200,timestamp=1781241414,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
 x,y,z
 438,353,859
 410,368,863
@@ -67054,7 +67054,7 @@ x,y,z
 244,371,894
 241,378,897
 242,381,896
-# balls=3,catches=50,detected=34,sampleRate=200,timestamp=1781241457,countMode=watch_hand
+# balls=3,catches=50,detected=34,sampleRate=200,timestamp=1781241457,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
 x,y,z
 406,231,923
 413,228,927
@@ -76231,7 +76231,7 @@ x,y,z
 306,391,828
 310,400,822
 316,408,817
-# balls=3,catches=70,detected=0,sampleRate=200,timestamp=1781241567,countMode=watch_hand
+# balls=3,catches=70,detected=0,sampleRate=200,timestamp=1781241567,countMode=watch_hand,juggler=Jonas Umlauft,hand=left
 x,y,z
 472,39,885
 473,55,890

@@ -18,6 +18,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.juggling.tracker.R
+import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.logic.JugglingViewModel
 import java.util.*
 
@@ -53,6 +54,21 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
                 Toast.makeText(context, context.getString(R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    // The export waiting on the juggler's name and watch hand, asked for first.
+    var pendingExport by remember { mutableStateOf<(() -> Unit)?>(null) }
+    pendingExport?.let { export ->
+        ExportDetailsDialog(
+            initialName = viewModel.jugglerName,
+            initialHand = viewModel.watchHand,
+            onConfirm = { name, hand ->
+                viewModel.setExportDetails(name, hand)
+                pendingExport = null
+                export()
+            },
+            onDismiss = { pendingExport = null },
+        )
     }
 
     Column(
@@ -145,8 +161,10 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
 
             Button(
                 onClick = {
-                    val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
-                    recordingLauncher.launch("juggling_recordings_$ts.zip")
+                    pendingExport = {
+                        val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
+                        recordingLauncher.launch("juggling_recordings_$ts.zip")
+                    }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
@@ -155,7 +173,7 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             }
 
             Button(
-                onClick = { emailRecordings(context, viewModel) },
+                onClick = { pendingExport = { emailRecordings(context, viewModel) } },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
             ) {
@@ -171,6 +189,67 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             }
         }
     }
+}
+
+/**
+ * Asks who juggled and which wrist wore the watch before recordings are
+ * exported, prefilled with the previous answers. Both go into every exported
+ * CSV header.
+ */
+@Composable
+private fun ExportDetailsDialog(
+    initialName: String,
+    initialHand: String?,
+    onConfirm: (name: String, hand: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var name by remember { mutableStateOf(initialName) }
+    var hand by remember { mutableStateOf(initialHand) }
+    val selectedHand = hand
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.dialog_export_details_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.label_juggler_name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = stringResource(R.string.label_watch_hand),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        RecordingRepository.HAND_LEFT to stringResource(R.string.watch_hand_left),
+                        RecordingRepository.HAND_RIGHT to stringResource(R.string.watch_hand_right),
+                    ).forEach { (value, label) ->
+                        FilterChip(
+                            selected = hand == value,
+                            onClick = { hand = value },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { if (selectedHand != null) onConfirm(name.trim(), selectedHand) },
+                enabled = name.isNotBlank() && selectedHand != null,
+            ) {
+                Text(stringResource(R.string.action_continue_export))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_cancel))
+            }
+        },
+    )
 }
 
 @Composable

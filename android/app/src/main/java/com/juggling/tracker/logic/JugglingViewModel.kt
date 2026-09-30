@@ -75,6 +75,13 @@ class JugglingViewModel(
     val isAnalyticsEnabled get() = settings?.isAnalyticsEnabled ?: true
     val isVoiceEnabled get() = settings?.isVoiceEnabled ?: true
     val voiceInterval get() = settings?.voiceInterval ?: 10
+    val jugglerName get() = settings?.jugglerName ?: ""
+    val watchHand get() = settings?.watchHand
+
+    /** Remember who juggled and the watch wrist; the next export writes them. */
+    fun setExportDetails(name: String, hand: String) {
+        settings?.updateExportDetails(name.trim(), hand)
+    }
 
     fun toggleAnalytics(enabled: Boolean) {
         settings?.updateAnalyticsEnabled(enabled)
@@ -359,9 +366,16 @@ class JugglingViewModel(
         return true
     }
 
-    /** Merged CSV of all stored recordings for export. */
+    /**
+     * Zip of all stored recordings for export, each header tagged with the
+     * juggler and watch hand from [setExportDetails].
+     */
     fun writeRecordingsZip(out: java.io.OutputStream) {
-        recordingRepository?.exportAllZip(out)
+        recordingRepository?.exportAllZip(
+            out,
+            juggler = jugglerName,
+            hand = watchHand ?: RecordingRepository.HAND_LEFT,
+        )
     }
 
     /** Delete all stored recordings. */

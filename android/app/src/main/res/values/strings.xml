@@ -20,6 +20,12 @@
     <string name="email_recordings_body">Attached are my juggling recordings for detector tuning.</string>
     <string name="email_recordings_chooser">Send recordings via</string>
     <string name="toast_no_recordings">No recordings to send</string>
+    <string name="dialog_export_details_title">Who is juggling?</string>
+    <string name="label_juggler_name">Your name</string>
+    <string name="label_watch_hand">Which wrist was the watch on?</string>
+    <string name="watch_hand_left">Left</string>
+    <string name="watch_hand_right">Right</string>
+    <string name="action_continue_export">Continue</string>
     <string name="toast_no_email_app">No email app found</string>
 
     <string name="dialog_delete_session_title">Delete Session</string>

@@ -24,7 +24,8 @@ def parse_runs(filepath):
 
     Each run dict has:
         'meta': dict with run, balls, catches, sampleRate, units, source,
-        timestamp, countMode and detectedAtCapture.
+        timestamp, countMode, detectedAtCapture, and juggler and hand (who
+        juggled and which wrist wore the watch, 'left' or 'right').
         catches is the watch-hand ground-truth label in current datasets.
         detectedAtCapture is what the detector counted when the run was
         recorded. It is a historical result, not a property of the data, and

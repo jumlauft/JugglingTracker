@@ -1,4 +1,4 @@
-# run=20260922_152424,timestamp=1790083464,balls=5,catches=49,sampleRate=25,units=milli_g,source=watch,countMode=watch_hand,detectedAtCapture=27
+# run=20260922_152424,timestamp=1790083464,balls=5,catches=49,sampleRate=25,units=milli_g,source=watch,countMode=watch_hand,detectedAtCapture=27,juggler=Jonas Umlauft,hand=left
 x,y,z
 524,472,-240
 408,388,-312

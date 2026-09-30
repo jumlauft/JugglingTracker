@@ -98,12 +98,12 @@ A confirmed run transfers in chunks of 50 samples: a `rec_start` header, one `re
 One run per file, named by its run id, starting with a metadata header:
 
 ```csv
-# run=20260923_223144,timestamp=1790195504,balls=5,catches=94,sampleRate=25,units=milli_g,source=watch,countMode=watch_hand,detectedAtCapture=93
+# run=20260923_223144,timestamp=1790195504,balls=5,catches=94,sampleRate=25,units=milli_g,source=watch,countMode=watch_hand,detectedAtCapture=93,juggler=Jonas Umlauft,hand=left
 x,y,z
 ...
 ```
 
-`catches` is the ground-truth label. `detectedAtCapture` is what the detector counted when the run was recorded — a historical result, not a property of the measurement, so it goes stale whenever the detector changes. `source` is `watch` (25 Hz) or `phone` (200 Hz).
+`catches` is the ground-truth label. `detectedAtCapture` is what the detector counted when the run was recorded — a historical result, not a property of the measurement, so it goes stale whenever the detector changes. `source` is `watch` (25 Hz) or `phone` (200 Hz). `juggler` and `hand` (`left` or `right`, the wrist wearing the watch) are asked for when the phone app exports recordings; the phone stores runs without them and adds them to the exported copies.
 
 ## Communication Payloads
 
