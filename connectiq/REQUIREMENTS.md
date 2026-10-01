@@ -341,7 +341,8 @@ delayed the transfer by seconds on the watch.
 `rec_chunk` per **50 samples**, then `rec_end`. Only `rec_end` is acknowledged,
 after the phone has written the run. 50 is deliberate — per-message cost is
 flat to ~150 integers then climbs steeply, so 100-sample chunks measured ~25%
-slower overall.
+slower overall. The Wear OS app sends 1000 samples per chunk instead: a Data
+Layer message carries up to ~100 KB at about the same cost whatever its size.
 *Verified by:* not automatically tested — needs a radio.
 
 **REC-6.** Each transmit attempt carries a generation number. An abandoned
