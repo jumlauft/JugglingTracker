@@ -23,22 +23,32 @@ import com.juggling.tracker.data.WatchType
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.logic.JugglingViewModel
 import java.util.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Settings, plus the recordings table and the export it offers. */
 @Composable
 fun SettingsScreen(viewModel: JugglingViewModel) {
     val context = LocalContext.current
+    // File writes for the exports run on Dispatchers.IO from here.
+    val scope = rememberCoroutineScope()
     val sessionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv")
     ) { uri ->
         uri?.let {
-            try {
-                context.contentResolver.openOutputStream(it)?.use { outputStream ->
-                    outputStream.write(viewModel.getSessionsCsv().toByteArray())
+            val csv = viewModel.getSessionsCsv()
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(it)?.use { outputStream ->
+                            outputStream.write(csv.toByteArray())
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("JugglingTrackerApp", "CSV export failed", e)
+                    Toast.makeText(context, context.getString(R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
                 }
-            } catch (e: Exception) {
-                Log.e("JugglingTrackerApp", "CSV export failed", e)
-                Toast.makeText(context, context.getString(R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -47,13 +57,17 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
         androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/zip")
     ) { uri ->
         uri?.let {
-            try {
-                context.contentResolver.openOutputStream(it)?.use { outputStream ->
-                    viewModel.writeRecordingsZip(outputStream)
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(it)?.use { outputStream ->
+                            viewModel.writeRecordingsZip(outputStream)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("JugglingTrackerApp", "Recording export failed", e)
+                    Toast.makeText(context, context.getString(R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
                 }
-            } catch (e: Exception) {
-                Log.e("JugglingTrackerApp", "Recording export failed", e)
-                Toast.makeText(context, context.getString(R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -254,7 +268,7 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             }
 
             Button(
-                onClick = { exportAfterAsking { emailRecordings(context, viewModel) } },
+                onClick = { exportAfterAsking { scope.launch { emailRecordings(context, viewModel) } } },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
             ) {
@@ -449,18 +463,21 @@ private val recordingTimeFormat =
 // The developer collects recordings to tune the detector offline.
 private const val DEVELOPER_EMAIL = "jugglingtracker@gmail.com"
 
-// Write the merged recordings CSV to a shareable cache file and open an email
-// draft to the developer with it attached.
-private fun emailRecordings(context: android.content.Context, viewModel: JugglingViewModel) {
+// Write the recordings zip to a shareable cache file on the IO dispatcher and
+// open an email draft to the developer with it attached.
+private suspend fun emailRecordings(context: android.content.Context, viewModel: JugglingViewModel) {
     if (viewModel.recordingCount <= 0) {
         Toast.makeText(context, context.getString(R.string.toast_no_recordings), Toast.LENGTH_SHORT).show()
         return
     }
     try {
-        val dir = java.io.File(context.cacheDir, "shared").apply { mkdirs() }
         val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
-        val file = java.io.File(dir, "juggling_recordings_$ts.zip")
-        file.outputStream().use { viewModel.writeRecordingsZip(it) }
+        val file = withContext(Dispatchers.IO) {
+            val dir = java.io.File(context.cacheDir, "shared").apply { mkdirs() }
+            java.io.File(dir, "juggling_recordings_$ts.zip").also { f ->
+                f.outputStream().use { viewModel.writeRecordingsZip(it) }
+            }
+        }
 
         val uri = androidx.core.content.FileProvider.getUriForFile(
             context, "${context.packageName}.fileprovider", file

@@ -25,7 +25,11 @@ class WatchInboxTest {
     @Before
     fun setup() {
         tempDir = createTempDirectory("watch_inbox_test_").toFile()
-        sessions = SessionRepository(FakeSharedPreferences())
+        sessions = SessionRepository(
+            FakeSharedPreferences(),
+            File(tempDir, "sessions.jsonl"),
+            java.util.concurrent.Executor { it.run() },
+        )
         recordings = RecordingRepository(File(tempDir, "recordings"))
         inbox = WatchInbox(sessions, recordings)
         inbox.addListener { events.add(it) }

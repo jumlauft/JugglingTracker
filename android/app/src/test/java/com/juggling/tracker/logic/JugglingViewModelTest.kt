@@ -628,6 +628,42 @@ class JugglingViewModelTest {
         assertTrue(viewModel.finishRecordingTransfer(mapOf("type" to "rec_end", "id" to 42L)))
     }
 
+    // ── Recording files off the main thread ─────────────────────────────
+
+    @Test
+    fun `recordings load, save and clear on the io dispatcher`() = runTest {
+        val dir = kotlin.io.path.createTempDirectory("vm_recordings_").toFile()
+        try {
+            val repo = com.juggling.tracker.data.RecordingRepository(dir)
+            repo.saveRecording(3, 5, 4, 25, 1L, listOf(1), listOf(2), listOf(3), "watch")
+            val vm = JugglingViewModel(
+                recordingRepository = repo,
+                ioDispatcher = mainDispatcherRule.testDispatcher,
+            )
+
+            // Nothing is read while the view model is being built.
+            assertEquals(0, vm.recordingCount)
+            advanceUntilIdle()
+            assertEquals(1, vm.recordingCount)
+            assertEquals(1, vm.recordings.size)
+
+            vm.startRecordingTransfer(startPayload(samples = 2, chunks = 1))
+            vm.appendRecordingChunk(chunkPayload(0, listOf(1, 2)))
+            assertTrue(vm.finishRecordingTransfer(mapOf("type" to "rec_end", "id" to 42L)))
+            advanceUntilIdle()
+            assertEquals(2, vm.recordingCount)
+            assertEquals(listOf(42L, 1L), vm.recordings.map { it.timestamp })
+
+            vm.clearRecordings()
+            assertEquals(0, vm.recordingCount)
+            assertTrue(vm.recordings.isEmpty())
+            advanceUntilIdle()
+            assertEquals(0, repo.recordingCount())
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
     // ── Raw recording sample rate ───────────────────────────────────────
 
     @Test
@@ -647,11 +683,14 @@ class JugglingViewModelTest {
     }
 
     @Test
-    fun `raw recording saves the rate the sensor delivered`() {
+    fun `raw recording saves the rate the sensor delivered`() = runTest {
         val dir = kotlin.io.path.createTempDirectory("recordings").toFile()
         try {
             val recordings = com.juggling.tracker.data.RecordingRepository(dir)
-            val vm = JugglingViewModel(recordingRepository = recordings)
+            val vm = JugglingViewModel(
+                recordingRepository = recordings,
+                ioDispatcher = mainDispatcherRule.testDispatcher,
+            )
             vm.startRawRecordingFlow()
             vm.confirmRawRecordingBalls(3)
             // A phone that ignores the 200 Hz request and delivers 50 Hz.
@@ -660,6 +699,7 @@ class JugglingViewModelTest {
             repeat(251) { i -> vm.processPhoneSample(0.0, 0.0, GRAVITY, start + i * periodNanos) }
             vm.stopRawRecording()
             vm.saveRawRecording(10)
+            advanceUntilIdle()
 
             val saved = recordings.listRecordings().single()
             assertEquals(50, saved.sampleRate)
