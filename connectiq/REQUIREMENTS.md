@@ -275,6 +275,13 @@ sample is skipped, because arithmetic on one throws inside the detector and
 kills the app.
 *Verified by:* not automatically tested — needs a live sensor.
 
+**SENS-4.** If the accelerometer cannot be registered, both tracking screens
+show **"Sensor error"** with **"Restart the app"** under it instead of a count
+that would silently stay at 0. On the record screen START does nothing while
+idle, since there is nothing to record. A later successful registration (on
+the next `onShow()`) clears the error.
+*Verified by:* `test_tracking_views_show_a_sensor_error`
+
 ---
 
 ## SYNC — transfer to the phone

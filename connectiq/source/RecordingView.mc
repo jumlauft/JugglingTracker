@@ -58,6 +58,9 @@ class RecordingView extends WatchUi.View {
     private var _listener as RecordingCommListener;
     private var _pendingPayload as Dictionary?;
     private var _sensorActive as Boolean;
+    // True when the accelerometer could not be registered. The screen then
+    // shows a sensor error instead of a count that would stay at 0 (SENS-4).
+    private var _sensorError as Boolean;
     private var _failReason as String?;
     private var _syncGeneration as Number;
     private var _sessionId as Number;
@@ -86,6 +89,7 @@ class RecordingView extends WatchUi.View {
         _listener = new RecordingCommListener(self, 0);
         _pendingPayload = null;
         _sensorActive = false;
+        _sensorError = false;
         _failReason = null;
         _syncGeneration = 0;
         _sessionId = 0;
@@ -118,8 +122,11 @@ class RecordingView extends WatchUi.View {
             };
             Sensor.registerSensorDataListener(self.method(:onSensor), options);
             _sensorActive = true;
+            _sensorError = false;
         } catch (ex) {
             System.println("Sensor registration error: " + ex.getErrorMessage());
+            _sensorError = true;
+            WatchUi.requestUpdate();
         }
     }
 
@@ -147,6 +154,10 @@ class RecordingView extends WatchUi.View {
 
     public function handleStartButton() as Boolean {
         if (_state == STATE_IDLE) {
+            if (_sensorError) {
+                // Nothing to record without the accelerometer (SENS-4).
+                return true;
+            }
             startRun();
             WatchUi.requestUpdate();
             return true;
@@ -678,6 +689,13 @@ class RecordingView extends WatchUi.View {
         var cx = dc.getWidth() / 2;
         var cy = dc.getHeight() / 2;
 
+        // The error replaces only the screens that need samples; a run
+        // already stopped can still be labelled and synced.
+        if (_sensorError && (_state == STATE_IDLE || _state == STATE_RECORDING)) {
+            drawSensorError(dc);
+            return;
+        }
+
         if (_state == STATE_IDLE) {
             drawIdleState(dc, cx, cy);
         } else if (_state == STATE_RECORDING) {
@@ -687,6 +705,20 @@ class RecordingView extends WatchUi.View {
         } else {
             drawLabelingState(dc, cx, cy);
         }
+    }
+
+    // Shown instead of the tracking screen when the accelerometer could not
+    // be registered (SENS-4). Short lines so it fits the smallest round
+    // screens. Keep the wording in step with wearos SensorErrorScreen.
+    private function drawSensorError(dc as Dc) as Void {
+        var cx = dc.getWidth() / 2;
+        var titleH = dc.getFontHeight(Graphics.FONT_MEDIUM);
+        var hintH = dc.getFontHeight(Graphics.FONT_XTINY);
+        var y = dc.getHeight() / 2 - (titleH + hintH) / 2;
+        dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_MEDIUM, "Sensor error", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y + titleH, Graphics.FONT_XTINY, "Restart the app", Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     private function drawIdleState(dc as Dc, cx as Number, cy as Number) as Void {
