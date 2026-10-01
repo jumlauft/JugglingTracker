@@ -84,12 +84,40 @@ class SessionRepositoryTest {
     }
 
     @Test
-    fun `import deduplicates by timestamp`() {
+    fun `a resend under the same timestamp replaces the session`() {
+        // The watch resends under the session's one timestamp when the user
+        // juggled on after a lost ack and then ended again with more runs.
         repository.importSession(3, 1000L, listOf(10))
-        repository.importSession(3, 1000L, listOf(20))
+        repository.importSession(3, 1000L, listOf(10, 20))
 
         assertEquals(1, repository.getSessions().size)
-        assertEquals(10, repository.getSessions()[0].totalThrows)
+        assertEquals(30, repository.getSessions()[0].totalThrows)
+        assertEquals(2, repository.getSessions()[0].runCount)
+    }
+
+    @Test
+    fun `a replaced session survives a reload`() {
+        repository.importSession(3, 1000L, listOf(10))
+        repository.importSession(3, 1000L, listOf(10, 20))
+
+        val reloaded = newRepository().getSessions()
+        assertEquals(1, reloaded.size)
+        assertEquals(listOf(10, 20), reloaded[0].runHistory)
+    }
+
+    @Test
+    fun `replacing keeps the session in its place`() {
+        repository.importSession(3, 1000L, listOf(10))
+        repository.importSession(3, 2000L, listOf(5))
+        repository.importSession(3, 1000L, listOf(10, 20))
+
+        assertEquals(listOf(2000L, 1000L), repository.getSessions().map { it.timestamp })
+    }
+
+    @Test
+    fun `import returns the stored summary, or null without runs`() {
+        assertEquals(10, repository.importSession(3, 1000L, listOf(10))?.totalThrows)
+        assertNull(repository.importSession(3, 2000L, emptyList()))
     }
 
     @Test
@@ -120,8 +148,9 @@ class SessionRepositoryTest {
 
     @Test
     fun `stored duplicate timestamps collapse to one session on load`() {
-        // importSession refuses a duplicate, but storage written by an older
-        // build can hold one, and the timestamp is the session's identity.
+        // importSession never stores two sessions under one timestamp, but
+        // storage written by an older build can, and the timestamp is the
+        // session's identity.
         prefs.edit().putString(
             "sessions_json",
             """
