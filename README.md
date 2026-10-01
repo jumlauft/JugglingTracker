@@ -101,7 +101,7 @@ Controls, once a ball count is chosen:
 - On the labeling screen, **Up/Down** adjust the detected count to the true watch-hand count, **Start** confirms and transmits, **Back** discards the run after a confirmation.
 - **Back** on the idle *Press Start* screen returns to ball selection. While recording it offers to quit the app, and while a run is syncing it does nothing.
 
-A confirmed run transfers in chunks of 50 samples: a `rec_start` header, one `rec_chunk` per batch, then `rec_end`, which the phone acknowledges once it has handled the run. A failed transfer offers retry, skip, or quit. The Android app writes each run through `RecordingRepository` in the same format as `connectiq/data/`, so files can be copied straight into the corpus.
+A confirmed run transfers in chunks of 50 samples on the Garmin and 1000 on Wear OS: a `rec_start` header, one `rec_chunk` per batch, then `rec_end`, which the phone acknowledges once it has handled the run. A failed transfer offers retry, skip, or quit. The Android app writes each run through `RecordingRepository` in the same format as `connectiq/data/`, so files can be copied straight into the corpus.
 
 One run per file, named by its run id, starting with a metadata header:
 
@@ -125,7 +125,7 @@ Finished sessions:
 
 `shapeConsistency` is the session's Regularity as a whole percent. It is left out until a run has been long enough to score.
 
-Raw recordings, sent as a header, then one message per chunk of 50 samples, then an end marker:
+Raw recordings, sent as a header, then one message per chunk of samples (50 from the Garmin, 1000 from Wear OS), then an end marker:
 
 ```json
 { "type": "rec_start", "id": 1790195504, "countMode": "watch_hand", "balls": 5, "catches": 94, "detected": 93, "sampleRate": 25, "samples": 1500, "chunks": 30, "timestamp": 1790195504 }
