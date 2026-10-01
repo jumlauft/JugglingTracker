@@ -112,12 +112,12 @@ class RecordingRepositoryTest {
     // ── exportAllZip ────────────────────────────────────────────────────
 
     private fun zipEntries(
-        juggler: String = "Test Juggler",
-        hand: String = RecordingRepository.HAND_LEFT,
-        firstThrow: String = RecordingRepository.HAND_RIGHT,
+        fallback: RecordingRepository.Juggler? = RecordingRepository.Juggler(
+            "Test Juggler", RecordingRepository.HAND_LEFT, RecordingRepository.HAND_RIGHT,
+        ),
     ): Map<String, String> {
         val out = java.io.ByteArrayOutputStream()
-        repository.exportAllZip(out, juggler, hand, firstThrow)
+        repository.exportAllZip(out, fallback)
         val entries = mutableMapOf<String, String>()
         java.util.zip.ZipInputStream(out.toByteArray().inputStream()).use { zip ->
             while (true) {
@@ -150,13 +150,11 @@ class RecordingRepositoryTest {
     }
 
     @Test
-    fun `export tags every header with the juggler, watch hand and first throw`() {
+    fun `export tags a run saved without a juggler with the fallback`() {
         repository.saveRecording(3, 1, 1, 25, 1L, listOf(10), listOf(20), listOf(30), RecordingRepository.SOURCE_WATCH)
 
         val csv = zipEntries(
-            juggler = "Ada Lovelace",
-            hand = RecordingRepository.HAND_RIGHT,
-            firstThrow = RecordingRepository.HAND_LEFT,
+            RecordingRepository.Juggler("Ada Lovelace", RecordingRepository.HAND_RIGHT, RecordingRepository.HAND_LEFT),
         ).values.single()
         val header = csv.lines().first()
 
@@ -167,7 +165,7 @@ class RecordingRepositoryTest {
     }
 
     @Test
-    fun `export replaces a juggler, hand and first throw the header already carries`() {
+    fun `export keeps the juggler a run was saved with`() {
         File(tempDir, "20260101_120000.csv").writeText(
             "# run=20260101_120000,balls=3,juggler=Someone Else,hand=right,firstThrow=left,catches=1\n" +
                 "x,y,z\n" +
@@ -175,12 +173,58 @@ class RecordingRepositoryTest {
         )
 
         val header = zipEntries(
-            juggler = "Ada",
-            hand = RecordingRepository.HAND_LEFT,
-            firstThrow = RecordingRepository.HAND_RIGHT,
+            RecordingRepository.Juggler("Ada", RecordingRepository.HAND_LEFT, RecordingRepository.HAND_RIGHT),
         ).values.single().lines().first()
 
-        assertEquals("# run=20260101_120000,balls=3,catches=1,juggler=Ada,hand=left,firstThrow=right", header)
+        assertEquals(
+            "# run=20260101_120000,balls=3,catches=1,juggler=Someone Else,hand=right,firstThrow=left",
+            header,
+        )
+    }
+
+    @Test
+    fun `each run is exported with its own juggler`() {
+        val ada = RecordingRepository.Juggler("Ada", RecordingRepository.HAND_LEFT, RecordingRepository.HAND_RIGHT)
+        val bob = RecordingRepository.Juggler("Bob", RecordingRepository.HAND_RIGHT, RecordingRepository.HAND_LEFT)
+        repository.saveRecording(3, 1, 1, 25, 1L, listOf(1), listOf(2), listOf(3), RecordingRepository.SOURCE_WATCH, ada)
+        repository.saveRecording(3, 2, 2, 25, 2L, listOf(4), listOf(5), listOf(6), RecordingRepository.SOURCE_WATCH, bob)
+
+        val headers = zipEntries(
+            RecordingRepository.Juggler("Carol", RecordingRepository.HAND_LEFT, RecordingRepository.HAND_LEFT),
+        ).toSortedMap().values.map { it.lines().first() }
+
+        assertTrue(headers[0], headers[0].endsWith(",juggler=Ada,hand=left,firstThrow=right"))
+        assertTrue(headers[1], headers[1].endsWith(",juggler=Bob,hand=right,firstThrow=left"))
+    }
+
+    @Test
+    fun `export without a fallback leaves a run saved without a juggler untagged`() {
+        repository.saveRecording(3, 1, 1, 25, 1L, listOf(10), listOf(20), listOf(30), RecordingRepository.SOURCE_WATCH)
+
+        val header = zipEntries(fallback = null).values.single().lines().first()
+
+        assertTrue(header, header.endsWith(",detectedAtCapture=1"))
+    }
+
+    @Test
+    fun `a run saved with a juggler stores and lists it`() {
+        val juggler = RecordingRepository.Juggler("Doe, John", RecordingRepository.HAND_LEFT, RecordingRepository.HAND_RIGHT)
+        val file = repository.saveRecording(
+            3, 1, 1, 25, 1L, listOf(10), listOf(20), listOf(30), RecordingRepository.SOURCE_WATCH, juggler,
+        )!!
+
+        assertTrue(file.readLines().first().endsWith(",juggler=Doe John,hand=left,firstThrow=right"))
+        assertEquals(
+            RecordingRepository.Juggler("Doe John", RecordingRepository.HAND_LEFT, RecordingRepository.HAND_RIGHT),
+            repository.listRecordings().single().juggler,
+        )
+    }
+
+    @Test
+    fun `a run saved without a juggler lists none`() {
+        repository.saveRecording(3, 1, 1, 25, 1L, listOf(10), listOf(20), listOf(30), RecordingRepository.SOURCE_WATCH)
+
+        assertEquals(null, repository.listRecordings().single().juggler)
     }
 
     @Test
