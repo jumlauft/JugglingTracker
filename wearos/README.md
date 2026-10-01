@@ -119,6 +119,6 @@ uploads screenshots of each step as the `wear-emulator-screenshots` artifact.
 | JUG-1..8 | `TrackerSessionTest`, `WearAppTest`, `WearAppEmulatorTest` |
 | SENS-1, 2 | The sensor runs while a tracking screen is visible and `AccelerometerSource.start()` is idempotent. Menus are drawn in place rather than pushed as views, so they cannot drop the listener; detection still pauses under a menu, as on the Garmin (`TrackerSessionTest`) |
 | SENS-3 | Not applicable: Android does not pad sensor batches with nulls |
-| SENS-4 | `MainActivity` passes a failed `AccelerometerSource.start()` to `WearApp`, which shows `SensorErrorScreen` on the tracking screens (`WearAppEmulatorTest`) |
+| SENS-4 | `WatchRuntime` passes a failed `AccelerometerSource.start()` to `WearApp`, which shows `SensorErrorScreen` on the tracking screens (`WearAppEmulatorTest`) |
 | SYNC-1..4 | `TrackerSessionTest`, `WearAppTest`, `WearAppEmulatorTest.replayingARealRecordingShowsItsRunsAndSyncsThem` |
 | REC-1..11 | `RecordingSessionTest`, `AppNavigatorTest` (REC-11), `WearAppEmulatorTest.recordModeLabelsARun`. REC-2's free-memory check is Garmin-specific (a 128 KB heap); the 3000-sample cap is kept. REC-4 writes the one-line `RUN_DATA` summary to logcat under the tag `JugglingRecording` |
