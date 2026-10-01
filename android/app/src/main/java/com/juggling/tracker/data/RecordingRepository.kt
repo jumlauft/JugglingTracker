@@ -26,7 +26,10 @@ import java.util.zip.ZipOutputStream
  *
  * The catches and detected values are watch-hand catches: catches made by the
  * hand wearing the watch, not both-hands totals. All sample values are raw
- * milli-g integers as reported by the watch sensor.
+ * milli-g integers as reported by the sensor. sampleRate is in whole Hz: 25
+ * for the watch, and for phone runs the rate the accelerometer actually
+ * delivered, measured during capture (phone runs saved before that was
+ * measured are labelled with the requested 200).
  * When the juggler is known at save time, the header also ends with who
  * juggled, which wrist wore the watch and which hand made the first throw, as
  * juggler=<name>,hand=left|right,firstThrow=left|right. Call [exportAllZip] to

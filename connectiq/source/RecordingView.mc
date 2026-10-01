@@ -15,8 +15,8 @@ class RecordingView extends WatchUi.View {
     private const SAMPLE_RATE = 25;
     private const PERIOD_SECONDS = 1;
     private const MAX_RUN_SAMPLES = 3000; // 120 seconds at 25 Hz
-    // A watchApp gets 128 KB on this device and each sample costs three boxed
-    // array entries, so a long run can exhaust memory. Stop cleanly instead.
+    // The sample buffer is allocated once (see SampleBuffer), but the detector
+    // and the transfer still allocate, so keep a floor and stop cleanly at it.
     private const MIN_FREE_MEMORY = 16384;
     private const MEMORY_CHECK_EVERY = 25;
     private const SYNC_TIMEOUT_MS = 10000;
@@ -33,10 +33,9 @@ class RecordingView extends WatchUi.View {
     private var _state as Number;
     private var _ballCount as Number;
 
-    // Recording buffers for the current run (raw milli-g values)
-    private var _accelX as Array<Number>;
-    private var _accelY as Array<Number>;
-    private var _accelZ as Array<Number>;
+    // Recording buffer for the current run (raw milli-g values), allocated
+    // once and reused for every run.
+    private var _samples as SampleBuffer;
 
     // Run the detection algorithm in parallel so we can compare its output
     // with the user-provided ground truth.
@@ -58,6 +57,9 @@ class RecordingView extends WatchUi.View {
     private var _listener as RecordingCommListener;
     private var _pendingPayload as Dictionary?;
     private var _sensorActive as Boolean;
+    // True when the accelerometer could not be registered. The screen then
+    // shows a sensor error instead of a count that would stay at 0 (SENS-4).
+    private var _sensorError as Boolean;
     private var _failReason as String?;
     private var _syncGeneration as Number;
     private var _sessionId as Number;
@@ -71,9 +73,7 @@ class RecordingView extends WatchUi.View {
         WatchUi.View.initialize();
         _state = STATE_IDLE;
         _ballCount = ballCount;
-        _accelX = [];
-        _accelY = [];
-        _accelZ = [];
+        _samples = new SampleBuffer(MAX_RUN_SAMPLES);
         _detector = new JugglingDetector(ballCount);
         _labelCount = 0;
         _detectedCount = 0;
@@ -86,6 +86,7 @@ class RecordingView extends WatchUi.View {
         _listener = new RecordingCommListener(self, 0);
         _pendingPayload = null;
         _sensorActive = false;
+        _sensorError = false;
         _failReason = null;
         _syncGeneration = 0;
         _sessionId = 0;
@@ -118,8 +119,11 @@ class RecordingView extends WatchUi.View {
             };
             Sensor.registerSensorDataListener(self.method(:onSensor), options);
             _sensorActive = true;
+            _sensorError = false;
         } catch (ex) {
             System.println("Sensor registration error: " + ex.getErrorMessage());
+            _sensorError = true;
+            WatchUi.requestUpdate();
         }
     }
 
@@ -147,6 +151,10 @@ class RecordingView extends WatchUi.View {
 
     public function handleStartButton() as Boolean {
         if (_state == STATE_IDLE) {
+            if (_sensorError) {
+                // Nothing to record without the accelerometer (SENS-4).
+                return true;
+            }
             startRun();
             WatchUi.requestUpdate();
             return true;
@@ -230,9 +238,7 @@ class RecordingView extends WatchUi.View {
         cancelNextPartTimer();
         _pendingPayload = null;
         _detector = new JugglingDetector(_ballCount);
-        _accelX = [];
-        _accelY = [];
-        _accelZ = [];
+        _samples.clear();
         _labelCount = 0;
         _detectedCount = 0;
         _errorMsg = null;
@@ -287,11 +293,11 @@ class RecordingView extends WatchUi.View {
             ",detected=" + _detectedCount +
             ",rate=" + SAMPLE_RATE +
             ",countMode=watch_hand" +
-            ",samples=" + _accelX.size());
+            ",samples=" + _samples.size());
 
         // ── Transmit to the companion phone app, in chunks ──
         _sessionId = Time.now().value();
-        _totalChunks = (_accelX.size() + CHUNK_SAMPLES - 1) / CHUNK_SAMPLES;
+        _totalChunks = (_samples.size() + CHUNK_SAMPLES - 1) / CHUNK_SAMPLES;
         _chunkIndex = 0;
         _headerSent = false;
         _transferDone = false;
@@ -312,7 +318,7 @@ class RecordingView extends WatchUi.View {
                 "catches" => _labelCount,
                 "detected" => _detectedCount,
                 "sampleRate" => SAMPLE_RATE,
-                "samples" => _accelX.size(),
+                "samples" => _samples.size(),
                 "chunks" => _totalChunks,
                 "timestamp" => _sessionId
             };
@@ -320,16 +326,16 @@ class RecordingView extends WatchUi.View {
         if (_chunkIndex < _totalChunks) {
             var from = _chunkIndex * CHUNK_SAMPLES;
             var to = from + CHUNK_SAMPLES;
-            if (to > _accelX.size()) {
-                to = _accelX.size();
+            if (to > _samples.size()) {
+                to = _samples.size();
             }
-            var xs = [];
-            var ys = [];
-            var zs = [];
+            var xs = new [to - from];
+            var ys = new [to - from];
+            var zs = new [to - from];
             for (var i = from; i < to; i++) {
-                xs.add(_accelX[i]);
-                ys.add(_accelY[i]);
-                zs.add(_accelZ[i]);
+                xs[i - from] = _samples.get(i, 0);
+                ys[i - from] = _samples.get(i, 1);
+                zs[i - from] = _samples.get(i, 2);
             }
             return {
                 "type" => "rec_chunk",
@@ -452,9 +458,7 @@ class RecordingView extends WatchUi.View {
         cancelNextPartTimer();
         _pendingPayload = null;
         _detector = new JugglingDetector(_ballCount);
-        _accelX = [];
-        _accelY = [];
-        _accelZ = [];
+        _samples.clear();
         _state = STATE_IDLE;
         _runsCompleted += 1;
         _errorMsg = null;
@@ -541,9 +545,7 @@ class RecordingView extends WatchUi.View {
         cancelNextPartTimer();
         _pendingPayload = null;
         _detector = new JugglingDetector(_ballCount);
-        _accelX = [];
-        _accelY = [];
-        _accelZ = [];
+        _samples.clear();
         _state = STATE_IDLE;
         _runsCompleted += 1;
         _errorMsg = null;
@@ -633,22 +635,20 @@ class RecordingView extends WatchUi.View {
     private function processSample(x as Number, y as Number, z as Number, nowMs as Number) as Void {
         if (_state == STATE_RECORDING) {
             // Cap run length to avoid running out of memory.
-            if (_accelX.size() >= MAX_RUN_SAMPLES) {
+            if (_samples.isFull()) {
                 finishRun();
                 return;
             }
-            if (_accelX.size() % MEMORY_CHECK_EVERY == 0) {
+            if (_samples.size() % MEMORY_CHECK_EVERY == 0) {
                 var stats = System.getSystemStats();
                 if (stats != null && stats.freeMemory < MIN_FREE_MEMORY) {
                     System.println("Low memory, ending run at " +
-                        _accelX.size() + " samples, free=" + stats.freeMemory);
+                        _samples.size() + " samples, free=" + stats.freeMemory);
                     finishRun();
                     return;
                 }
             }
-            _accelX.add(x);
-            _accelY.add(y);
-            _accelZ.add(z);
+            _samples.add(x, y, z);
             _detector.processSample(x, y, z, nowMs);
         }
     }
@@ -657,9 +657,7 @@ class RecordingView extends WatchUi.View {
         _failReason = null;
         _errorMsg = null;
         _state = STATE_RECORDING;
-        _accelX = [];
-        _accelY = [];
-        _accelZ = [];
+        _samples.clear();
         _detector = new JugglingDetector(_ballCount);
     }
 
@@ -678,6 +676,13 @@ class RecordingView extends WatchUi.View {
         var cx = dc.getWidth() / 2;
         var cy = dc.getHeight() / 2;
 
+        // The error replaces only the screens that need samples; a run
+        // already stopped can still be labelled and synced.
+        if (_sensorError && (_state == STATE_IDLE || _state == STATE_RECORDING)) {
+            drawSensorError(dc);
+            return;
+        }
+
         if (_state == STATE_IDLE) {
             drawIdleState(dc, cx, cy);
         } else if (_state == STATE_RECORDING) {
@@ -687,6 +692,20 @@ class RecordingView extends WatchUi.View {
         } else {
             drawLabelingState(dc, cx, cy);
         }
+    }
+
+    // Shown instead of the tracking screen when the accelerometer could not
+    // be registered (SENS-4). Short lines so it fits the smallest round
+    // screens. Keep the wording in step with wearos SensorErrorScreen.
+    private function drawSensorError(dc as Dc) as Void {
+        var cx = dc.getWidth() / 2;
+        var titleH = dc.getFontHeight(Graphics.FONT_MEDIUM);
+        var hintH = dc.getFontHeight(Graphics.FONT_XTINY);
+        var y = dc.getHeight() / 2 - (titleH + hintH) / 2;
+        dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_MEDIUM, "Sensor error", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y + titleH, Graphics.FONT_XTINY, "Restart the app", Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     private function drawIdleState(dc as Dc, cx as Number, cy as Number) as Void {
@@ -722,7 +741,7 @@ class RecordingView extends WatchUi.View {
         dc.drawText(cx, y, Graphics.FONT_TINY, "RECORDING", Graphics.TEXT_JUSTIFY_CENTER);
         y += labelH;
 
-        var seconds = _accelX.size() / SAMPLE_RATE;
+        var seconds = _samples.size() / SAMPLE_RATE;
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, y, Graphics.FONT_MEDIUM, seconds + "s", Graphics.TEXT_JUSTIFY_CENTER);
         y += medH;
