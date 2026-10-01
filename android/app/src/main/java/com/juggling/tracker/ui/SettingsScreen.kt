@@ -58,6 +58,34 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
         }
     }
 
+    // Recordings are training data that exists nowhere else, so deleting them is asked about first.
+    var showClearRecordingsConfirmation by remember { mutableStateOf(false) }
+    if (showClearRecordingsConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showClearRecordingsConfirmation = false },
+            title = { Text(stringResource(R.string.dialog_clear_recordings_title)) },
+            text = {
+                Text(pluralStringResource(R.plurals.dialog_clear_recordings_text, viewModel.recordingCount, viewModel.recordingCount))
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.clearRecordings()
+                        showClearRecordingsConfirmation = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(stringResource(R.string.action_delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearRecordingsConfirmation = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
+    }
+
     var editingJuggler by remember { mutableStateOf(false) }
     if (editingJuggler) {
         JugglerDialog(
@@ -234,7 +262,7 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             }
 
             OutlinedButton(
-                onClick = { viewModel.clearRecordings() },
+                onClick = { showClearRecordingsConfirmation = true },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
             ) {

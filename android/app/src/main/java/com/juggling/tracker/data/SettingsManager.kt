@@ -44,6 +44,13 @@ class SettingsManager(context: Context) {
     var firstThrowHand: String? by mutableStateOf(prefs.getString(KEY_FIRST_THROW, null))
         private set
 
+    /** Who is juggling, once a name and both hands have been entered; null until then. */
+    val currentJuggler: RecordingRepository.Juggler?
+        get() {
+            val name = jugglerName.takeIf { it.isNotBlank() } ?: return null
+            return RecordingRepository.Juggler(name, watchHand ?: return null, firstThrowHand ?: return null)
+        }
+
     fun updateExportDetails(name: String, hand: String, firstThrow: String) {
         jugglerName = name
         watchHand = hand
