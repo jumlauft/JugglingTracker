@@ -3,17 +3,34 @@ package com.juggling.tracker.data
 import com.juggling.tracker.FakeSharedPreferences
 import org.junit.Assert.*
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.io.File
+import java.util.concurrent.Executor
 
 class SessionRepositoryTest {
 
+    @get:Rule
+    val tempFolder = TemporaryFolder()
+
     private lateinit var prefs: FakeSharedPreferences
+    private lateinit var file: File
     private lateinit var repository: SessionRepository
+
+    // Runs each write at once, so a reload in the same test sees it.
+    private val directWriter = Executor { it.run() }
+
+    private fun newRepository(
+        sharedPrefs: FakeSharedPreferences = prefs,
+        storage: File = file,
+    ) = SessionRepository(sharedPrefs, storage, directWriter)
 
     @Before
     fun setup() {
         prefs = FakeSharedPreferences()
-        repository = SessionRepository(prefs)
+        file = File(tempFolder.root, "sessions.jsonl")
+        repository = newRepository()
     }
 
     // ── importSession ───────────────────────────────────────────────────
@@ -130,7 +147,7 @@ class SessionRepositoryTest {
             """.trimIndent()
         ).commit()
 
-        val sessions = SessionRepository(prefs).getSessions()
+        val sessions = newRepository().getSessions()
 
         assertEquals(1, sessions.size)
         assertEquals(1000L, sessions[0].timestamp)
@@ -157,7 +174,7 @@ class SessionRepositoryTest {
         repository.importSession(5, 2000L, listOf(30))
 
         // Create a new repository instance that loads from the same SharedPreferences
-        val reloaded = SessionRepository(prefs)
+        val reloaded = newRepository()
 
         val sessions = reloaded.getSessions()
         assertEquals(2, sessions.size)
@@ -173,7 +190,7 @@ class SessionRepositoryTest {
         repository.importSession(3, 1000L, listOf(10, 20), shapeConsistency = 83)
         repository.importSession(3, 2000L, listOf(10))
 
-        val sessions = SessionRepository(prefs).getSessions()
+        val sessions = newRepository().getSessions()
         assertEquals(null, sessions[0].shapeConsistency)
         assertEquals(83, sessions[1].shapeConsistency)
     }
@@ -182,7 +199,7 @@ class SessionRepositoryTest {
     fun `reloaded sessions have correct statistics`() {
         repository.importSession(3, 1000L, listOf(10, 20, 30))
 
-        val reloaded = SessionRepository(prefs)
+        val reloaded = newRepository()
         val session = reloaded.getSessions()[0]
 
         assertEquals(3, session.ballCount)
@@ -196,7 +213,7 @@ class SessionRepositoryTest {
     @Test
     fun `empty storage loads without error`() {
         val freshPrefs = FakeSharedPreferences()
-        val fresh = SessionRepository(freshPrefs)
+        val fresh = newRepository(freshPrefs, File(tempFolder.root, "fresh.jsonl"))
         assertTrue(fresh.getSessions().isEmpty())
     }
 
@@ -220,7 +237,7 @@ class SessionRepositoryTest {
             """.trimIndent()
         ).commit()
 
-        val reloaded = SessionRepository(prefs)
+        val reloaded = newRepository()
 
         assertEquals(0L, reloaded.getSessions()[0].durationSeconds)
         assertTrue(reloaded.getSessions()[0].runDurationsMillis.isEmpty())
@@ -231,7 +248,7 @@ class SessionRepositoryTest {
         val corruptPrefs = FakeSharedPreferences()
         corruptPrefs.edit().putString("sessions_json", "not valid json!!!").commit()
 
-        val repo = SessionRepository(corruptPrefs)
+        val repo = newRepository(corruptPrefs, File(tempFolder.root, "corrupt.jsonl"))
         // Should log the error and return empty, not crash
         assertTrue(repo.getSessions().isEmpty())
     }
@@ -255,9 +272,91 @@ class SessionRepositoryTest {
 
         repository.deleteSession(repository.getSessions()[0])
 
-        val reloaded = SessionRepository(prefs)
+        val reloaded = newRepository()
         assertEquals(1, reloaded.getSessions().size)
         assertEquals(1000L, reloaded.getSessions()[0].timestamp)
     }
 
+    // ── storage file ────────────────────────────────────────────────────
+
+    private val legacyHistory = """
+        [{
+            "timestamp":2000,
+            "ballCount":5,
+            "runCount":1,
+            "avgThrows":30.0,
+            "stdDevThrows":0.0,
+            "bestRun":30,
+            "totalThrows":30,
+            "runHistory":[30],
+            "shapeConsistency":71
+        },{
+            "timestamp":1000,
+            "ballCount":3,
+            "runCount":2,
+            "avgThrows":15.0,
+            "stdDevThrows":5.0,
+            "bestRun":20,
+            "totalThrows":30,
+            "runHistory":[10,20]
+        }]
+    """.trimIndent()
+
+    @Test
+    fun `history stored by an older build moves to the file`() {
+        prefs.edit().putString("sessions_json", legacyHistory).commit()
+
+        val migrated = newRepository().getSessions()
+
+        assertEquals(listOf(2000L, 1000L), migrated.map { it.timestamp })
+        assertEquals(71, migrated[0].shapeConsistency)
+        assertFalse(prefs.contains("sessions_json"))
+        assertEquals(2, file.readLines().size)
+
+        // The next start reads the file alone.
+        assertEquals(migrated, newRepository().getSessions())
+    }
+
+    @Test
+    fun `unreadable older history keeps its key`() {
+        prefs.edit().putString("sessions_json", "not valid json!!!").commit()
+
+        assertTrue(newRepository().getSessions().isEmpty())
+        assertTrue(prefs.contains("sessions_json"))
+        assertFalse(file.exists())
+    }
+
+    @Test
+    fun `import appends one line`() {
+        repository.importSession(3, 1000L, listOf(10))
+        val first = file.readLines()
+        repository.importSession(3, 2000L, listOf(20))
+
+        val lines = file.readLines()
+        assertEquals(2, lines.size)
+        assertEquals(first[0], lines[0])
+    }
+
+    @Test
+    fun `a line cut short by a crash is skipped`() {
+        repository.importSession(3, 1000L, listOf(10))
+        file.appendText("{\"timestamp\":2000,\"ballCo")
+
+        val sessions = newRepository().getSessions()
+
+        assertEquals(listOf(1000L), sessions.map { it.timestamp })
+    }
+
+    @Test
+    fun `writes run on the writer, not the caller`() {
+        val queued = mutableListOf<Runnable>()
+        val repo = SessionRepository(prefs, file, Executor { queued.add(it) })
+
+        repo.importSession(3, 1000L, listOf(10))
+
+        assertEquals(1, repo.getSessions().size)
+        assertFalse(file.exists())
+        queued.forEach { it.run() }
+        assertEquals(1, newRepository().getSessions().size)
+    }
 }

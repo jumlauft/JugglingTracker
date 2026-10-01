@@ -10,9 +10,14 @@ import com.juggling.tracker.data.SessionRepository
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.data.SettingsManager
 import com.juggling.tracker.data.WatchType
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlin.math.sqrt
 import android.os.Bundle
 import com.google.firebase.analytics.FirebaseAnalytics
@@ -92,6 +97,7 @@ class JugglingViewModel(
     private val recordingRepository: RecordingRepository? = null,
     private val analytics: FirebaseAnalytics? = null,
     private val settings: SettingsManager? = null,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
     // Garmin Status
     var garminStatus by mutableStateOf(GarminConnectionStatus.NOT_INITIALIZED)
@@ -143,11 +149,15 @@ class JugglingViewModel(
     private val _events = MutableSharedFlow<JugglingEvent>()
     val events = _events.asSharedFlow()
 
-    // Recording state
-    var recordingCount by mutableIntStateOf(recordingRepository?.recordingCount() ?: 0)
+    // Recording state, filled in from disk by refreshRecordings.
+    var recordingCount by mutableIntStateOf(0)
         private set
-    var recordings by mutableStateOf(recordingRepository?.listRecordings() ?: emptyList())
+    var recordings by mutableStateOf(emptyList<RecordingRepository.RecordingSummary>())
         private set
+
+    // Keeps recording saves, clears and refreshes on the IO dispatcher in the
+    // order they were asked for, so a refresh never shows a cleared run.
+    private val recordingFiles = Mutex()
 
     var phoneSessionState by mutableStateOf(PhoneSessionUiState())
         private set
@@ -199,6 +209,19 @@ class JugglingViewModel(
         repository?.getSessions()?.let { sessions ->
             completedSessions.clear()
             completedSessions.addAll(sessions)
+        }
+        refreshRecordings()
+    }
+
+    /** Re-read the recordings list and count on the IO dispatcher. */
+    private fun refreshRecordings() {
+        val repo = recordingRepository ?: return
+        viewModelScope.launch {
+            val (count, list) = recordingFiles.withLock {
+                withContext(ioDispatcher) { repo.recordingCount() to repo.listRecordings() }
+            }
+            recordingCount = count
+            recordings = list
         }
     }
 
@@ -391,6 +414,10 @@ class JugglingViewModel(
             putString("source", "garmin_watch")
         })
 
+        // Written here rather than on the IO dispatcher so the run is on disk
+        // by the time this returns true and the watch is acked. One watch run
+        // is a few thousand lines; the slow part was re-reading every other
+        // file afterwards, which refreshRecordings now avoids.
         recordingRepository?.saveRecording(
             balls = run.balls,
             catches = run.catches,
@@ -402,8 +429,7 @@ class JugglingViewModel(
             accelZ = run.z,
             source = RecordingRepository.SOURCE_WATCH,
         )
-        recordingCount = recordingRepository?.recordingCount() ?: 0
-        recordings = recordingRepository?.listRecordings() ?: emptyList()
+        refreshRecordings()
         return true
     }
 
@@ -411,20 +437,24 @@ class JugglingViewModel(
      * Zip of all stored recordings for export, each header tagged with the
      * juggler, watch hand and first-throw hand from [setExportDetails].
      */
-    fun writeRecordingsZip(out: java.io.OutputStream) {
-        recordingRepository?.exportAllZip(
-            out,
-            juggler = jugglerName,
-            hand = watchHand ?: RecordingRepository.HAND_LEFT,
-            firstThrow = firstThrowHand ?: RecordingRepository.HAND_RIGHT,
-        )
+    suspend fun writeRecordingsZip(out: java.io.OutputStream) {
+        val repo = recordingRepository ?: return
+        val juggler = jugglerName
+        val hand = watchHand ?: RecordingRepository.HAND_LEFT
+        val firstThrow = firstThrowHand ?: RecordingRepository.HAND_RIGHT
+        withContext(ioDispatcher) {
+            repo.exportAllZip(out, juggler = juggler, hand = hand, firstThrow = firstThrow)
+        }
     }
 
     /** Delete all stored recordings. */
     fun clearRecordings() {
-        recordingRepository?.clearAll()
         recordingCount = 0
         recordings = emptyList()
+        val repo = recordingRepository ?: return
+        viewModelScope.launch {
+            recordingFiles.withLock { withContext(ioDispatcher) { repo.clearAll() } }
+        }
     }
 
     // ── Raw Data Recording support ─────────────────────────────────────
@@ -459,20 +489,32 @@ class JugglingViewModel(
         val detector = phoneDetector
         val detected = detector?.currentCount ?: 0
         
-        recordingRepository?.saveRecording(
-            balls = rawRecordingState.selectedBallCount,
-            catches = actualCatches,
-            detected = detected,
-            sampleRate = 200, // Phone target rate is 200Hz
-            timestamp = timestamp / 1000L, // store as epoch seconds to match watch
-            accelX = rawAccelX,
-            accelY = rawAccelY,
-            accelZ = rawAccelZ,
-            source = RecordingRepository.SOURCE_PHONE,
-        )
-        
-        recordingCount = recordingRepository?.recordingCount() ?: 0
-        recordings = recordingRepository?.listRecordings() ?: emptyList()
+        val balls = rawRecordingState.selectedBallCount
+        // Copied because cancelRawRecording clears the buffers before the
+        // write on the IO dispatcher gets to them.
+        val xs = rawAccelX.toList()
+        val ys = rawAccelY.toList()
+        val zs = rawAccelZ.toList()
+        recordingRepository?.let { repo ->
+            viewModelScope.launch {
+                recordingFiles.withLock {
+                    withContext(ioDispatcher) {
+                        repo.saveRecording(
+                            balls = balls,
+                            catches = actualCatches,
+                            detected = detected,
+                            sampleRate = 200, // Phone target rate is 200Hz
+                            timestamp = timestamp / 1000L, // store as epoch seconds to match watch
+                            accelX = xs,
+                            accelY = ys,
+                            accelZ = zs,
+                            source = RecordingRepository.SOURCE_PHONE,
+                        )
+                    }
+                }
+                refreshRecordings()
+            }
+        }
         cancelRawRecording()
     }
 

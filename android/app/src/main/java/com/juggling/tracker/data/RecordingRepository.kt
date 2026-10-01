@@ -27,6 +27,11 @@ import java.util.zip.ZipOutputStream
  * The catches and detected values are watch-hand catches: catches made by the
  * hand wearing the watch, not both-hands totals. All sample values are raw
  * milli-g integers as reported by the watch sensor.
+ *
+ * Summaries of the stored runs are cached, so each file is read once rather
+ * than on every [listRecordings]. The first [listRecordings] and every
+ * [exportAllZip] still read many files: call them off the main thread.
+ *
  * Call [exportAllZip] to produce a zip of every run for analysis. The export
  * adds who juggled, which wrist wore the watch and which hand made the first
  * throw to each header, as juggler=<name>,hand=left|right,firstThrow=left|right.
@@ -66,6 +71,9 @@ class RecordingRepository(private val recordingsDir: File) {
     }
 
     constructor(context: Context) : this(File(context.filesDir, DIR_NAME))
+
+    // Summaries by file name, filled lazily by listRecordings. Guarded by `this`.
+    private val summaryCache = mutableMapOf<String, RecordingSummary>()
 
     init {
         recordingsDir.mkdirs()
@@ -116,9 +124,21 @@ class RecordingRepository(private val recordingsDir: File) {
                 }
             }
             Log.d(TAG, "Saved recording: ${file.name} ($n samples)")
+            val summary = RecordingSummary(
+                fileName = file.name,
+                balls = balls,
+                catches = catches,
+                detected = detected,
+                sampleRate = sampleRate,
+                timestamp = timestamp,
+                samples = n,
+                source = source,
+            )
+            synchronized(this) { summaryCache[file.name] = summary }
             file
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save recording", e)
+            synchronized(this) { summaryCache.remove(file.name) }
             CrashlyticsUtils.recordException(e)
             null
         }
@@ -142,53 +162,74 @@ class RecordingRepository(private val recordingsDir: File) {
             get() = source == SOURCE_WATCH
     }
 
-    /** Summaries of every stored recording, newest first. */
+    /**
+     * Summaries of every stored recording, newest first. Only files not yet
+     * summarised are read; the rest come from the cache.
+     */
     fun listRecordings(): List<RecordingSummary> {
-        val files = recordingsDir.listFiles()?.filter { it.extension == "csv" } ?: return emptyList()
-        return files.mapNotNull { file ->
-            try {
-                var header: String? = null
-                var samples = 0
-                file.forEachLine { line ->
-                    when {
-                        line.startsWith("#") -> if (header == null) header = line
-                        line.isBlank() || line.startsWith("x,") -> Unit
-                        else -> samples++
-                    }
+        // The files are read outside the lock so a save never waits on a
+        // first full scan. A save that lands meanwhile caches its own
+        // summary, which wins over one read from a half-written file.
+        val unread = synchronized(this) {
+            val files = recordingsDir.listFiles()?.filter { it.extension == "csv" } ?: emptyList()
+            summaryCache.keys.retainAll(files.mapTo(HashSet()) { it.name })
+            files.filter { it.name !in summaryCache }
+        }
+        val read = unread.mapNotNull { readSummary(it) }
+        return synchronized(this) {
+            read.forEach { summary ->
+                if (File(recordingsDir, summary.fileName).exists()) {
+                    summaryCache.putIfAbsent(summary.fileName, summary)
                 }
-                val fields = (header ?: return@mapNotNull null)
-                    .removePrefix("#")
-                    .trim()
-                    .split(",")
-                    .mapNotNull { part ->
-                        val kv = part.split("=", limit = 2)
-                        if (kv.size == 2) kv[0].trim() to kv[1].trim() else null
-                    }
-                    .toMap()
-
-                RecordingSummary(
-                    fileName = file.name,
-                    balls = fields["balls"]?.toIntOrNull() ?: return@mapNotNull null,
-                    catches = fields["catches"]?.toIntOrNull() ?: 0,
-                    detected = (fields["detectedAtCapture"] ?: fields["detected"])
-                        ?.toIntOrNull() ?: 0,
-                    sampleRate = fields["sampleRate"]?.toIntOrNull() ?: 0,
-                    timestamp = fields["timestamp"]?.toLongOrNull() ?: 0L,
-                    samples = samples,
-                    // Recordings written before source was stored have only the
-                    // sample rate to go on: the watch runs at 25 Hz.
-                    source = fields["source"]
-                        ?: if ((fields["sampleRate"]?.toIntOrNull() ?: 0) <= 25) {
-                            SOURCE_WATCH
-                        } else {
-                            SOURCE_PHONE
-                        },
-                )
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to read recording ${file.name}", e)
-                null
             }
-        }.sortedByDescending { it.timestamp }
+            summaryCache.values.sortedByDescending { it.timestamp }
+        }
+    }
+
+    /** One file's summary from its header line, or null if it has none. */
+    private fun readSummary(file: File): RecordingSummary? {
+        return try {
+            var header: String? = null
+            var samples = 0
+            file.forEachLine { line ->
+                when {
+                    line.startsWith("#") -> if (header == null) header = line
+                    line.isBlank() || line.startsWith("x,") -> Unit
+                    else -> samples++
+                }
+            }
+            val fields = (header ?: return null)
+                .removePrefix("#")
+                .trim()
+                .split(",")
+                .mapNotNull { part ->
+                    val kv = part.split("=", limit = 2)
+                    if (kv.size == 2) kv[0].trim() to kv[1].trim() else null
+                }
+                .toMap()
+
+            RecordingSummary(
+                fileName = file.name,
+                balls = fields["balls"]?.toIntOrNull() ?: return null,
+                catches = fields["catches"]?.toIntOrNull() ?: 0,
+                detected = (fields["detectedAtCapture"] ?: fields["detected"])
+                    ?.toIntOrNull() ?: 0,
+                sampleRate = fields["sampleRate"]?.toIntOrNull() ?: 0,
+                timestamp = fields["timestamp"]?.toLongOrNull() ?: 0L,
+                samples = samples,
+                // Recordings written before source was stored have only the
+                // sample rate to go on: the watch runs at 25 Hz.
+                source = fields["source"]
+                    ?: if ((fields["sampleRate"]?.toIntOrNull() ?: 0) <= 25) {
+                        SOURCE_WATCH
+                    } else {
+                        SOURCE_PHONE
+                    },
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to read recording ${file.name}", e)
+            null
+        }
     }
 
     /** Number of recording files stored. */
@@ -240,7 +281,9 @@ class RecordingRepository(private val recordingsDir: File) {
     }
 
     /** Delete all stored recording files. */
+    @Synchronized
     fun clearAll() {
         recordingsDir.listFiles()?.forEach { it.delete() }
+        summaryCache.clear()
     }
 }

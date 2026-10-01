@@ -577,4 +577,40 @@ class JugglingViewModelTest {
 
         assertTrue(viewModel.finishRecordingTransfer(mapOf("type" to "rec_end", "id" to 42L)))
     }
+
+    // ── Recording files off the main thread ─────────────────────────────
+
+    @Test
+    fun `recordings load, save and clear on the io dispatcher`() = runTest {
+        val dir = kotlin.io.path.createTempDirectory("vm_recordings_").toFile()
+        try {
+            val repo = com.juggling.tracker.data.RecordingRepository(dir)
+            repo.saveRecording(3, 5, 4, 25, 1L, listOf(1), listOf(2), listOf(3), "watch")
+            val vm = JugglingViewModel(
+                recordingRepository = repo,
+                ioDispatcher = mainDispatcherRule.testDispatcher,
+            )
+
+            // Nothing is read while the view model is being built.
+            assertEquals(0, vm.recordingCount)
+            advanceUntilIdle()
+            assertEquals(1, vm.recordingCount)
+            assertEquals(1, vm.recordings.size)
+
+            vm.startRecordingTransfer(startPayload(samples = 2, chunks = 1))
+            vm.appendRecordingChunk(chunkPayload(0, listOf(1, 2)))
+            assertTrue(vm.finishRecordingTransfer(mapOf("type" to "rec_end", "id" to 42L)))
+            advanceUntilIdle()
+            assertEquals(2, vm.recordingCount)
+            assertEquals(listOf(42L, 1L), vm.recordings.map { it.timestamp })
+
+            vm.clearRecordings()
+            assertEquals(0, vm.recordingCount)
+            assertTrue(vm.recordings.isEmpty())
+            advanceUntilIdle()
+            assertEquals(0, repo.recordingCount())
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
 }

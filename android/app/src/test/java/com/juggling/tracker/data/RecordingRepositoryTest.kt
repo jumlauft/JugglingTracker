@@ -266,4 +266,39 @@ class RecordingRepositoryTest {
         File(tempDir, "broken.csv").writeText("x,y,z\n1,2,3\n")
         assertTrue(repository.listRecordings().isEmpty())
     }
+
+    @Test
+    fun `list recordings reads each file once`() {
+        repository.saveRecording(3, 5, 4, 25, 1L, listOf(1), listOf(2), listOf(3), RecordingRepository.SOURCE_WATCH)
+        val first = repository.listRecordings()
+
+        // A cached summary is not re-read, so changing the file behind the
+        // repository's back does not show.
+        File(tempDir, first[0].fileName).writeText("# balls=7,timestamp=1\nx,y,z\n1,2,3\n")
+
+        assertEquals(3, repository.listRecordings()[0].balls)
+    }
+
+    @Test
+    fun `list recordings picks up added and removed files`() {
+        repository.saveRecording(3, 5, 4, 25, 1L, listOf(1), listOf(2), listOf(3), RecordingRepository.SOURCE_WATCH)
+        val saved = repository.listRecordings().single()
+
+        File(tempDir, "other.csv").writeText("# balls=4,timestamp=9,sampleRate=25\nx,y,z\n1,2,3\n4,5,6\n")
+        File(tempDir, saved.fileName).delete()
+
+        val all = repository.listRecordings()
+        assertEquals(listOf("other.csv"), all.map { it.fileName })
+        assertEquals(2, all[0].samples)
+    }
+
+    @Test
+    fun `clear all empties the list`() {
+        repository.saveRecording(3, 5, 4, 25, 1L, listOf(1), listOf(2), listOf(3), RecordingRepository.SOURCE_WATCH)
+        repository.listRecordings()
+
+        repository.clearAll()
+
+        assertTrue(repository.listRecordings().isEmpty())
+    }
 }
