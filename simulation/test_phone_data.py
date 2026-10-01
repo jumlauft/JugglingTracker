@@ -14,7 +14,7 @@ import math
 import sys
 
 MILLI_G_TO_MS2 = 9.80665 / 1000.0
-SAMPLE_PERIOD_MS = 5  # 200 Hz
+SAMPLE_PERIOD_MS = 5  # 200 Hz, the rate the phone app requests
 
 # Default parameters (mirror PhoneJugglingDetector.kt companion object)
 DEFAULT_PARAMS = {
@@ -226,11 +226,14 @@ def load_runs(path):
 def simulate_run(run, overrides=None, odd_burst_rule=True):
     params = params_for_balls(run["balls"], overrides)
     det = PhoneDetectorSim(run["balls"], params, odd_burst_rule=odd_burst_rule)
+    # Phone files record the rate the sensor actually delivered; older ones
+    # carry the requested 200 Hz.
+    period_ms = 1000.0 / run["sample_rate"] if run["sample_rate"] > 0 else SAMPLE_PERIOD_MS
     for i, (x, y, z) in enumerate(run["samples"]):
         ax = x * MILLI_G_TO_MS2
         ay = y * MILLI_G_TO_MS2
         az = z * MILLI_G_TO_MS2
-        det.process_sample(ax, ay, az, i * SAMPLE_PERIOD_MS)
+        det.process_sample(ax, ay, az, round(i * period_ms))
     return det.finish()
 
 

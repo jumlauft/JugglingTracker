@@ -577,4 +577,46 @@ class JugglingViewModelTest {
 
         assertTrue(viewModel.finishRecordingTransfer(mapOf("type" to "rec_end", "id" to 42L)))
     }
+
+    // ── Raw recording sample rate ───────────────────────────────────────
+
+    @Test
+    fun `measured sample rate comes from sensor timestamps`() {
+        // 101 samples 10 ms apart: one second at 100 Hz.
+        assertEquals(100, JugglingViewModel.measuredSampleRate(101, 0L, 1_000_000_000L))
+        // 400 samples over 2.1 s rounds to the nearest Hz.
+        assertEquals(190, JugglingViewModel.measuredSampleRate(400, 5L, 5L + 2_100_000_000L))
+    }
+
+    @Test
+    fun `measured sample rate falls back to the requested rate when unmeasurable`() {
+        val requested = JugglingViewModel.PHONE_REQUESTED_SAMPLE_RATE
+        assertEquals(requested, JugglingViewModel.measuredSampleRate(0, null, null))
+        assertEquals(requested, JugglingViewModel.measuredSampleRate(1, 7L, 7L))
+        assertEquals(requested, JugglingViewModel.measuredSampleRate(5, 9L, 9L))
+    }
+
+    @Test
+    fun `raw recording saves the rate the sensor delivered`() {
+        val dir = kotlin.io.path.createTempDirectory("recordings").toFile()
+        try {
+            val recordings = com.juggling.tracker.data.RecordingRepository(dir)
+            val vm = JugglingViewModel(recordingRepository = recordings)
+            vm.startRawRecordingFlow()
+            vm.confirmRawRecordingBalls(3)
+            // A phone that ignores the 200 Hz request and delivers 50 Hz.
+            val periodNanos = 20_000_000L
+            val start = 123_456_789_000L
+            repeat(251) { i -> vm.processPhoneSample(0.0, 0.0, GRAVITY, start + i * periodNanos) }
+            vm.stopRawRecording()
+            vm.saveRawRecording(10)
+
+            val saved = recordings.listRecordings().single()
+            assertEquals(50, saved.sampleRate)
+            assertEquals(251, saved.samples)
+            assertEquals(5.02, saved.durationSeconds, 0.001)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
 }
