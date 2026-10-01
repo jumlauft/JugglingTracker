@@ -5,16 +5,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.juggling.tracker.model.SessionSummary
 import com.juggling.tracker.model.normalizeRunDurations
-import com.juggling.tracker.model.parseShapeConsistency
+import com.juggling.tracker.model.summarizeSession
 import com.juggling.tracker.data.SessionRepository
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.data.SettingsManager
 import com.juggling.tracker.data.WatchType
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
-import kotlin.math.sqrt
 import android.os.Bundle
+import java.util.Locale
 import com.google.firebase.analytics.FirebaseAnalytics
 
 sealed class JugglingEvent {
@@ -92,7 +93,13 @@ class JugglingViewModel(
     private val recordingRepository: RecordingRepository? = null,
     private val analytics: FirebaseAnalytics? = null,
     private val settings: SettingsManager? = null,
+    // The app's own inbox, shared with the Wear OS listener service and the
+    // Garmin link; it must hold the same repositories as this view model.
+    // Without one (tests) the view model gets an inbox of its own.
+    inbox: WatchInbox? = null,
 ) : ViewModel() {
+    private val inbox = inbox ?: WatchInbox(repository, recordingRepository, analytics)
+
     // Garmin Status
     var garminStatus by mutableStateOf(GarminConnectionStatus.NOT_INITIALIZED)
     var statusMessage by mutableStateOf("")
@@ -194,46 +201,54 @@ class JugglingViewModel(
 
     val completedSessions = mutableStateListOf<SessionSummary>()
 
+    // What the watches deliver reaches this screen through the inbox, which
+    // may have stored it while no screen was open at all.
+    private val inboxListener: (WatchInbox.Event) -> Unit = { event ->
+        when (event) {
+            is WatchInbox.Event.Receiving -> showReceiving(event.source)
+            is WatchInbox.Event.SessionStored -> {
+                showStoredSession(event.session)
+                viewModelScope.launch {
+                    _events.emit(JugglingEvent.SyncCompleted(event.session.runCount, event.session.ballCount))
+                }
+            }
+            WatchInbox.Event.RecordingStored -> refreshRecordings()
+        }
+    }
+
     init {
         // Load any previously stored sessions on startup.
         repository?.getSessions()?.let { sessions ->
             completedSessions.clear()
             completedSessions.addAll(sessions)
         }
+        this.inbox.addListener(inboxListener)
     }
 
-    // Import a single finished session transferred from the Garmin watch.
-    // Payload shape: { type: "session", countMode: "watch_hand", balls: Int,
-    // timestamp: Long (epoch s), durationSeconds: Long,
-    // runDurationsMillis: List<Number>, runs: List<Number>,
-    // shapeConsistency: Number (optional, whole percent) }.
-    // Runs are watch-hand catch counts; the phone only listens and records what it receives.
-    fun importSessionFromWatch(payload: Map<String, Any>) {
-        val balls = (payload["balls"] as? Number)?.toInt() ?: return
-        // The watch sends epoch seconds; convert to milliseconds for Java Date APIs.
-        val timestamp = ((payload["timestamp"] as? Number)?.toLong() ?: return) * 1000L
-        val durationSeconds = ((payload["durationSeconds"] as? Number)?.toLong() ?: 0L).coerceAtLeast(0L)
-        @Suppress("UNCHECKED_CAST")
-        val runsRaw = payload["runs"] as? List<Any> ?: return
-        val runs = runsRaw.mapNotNull { (it as? Number)?.toInt() }
-        if (runs.isEmpty()) return
+    override fun onCleared() {
+        inbox.removeListener(inboxListener)
+        super.onCleared()
+    }
 
-        analytics?.logEvent("import_session", Bundle().apply {
-            putInt("ball_count", balls)
-            putInt("run_count", runs.size)
-            putInt("total_throws", runs.sum())
-            putString("source", "garmin_watch")
-        })
-
-        val runDurationsMillis = normalizeRunDurations(runs.size, parseLongList(payload["runDurationsMillis"]))
-
-        val shapeConsistency = parseShapeConsistency(payload["shapeConsistency"])
-
-        storeFinishedSession(balls, timestamp, runs, durationSeconds, runDurationsMillis, shapeConsistency)
-
-        viewModelScope.launch {
-            _events.emit(JugglingEvent.SyncCompleted(runs.size, balls))
+    // The watch card shows "receiving" for a moment, then goes back to ready.
+    private fun showReceiving(source: WatchInbox.Source) {
+        when (source) {
+            WatchInbox.Source.GARMIN -> garminStatus = GarminConnectionStatus.RECEIVING
+            WatchInbox.Source.WEAR_OS -> wearStatus = WearConnectionStatus.RECEIVING
         }
+        viewModelScope.launch {
+            delay(RECEIVING_DISPLAY_MS)
+            if (garminStatus == GarminConnectionStatus.RECEIVING) garminStatus = GarminConnectionStatus.READY
+            if (wearStatus == WearConnectionStatus.RECEIVING) wearStatus = WearConnectionStatus.READY
+        }
+    }
+
+    /**
+     * Feeds a finished session straight into the inbox, as if [source] had
+     * sent it. See [WatchInbox.importSession] for the payload.
+     */
+    fun importSessionFromWatch(payload: Map<String, Any>, source: WatchInbox.Source = WatchInbox.Source.GARMIN) {
+        inbox.importSession(payload, source)
     }
 
     private fun storeFinishedSession(
@@ -244,40 +259,25 @@ class JugglingViewModel(
         runDurationsMillis: List<Long>,
         shapeConsistency: Int? = null,
     ) {
+        val session = repository?.importSession(balls, timestamp, runs, durationSeconds, runDurationsMillis, shapeConsistency)
+            ?: summarizeSession(timestamp, balls, runs, durationSeconds, runDurationsMillis, shapeConsistency)
+        showStoredSession(session)
+    }
+
+    private fun showStoredSession(session: SessionSummary) {
         if (repository != null) {
-            repository.importSession(balls, timestamp, runs, durationSeconds, runDurationsMillis, shapeConsistency)
-
-            // Reload sessions from repository so the UI reflects the new data.
-            repository.getSessions().let { sessions ->
-                completedSessions.clear()
-                completedSessions.addAll(sessions)
-            }
+            // Reload from the repository so the list matches what is stored.
+            completedSessions.clear()
+            completedSessions.addAll(repository.getSessions())
+            return
+        }
+        // No repository (unit tests): keep the list the way the repository
+        // would, one session per timestamp, a resend replacing the old copy.
+        val existing = completedSessions.indexOfFirst { it.timestamp == session.timestamp }
+        if (existing >= 0) {
+            completedSessions[existing] = session
         } else {
-            // No repository (likely unit test), just calculate summary locally.
-            // Deduplicate by timestamp like the repository does, so this path
-            // upholds the same identity invariant the UI keys rows on.
-            if (completedSessions.any { it.timestamp == timestamp }) return
-
-            val avg = runs.average()
-            val bestRun = runs.maxOrNull() ?: 0
-            val stdDev = if (runs.size > 1) {
-                sqrt(runs.sumOf { (it - avg) * (it - avg) } / runs.size)
-            } else 0.0
-
-            val summary = SessionSummary(
-                timestamp = timestamp,
-                ballCount = balls,
-                runCount = runs.size,
-                avgThrows = avg,
-                stdDevThrows = stdDev,
-                bestRun = bestRun,
-                totalThrows = runs.sum(),
-                runHistory = runs,
-                durationSeconds = durationSeconds,
-                runDurationsMillis = runDurationsMillis,
-                shapeConsistency = shapeConsistency,
-            )
-            completedSessions.add(0, summary)
+            completedSessions.add(0, session)
         }
     }
 
@@ -287,124 +287,45 @@ class JugglingViewModel(
         repository?.deleteSession(session)
     }
 
+    // Numbers and dates are written the same way whatever the phone's
+    // language: a German phone would otherwise write 12,50 for the average,
+    // and that comma splits the row into one column too many.
     fun getSessionsCsv(): String {
         val builder = StringBuilder()
-        builder.append("Date,Ball Count,Run Count,Session Duration Seconds,Watch Hand Average,Watch Hand Best,Watch Hand Total,Run Durations Millis,Watch Hand Run History\n")
-        
-        val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
-        
+        builder.append("Date,Ball Count,Run Count,Session Duration Seconds,Watch Hand Average,Watch Hand Best,Watch Hand Total,Run Durations Millis,Watch Hand Run History,Regularity Percent\n")
+
+        val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+
         completedSessions.forEach { session ->
             val date = dateFormat.format(java.util.Date(session.timestamp))
+            val average = String.format(Locale.US, "%.2f", session.avgThrows)
             val runHistory = session.runHistory.joinToString(";")
             val runDurationsMillis = session.runDurationsMillis.joinToString(";")
-            builder.append("$date,${session.ballCount},${session.runCount},${session.durationSeconds},${"%.2f".format(session.avgThrows)},${session.bestRun},${session.totalThrows},\"$runDurationsMillis\",\"$runHistory\"\n")
+            // Empty when the session has no Regularity score.
+            val regularity = session.shapeConsistency?.toString() ?: ""
+            builder.append("$date,${session.ballCount},${session.runCount},${session.durationSeconds},$average,${session.bestRun},${session.totalThrows},\"$runDurationsMillis\",\"$runHistory\",$regularity\n")
         }
-        
-        return builder.toString()
-    }
 
-    private fun parseLongList(value: Any?): List<Long> {
-        val raw = value as? List<*> ?: return emptyList()
-        return raw.mapNotNull { (it as? Number)?.toLong()?.coerceAtLeast(0L) }
+        return builder.toString()
     }
 
     // ── Recording support ──────────────────────────────────────────────
 
-    /** Import a recording payload received from the Garmin watch. Catches are watch-hand catches. */
-    // ── Chunked recording transfer ──────────────────────────────────────
-    //
-    // The watch cannot send a dictionary holding hundreds of numbers, so a run
-    // arrives as rec_start, a series of rec_chunk parts, then rec_end. Only
-    // rec_end is acknowledged, after the run has been written.
+    // A watch's recorded run arrives as rec_start, rec_chunk parts and
+    // rec_end, and the inbox reassembles it. These feed it directly, as if a
+    // watch had sent them; see WatchInbox for the rules.
 
-    private class IncomingRecording(
-        val id: Long,
-        val balls: Int,
-        val catches: Int,
-        val detected: Int,
-        val sampleRate: Int,
-        val totalSamples: Int,
-        val totalChunks: Int,
-    ) {
-        val x = mutableListOf<Int>()
-        val y = mutableListOf<Int>()
-        val z = mutableListOf<Int>()
-        var nextChunk = 0
-    }
+    fun startRecordingTransfer(payload: Map<String, Any>) = inbox.startRecordingTransfer(payload)
 
-    private var incoming: IncomingRecording? = null
-
-    fun startRecordingTransfer(payload: Map<String, Any>) {
-        val id = (payload["id"] as? Number)?.toLong() ?: return
-        incoming = IncomingRecording(
-            id = id,
-            balls = (payload["balls"] as? Number)?.toInt() ?: return,
-            catches = (payload["catches"] as? Number)?.toInt() ?: return,
-            detected = (payload["detected"] as? Number)?.toInt() ?: 0,
-            sampleRate = (payload["sampleRate"] as? Number)?.toInt() ?: 25,
-            totalSamples = (payload["samples"] as? Number)?.toInt() ?: 0,
-            totalChunks = (payload["chunks"] as? Number)?.toInt() ?: 0,
-        )
-    }
-
-    fun appendRecordingChunk(payload: Map<String, Any>) {
-        val run = incoming ?: return
-        if ((payload["id"] as? Number)?.toLong() != run.id) return
-
-        val index = (payload["i"] as? Number)?.toInt() ?: return
-        if (index < run.nextChunk) {
-            // Already have this one. The transport can deliver a message more
-            // than once, which must not be mistaken for corruption.
-            return
-        }
-        if (index > run.nextChunk) {
-            // A chunk was lost; the run would be corrupt, so drop it rather
-            // than write bad training data.
-            incoming = null
-            return
-        }
-
-        @Suppress("UNCHECKED_CAST")
-        val xs = (payload["x"] as? List<Any>)?.mapNotNull { (it as? Number)?.toInt() } ?: return
-        @Suppress("UNCHECKED_CAST")
-        val ys = (payload["y"] as? List<Any>)?.mapNotNull { (it as? Number)?.toInt() } ?: return
-        @Suppress("UNCHECKED_CAST")
-        val zs = (payload["z"] as? List<Any>)?.mapNotNull { (it as? Number)?.toInt() } ?: return
-
-        run.x.addAll(xs)
-        run.y.addAll(ys)
-        run.z.addAll(zs)
-        run.nextChunk = index + 1
-    }
+    fun appendRecordingChunk(payload: Map<String, Any>) = inbox.appendRecordingChunk(payload)
 
     /** Returns true when a complete run was written. */
-    fun finishRecordingTransfer(payload: Map<String, Any>): Boolean {
-        val run = incoming ?: return false
-        incoming = null
-        if ((payload["id"] as? Number)?.toLong() != run.id) return false
-        if (run.nextChunk != run.totalChunks) return false
-        if (run.x.size != run.totalSamples) return false
+    fun finishRecordingTransfer(payload: Map<String, Any>, source: WatchInbox.Source = WatchInbox.Source.GARMIN): Boolean =
+        inbox.finishRecordingTransfer(payload, source)
 
-        analytics?.logEvent("import_recording", Bundle().apply {
-            putInt("ball_count", run.balls)
-            putInt("catches", run.catches)
-            putString("source", "garmin_watch")
-        })
-
-        recordingRepository?.saveRecording(
-            balls = run.balls,
-            catches = run.catches,
-            detected = run.detected,
-            sampleRate = run.sampleRate,
-            timestamp = run.id,
-            accelX = run.x,
-            accelY = run.y,
-            accelZ = run.z,
-            source = RecordingRepository.SOURCE_WATCH,
-        )
+    private fun refreshRecordings() {
         recordingCount = recordingRepository?.recordingCount() ?: 0
         recordings = recordingRepository?.listRecordings() ?: emptyList()
-        return true
     }
 
     /**
@@ -471,8 +392,7 @@ class JugglingViewModel(
             source = RecordingRepository.SOURCE_PHONE,
         )
         
-        recordingCount = recordingRepository?.recordingCount() ?: 0
-        recordings = recordingRepository?.listRecordings() ?: emptyList()
+        refreshRecordings()
         cancelRawRecording()
     }
 
@@ -674,6 +594,9 @@ class JugglingViewModel(
     }
 
     companion object {
+        /** How long the watch card shows "receiving" after a message. */
+        const val RECEIVING_DISPLAY_MS = 1500L
+
         /** Seconds of an unchanging accelerometer before calling it broken. */
         const val FROZEN_SENSOR_SECONDS = 5L
         const val FROZEN_SENSOR_SAMPLES =
