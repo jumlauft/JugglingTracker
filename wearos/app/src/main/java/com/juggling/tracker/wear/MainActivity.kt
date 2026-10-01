@@ -3,6 +3,7 @@ package com.juggling.tracker.wear
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -36,7 +37,10 @@ class MainActivity : ComponentActivity() {
         lifecycle.addObserver(AmbientLifecycleObserver(this, ambientCallback))
         runtime = WatchRuntime.get(this)
         runtime.onExit = finishOnExit
-        setContent { WearApp(runtime.navigator, isAmbient = isAmbient) }
+        setContent {
+            val sensorFailed by runtime.sensorFailed.collectAsState()
+            WearApp(runtime.navigator, sensorFailed = sensorFailed, isAmbient = isAmbient)
+        }
     }
 
     override fun onDestroy() {

@@ -66,6 +66,7 @@ object Tags {
     const val MENU_TITLE = "menu_title"
     const val REC_STATUS = "rec_status"
     const val LABEL = "label_count"
+    const val SENSOR_ERROR = "sensor_error"
 
     fun menuItem(id: String) = "menu_item_$id"
 }
@@ -248,6 +249,20 @@ private fun StatRow(left: Pair<String, String>, right: Pair<String, String>) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
         WatchText(left.first, WatchColors.LightGray, 11.sp, Modifier.testTag(left.second))
         WatchText(right.first, WatchColors.LightGray, 11.sp, Modifier.testTag(right.second))
+    }
+}
+
+/**
+ * Shown instead of a tracking screen when the accelerometer is missing or
+ * would not start (SENS-4), so the count does not silently stay at 0. Same
+ * wording as `drawSensorError` in the Garmin views; [button] keeps the
+ * screen's own Start action (End, Stop) reachable by touch.
+ */
+@Composable
+fun SensorErrorScreen(button: String? = null, onStart: () -> Unit = {}) {
+    CenteredColumn(button = button?.let { label -> @Composable { StartButton(label, onStart) } }) {
+        WatchText("Sensor error", WatchColors.Red, 18.sp, Modifier.testTag(Tags.SENSOR_ERROR))
+        WatchText("Restart the app", WatchColors.LightGray, 11.sp)
     }
 }
 

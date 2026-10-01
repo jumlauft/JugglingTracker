@@ -26,6 +26,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.wear.compose.material.MaterialTheme
 import com.juggling.tracker.wear.logic.AppNavigator
+import com.juggling.tracker.wear.logic.RecordingPhase
 import com.juggling.tracker.wear.logic.Screen
 import kotlinx.coroutines.delay
 
@@ -36,12 +37,28 @@ import kotlinx.coroutines.delay
  * - START: the on-screen button, or a hardware stem button;
  * - BACK: a swipe from the left edge, or the back key.
  *
+ * [sensorFailed] is true when the accelerometer is missing or would not
+ * start; the tracking screens then show [SensorErrorScreen] (SENS-4).
+ *
  * [isAmbient] is true while the watch shows the app in its low-power ambient
  * mode; the screens then hide their filled buttons.
  */
 @Composable
-fun WearApp(navigator: AppNavigator, modifier: Modifier = Modifier, isAmbient: Boolean = false) {
+fun WearApp(
+    navigator: AppNavigator,
+    modifier: Modifier = Modifier,
+    sensorFailed: Boolean = false,
+    isAmbient: Boolean = false,
+) {
     val screen by navigator.screen.collectAsState()
+    // Without the accelerometer there is nothing to record, so START on the
+    // idle record screen does nothing, as on the Garmin.
+    val onStart: () -> Unit = {
+        val phase = (navigator.screen.value as? Screen.Recording)?.let { it.session.state.value.phase }
+        if (!(sensorFailed && phase == RecordingPhase.IDLE)) {
+            navigator.onStart()
+        }
+    }
     val focusRequester = remember { FocusRequester() }
     val rotaryAccumulated = remember { floatArrayOf(0f) }
 
@@ -74,7 +91,7 @@ fun WearApp(navigator: AppNavigator, modifier: Modifier = Modifier, isAmbient: B
                     .onKeyEvent { event ->
                         if (event.type != KeyEventType.KeyUp) return@onKeyEvent false
                         when (event.key) {
-                            Key.StemPrimary, Key.Stem1, Key.Enter, Key.DirectionCenter -> navigator.onStart()
+                            Key.StemPrimary, Key.Stem1, Key.Enter, Key.DirectionCenter -> onStart()
                             Key.DirectionUp -> navigator.onUp()
                             Key.DirectionDown -> navigator.onDown()
                             else -> return@onKeyEvent false
@@ -107,6 +124,8 @@ fun WearApp(navigator: AppNavigator, modifier: Modifier = Modifier, isAmbient: B
                         val menu = state.menu
                         if (menu != null) {
                             MenuScreen(menu, onSelect = s.session::onMenuSelect)
+                        } else if (sensorFailed && !state.sending) {
+                            SensorErrorScreen("End", onStart)
                         } else {
                             TrackerScreen(state, onStartStop = navigator::onStart)
                         }
@@ -116,6 +135,10 @@ fun WearApp(navigator: AppNavigator, modifier: Modifier = Modifier, isAmbient: B
                         val menu = state.menu
                         if (menu != null) {
                             MenuScreen(menu, onSelect = s.session::onMenuSelect)
+                        } else if (sensorFailed && state.phase == RecordingPhase.IDLE) {
+                            SensorErrorScreen()
+                        } else if (sensorFailed && state.phase == RecordingPhase.RECORDING) {
+                            SensorErrorScreen("Stop", onStart)
                         } else {
                             RecordingScreen(
                                 state,

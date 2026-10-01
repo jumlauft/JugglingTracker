@@ -18,6 +18,9 @@ import com.juggling.tracker.wear.platform.HandlerScheduler
 import com.juggling.tracker.wear.platform.TrackingService
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -52,6 +55,14 @@ class WatchRuntime private constructor(private val context: Context) {
     private val accelerometer =
         AccelerometerSource(context.getSystemService(SensorManager::class.java), ::onSamples)
 
+    private val _sensorFailed = MutableStateFlow(false)
+
+    /**
+     * True when the accelerometer is missing or would not start, so the
+     * tracking screens show an error instead of a count stuck at 0 (SENS-4).
+     */
+    val sensorFailed: StateFlow<Boolean> = _sensorFailed.asStateFlow()
+
     /** Called when the app quits; [MainActivity] finishes itself here. */
     var onExit: (() -> Unit)? = null
 
@@ -79,9 +90,11 @@ class WatchRuntime private constructor(private val context: Context) {
             navigator.screen.collect {
                 if (isTracking) {
                     TrackingService.start(context)
-                    if (!accelerometer.start()) {
+                    val started = accelerometer.start()
+                    if (!started) {
                         Log.e(TAG, "No accelerometer available")
                     }
+                    _sensorFailed.value = !started
                 } else {
                     accelerometer.stop()
                     TrackingService.stop(context)
