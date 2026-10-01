@@ -44,17 +44,18 @@ prompt exactly as BACK does on the Garmin (JUG-3, JUG-4).
 
 Sessions and recordings go to the phone over the Wear OS Data Layer as the
 same dictionaries the Garmin sends (`session`, `rec_start`, `rec_chunk`,
-`rec_end`), encoded as JSON, and the phone answers with the same `ack`. The
-phone app registers a Data Layer listener next to its Garmin one and routes
-both into the same import code.
+`rec_end`), encoded as JSON, and the phone answers with the same `ack` once
+it has stored what came. The phone app's `WatchMessageService` receives them
+and hands them to the same `WatchInbox` as the Garmin's messages.
 
 In the phone app, Settings > Watch picks Garmin or Wear OS. With Wear OS
 picked, the watch card on the home screen is green when a connected watch has
 this app, and red otherwise; tapping the red card shows how to connect.
 
-The phone app has to be open to receive. If it is not, the message still
-leaves the watch but no ack comes back, and the sync times out after 10 s and
-offers a retry, as on the Garmin.
+The phone app does not have to be open: Google Play services starts it when
+a message arrives. If the phone is out of reach, or cannot store what came,
+no ack comes back, and the sync times out after 10 s and offers a retry, as
+on the Garmin.
 
 The Data Layer only connects apps that share a package name and signing key,
 so this app's `applicationId` is `com.juggling.tracker`, like the phone app,
@@ -103,5 +104,5 @@ uploads screenshots of each step as the `wear-emulator-screenshots` artifact.
 | JUG-1..8 | `TrackerSessionTest`, `WearAppTest`, `WearAppEmulatorTest` |
 | SENS-1, 2 | The sensor runs while a tracking screen is visible and `AccelerometerSource.start()` is idempotent. Menus are drawn in place rather than pushed as views, so they cannot drop the listener; detection still pauses under a menu, as on the Garmin (`TrackerSessionTest`) |
 | SENS-3 | Not applicable: Android does not pad sensor batches with nulls |
-| SYNC-1..4 | `TrackerSessionTest`, `WearAppTest`, `WearAppEmulatorTest.replayingARealRecordingShowsItsRunsAndSyncsThem` |
+| SYNC-1..5 | `TrackerSessionTest`, `WearAppTest`, `WearAppEmulatorTest.replayingARealRecordingShowsItsRunsAndSyncsThem` |
 | REC-1..11 | `RecordingSessionTest`, `AppNavigatorTest` (REC-11), `WearAppEmulatorTest.recordModeLabelsARun`. REC-2's free-memory check is Garmin-specific (a 128 KB heap); the 3000-sample cap is kept. REC-4 writes the one-line `RUN_DATA` summary to logcat under the tag `JugglingRecording` |

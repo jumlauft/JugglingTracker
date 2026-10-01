@@ -876,6 +876,60 @@ def test_continuing_after_a_failed_sync_clears_the_error_banner():
     )
 
 
+
+def test_continuing_abandons_the_pending_sync():
+    """Picking Continue must drop the sync, so its late ack cannot close the app.
+
+    onContinueSession() left _pendingPayload set, and onPhoneMessage() closes
+    the app on any ack while a payload is pending. An ack that arrived after
+    the timeout, once the user was juggling again, quit the app mid-run.
+    Continue picked while a sync was still in flight also left its timer
+    running, which popped "Sync failed" over the live screen.
+    """
+    source = _read_source("connectiq", "source", "MainView.mc")
+
+    m = re.search(
+        r"public function onContinueSession\(\) as Void \{(.*?)\n    \}",
+        source, re.DOTALL,
+    )
+    assert m, "onContinueSession() not found in MainView.mc"
+    body = m.group(1)
+    for line in (
+        "_pendingPayload = null;",
+        "_sending = false;",
+        "cancelSyncTimer();",
+        "cancelStatusTimer();",
+        "_syncGeneration += 1;",
+    ):
+        assert line in body, f"onContinueSession() must abandon the sync: missing {line!r}"
+
+
+def test_main_view_sends_one_timestamp_per_session():
+    """Ending again after Continue must resend under the first sync's timestamp.
+
+    The phone keys a session by its timestamp. doSync() stamped every payload
+    with Time.now(), so a session ended, continued and ended again reached the
+    phone as two sessions, the second repeating the first one's runs.
+    """
+    source = _read_source("connectiq", "source", "MainView.mc")
+
+    m = re.search(
+        r"private function doSync\(\) as Void \{(.*?)\n    \}",
+        source, re.DOTALL,
+    )
+    assert m, "doSync() not found in MainView.mc"
+    body = m.group(1)
+    assert '"timestamp" => _sessionTimestamp,' in body, (
+        "doSync() must send the session's fixed timestamp"
+    )
+    assert "if (_sessionTimestamp == null) {\n            _sessionTimestamp = Time.now().value();" in body, (
+        "doSync() must fix the timestamp on the first sync only"
+    )
+    assert "Time.now()" not in body.replace("_sessionTimestamp = Time.now().value();", ""), (
+        "the payload must not take a fresh Time.now() on later syncs"
+    )
+
+
 # ── Requirements traceability ──────────────────────────────────────────────
 #
 # connectiq/REQUIREMENTS.md is the written specification of the watch app.

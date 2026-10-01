@@ -251,8 +251,12 @@ vibration counter resets when a run finishes.
 
 **JUG-8.** Choosing **Continue** after a failed sync clears the "Sync failed"
 banner, not just the pending-decision flag: nothing is actually failing
-anymore once the user is back to juggling instead of retrying.
-*Verified by:* `test_continuing_after_a_failed_sync_clears_the_error_banner`
+anymore once the user is back to juggling instead of retrying. Continue also
+abandons the sync, whether it failed or is still in flight: the pending
+payload is dropped, its timers stop and its generation (SYNC-4) is retired,
+so a late `ack` cannot close the app mid-juggle and a late failure cannot
+open the retry menu over the live screen.
+*Verified by:* `test_continuing_after_a_failed_sync_clears_the_error_banner`, `test_continuing_abandons_the_pending_sync`
 
 ---
 
@@ -286,7 +290,8 @@ kills the app.
 *Verified by:* `test_main_view_displays_and_transfers_session_duration`, `test_watch_transfers_run_durations`, `test_watch_shows_and_transfers_shape_consistency`
 
 **SYNC-2.** The app closes **only** on the phone's `ack`, so data is never
-assumed delivered. Failure or a 10 s timeout opens a retry menu instead.
+assumed delivered. Failure or a 10 s timeout opens a retry menu instead. The
+phone sends the `ack` only once the session is stored.
 *Verified by:* not automatically tested — needs a radio.
 
 **SYNC-3.** Syncing a session with no completed runs is skipped and the app
@@ -298,6 +303,11 @@ just exits; there is nothing worth sending.
 and without this check its late failure would land on whichever attempt is
 current by then — aborting a retry that might otherwise have been succeeding.
 *Verified by:* `test_main_view_transmit_callbacks_check_the_sync_generation`
+
+**SYNC-5.** A session keeps one `timestamp`, taken at its first sync. Ending
+again after **Continue** resends the whole session under that timestamp, and
+the phone replaces the copy it already has, so no run is stored twice.
+*Verified by:* `test_main_view_sends_one_timestamp_per_session`
 
 ---
 

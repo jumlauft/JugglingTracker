@@ -47,6 +47,10 @@ class MainView extends WatchUi.View {
     private var _sessionStartMs as Number;
     // Monotonic timer value when the user ended the session, before sync menu time.
     private var _sessionEndMs as Number?;
+    // The session's id on the phone, fixed by the first sync. Ending again
+    // after Continue resends the whole session under the same id, so the
+    // phone replaces its first copy instead of storing the runs twice.
+    private var _sessionTimestamp as Number?;
 
     // Repeating 1s timer that animates the "Sync to phone..." status by adding
     // a dot each second while we wait for the phone's acknowledgement.
@@ -68,6 +72,7 @@ class MainView extends WatchUi.View {
         _lastVibrateCount = 0;
         _sessionStartMs = System.getTimer();
         _sessionEndMs = null;
+        _sessionTimestamp = null;
 
         // Listen for the phone's acknowledgement that a session was received.
         Communications.registerForPhoneAppMessages(method(:onPhoneMessage));
@@ -289,11 +294,15 @@ class MainView extends WatchUi.View {
             System.exit();
         }
 
+        if (_sessionTimestamp == null) {
+            _sessionTimestamp = Time.now().value();
+        }
+
         var payload = {
             "type" => "session",
             "countMode" => "watch_hand",
             "balls" => _detector.ballCount,
-            "timestamp" => Time.now().value(),
+            "timestamp" => _sessionTimestamp,
             "durationSeconds" => sessionDurationSeconds(),
             "runDurationsMillis" => _detector.runDurationsMillis(),
             "runs" => runs
@@ -470,6 +479,14 @@ class MainView extends WatchUi.View {
         // screen: nothing is actually failing anymore once the user has
         // chosen to keep juggling instead of retrying.
         _errorMsg = null;
+        // Abandon the sync. Its ack can still arrive late, and with the
+        // payload kept it would close the app mid-juggle. Ending again sends
+        // the whole session afresh under the same timestamp.
+        _sending = false;
+        cancelSyncTimer();
+        cancelStatusTimer();
+        _pendingPayload = null;
+        _syncGeneration += 1;
     }
 
     public function onTransmitDone(generation as Number) as Void {
