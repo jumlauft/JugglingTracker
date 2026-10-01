@@ -65,6 +65,10 @@ class TrackerSession(
     private val detector = JugglingDetector(ballCount)
     private val sessionStartMs = clock.nowMs()
     private var sessionEndMs: Long? = null
+    // The session's id on the phone, fixed by the first sync. Ending again
+    // after Continue resends the whole session under the same id, so the
+    // phone replaces its first copy instead of storing the runs twice (SYNC-5).
+    private var sessionTimestamp: Long? = null
 
     private var sending = false
     private var errorMessage: String? = null
@@ -214,9 +218,17 @@ class TrackerSession(
         sessionEndMs = null
         // JUG-8: nothing is failing any more once the user is juggling again.
         errorMessage = null
+        // JUG-8: abandon the sync. Its ack can still arrive late, and with the
+        // payload kept it would close the app mid-juggle. Ending again sends
+        // the whole session afresh under the same timestamp.
+        sending = false
+        cancelSyncTimer()
+        cancelStatusTimer()
+        pendingPayload = null
+        syncGeneration += 1
     }
 
-    // ── Sync (SYNC-1..4) ──────────────────────────────────────────────
+    // ── Sync (SYNC-1..5) ──────────────────────────────────────────────
 
     private fun doSync() {
         if (sending || menu != null) return
@@ -234,11 +246,12 @@ class TrackerSession(
             return
         }
 
+        val timestamp = sessionTimestamp ?: epochSeconds().also { sessionTimestamp = it }
         val payload = mutableMapOf<String, Any>(
             "type" to "session",
             "countMode" to "watch_hand",
             "balls" to detector.ballCount,
-            "timestamp" to epochSeconds(),
+            "timestamp" to timestamp,
             "durationSeconds" to sessionDurationSeconds(),
             "runDurationsMillis" to detector.runDurationsMillis(),
             "runs" to runs,

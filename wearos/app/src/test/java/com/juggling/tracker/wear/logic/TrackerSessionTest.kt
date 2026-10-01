@@ -14,7 +14,8 @@ class TrackerSessionTest {
     private val scheduler = FakeScheduler()
     private val link = FakePhoneLink()
     private val effects = FakeEffects()
-    private val session = TrackerSession(3, link, scheduler, scheduler.clock, effects, epochSeconds = { 1_700_000_000L })
+    private var epochNow = 1_700_000_000L
+    private val session = TrackerSession(3, link, scheduler, scheduler.clock, effects, epochSeconds = { epochNow })
     private var t = 0L
 
     private val state get() = session.state.value
@@ -212,6 +213,41 @@ class TrackerSessionTest {
         assertNull(state.errorMessage)
     }
 
+    @Test
+    fun `JUG-8 continue abandons the sync so a late ack cannot close the app`() {
+        warmUp()
+        completedRun(3)
+        session.onStartStop()
+        select(TrackerSession.ITEM_SYNC_QUIT)
+        scheduler.advance(TrackerSession.SYNC_TIMEOUT_MS)
+        select(TrackerSession.ITEM_CONTINUE)
+
+        link.ack(1_700_000_000L) // the phone stored the first copy after all
+        assertEquals(0, effects.exits)
+        assertFalse(state.exited)
+    }
+
+    @Test
+    fun `JUG-8 continue while a sync is in flight stops it`() {
+        warmUp()
+        completedRun(3)
+        session.onStartStop()
+        select(TrackerSession.ITEM_SYNC_QUIT)
+        assertTrue(state.sending)
+
+        session.onStartStop()
+        select(TrackerSession.ITEM_CONTINUE)
+        assertFalse(state.sending)
+
+        // Neither the old attempt's timer nor its late failure pops a menu mid-juggle.
+        scheduler.advance(TrackerSession.SYNC_TIMEOUT_MS)
+        link.complete(false, index = 0)
+        assertNull(state.menu)
+        assertNull(state.errorMessage)
+        link.ack()
+        assertEquals(0, effects.exits)
+    }
+
     // ── Detection pauses under a menu, as the Garmin sensor does ─────
 
     @Test
@@ -343,6 +379,29 @@ class TrackerSessionTest {
         link.complete(false, index = 0) // the first attempt reports back late
         assertTrue("the retry is still in flight", state.sending)
         assertNull(state.menu)
+    }
+
+    // ── SYNC-5 ────────────────────────────────────────────────────────
+
+    @Test
+    fun `SYNC-5 ending again after continue resends the whole session under the first timestamp`() {
+        warmUp()
+        completedRun(3)
+        session.onStartStop()
+        select(TrackerSession.ITEM_SYNC_QUIT)
+        scheduler.advance(TrackerSession.SYNC_TIMEOUT_MS)
+        select(TrackerSession.ITEM_CONTINUE)
+
+        epochNow += 120
+        completedRun(4)
+        session.onStartStop()
+        select(TrackerSession.ITEM_SYNC_QUIT)
+
+        assertEquals(2, link.sent.size)
+        assertEquals(1_700_000_000L, link.sent[1]["timestamp"])
+        assertEquals(listOf(3, 4), link.sent[1]["runs"])
+        link.ack(1_700_000_000L)
+        assertEquals(1, effects.exits)
     }
 
     @Test

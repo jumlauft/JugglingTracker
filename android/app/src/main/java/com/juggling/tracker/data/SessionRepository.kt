@@ -6,10 +6,9 @@ import android.util.Log
 import com.juggling.tracker.util.CrashlyticsUtils
 import androidx.core.content.edit
 import com.juggling.tracker.model.SessionSummary
-import com.juggling.tracker.model.normalizeRunDurations
 import com.juggling.tracker.model.parseShapeConsistency
+import com.juggling.tracker.model.summarizeSession
 import androidx.compose.runtime.mutableStateListOf
-import kotlin.math.sqrt
 
 class SessionRepository(private val sharedPrefs: SharedPreferences) {
     companion object {
@@ -32,10 +31,14 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
     
     fun getSessions(): List<SessionSummary> = sessionsCache.toList()
 
-    // Import a single finished session transferred from the Garmin watch.
+    // Import a single finished session transferred from a watch.
     // The watch sends the ball count, a timestamp, the watch-hand catch count and
     // first-to-last-catch duration of every run, plus total session duration.
-    // Each transfer becomes one SessionSummary. Transfers are de-duplicated by timestamp.
+    // Each transfer becomes one SessionSummary, keyed by its timestamp: a
+    // transfer under a timestamp already stored replaces that session. A
+    // plain retransmission replaces it with the same data, and a session the
+    // user carried on with after a lost ack comes back with more runs.
+    // Returns the stored summary, or null when there were no runs to store.
     fun importSession(
         ballCount: Int,
         timestamp: Long,
@@ -43,33 +46,20 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
         durationSeconds: Long = 0L,
         runDurationsMillis: List<Long> = emptyList(),
         shapeConsistency: Int? = null,
-    ) {
-        if (runs.isEmpty()) return
+    ): SessionSummary? {
+        if (runs.isEmpty()) return null
 
-        // Ignore a session we already stored (e.g. a retransmission).
-        if (sessionsCache.any { it.timestamp == timestamp }) return
-
-        val avg = runs.average()
-        val bestRun = runs.maxOrNull() ?: 0
-        val stdDev = if (runs.size > 1) {
-            sqrt(runs.sumOf { (it - avg) * (it - avg) } / runs.size)
-        } else 0.0
-
-        val session = SessionSummary(
-            timestamp = timestamp,
-            ballCount = ballCount,
-            runCount = runs.size,
-            avgThrows = avg,
-            stdDevThrows = stdDev,
-            bestRun = bestRun,
-            totalThrows = runs.sum(),
-            runHistory = runs,
-            durationSeconds = durationSeconds,
-            runDurationsMillis = normalizeRunDurations(runs.size, runDurationsMillis),
-            shapeConsistency = shapeConsistency?.takeIf { it in 0..100 },
+        val session = summarizeSession(
+            timestamp, ballCount, runs, durationSeconds, runDurationsMillis, shapeConsistency,
         )
-        sessionsCache.add(0, session)
+        val existing = sessionsCache.indexOfFirst { it.timestamp == timestamp }
+        if (existing >= 0) {
+            sessionsCache[existing] = session
+        } else {
+            sessionsCache.add(0, session)
+        }
         saveSessionsToStorage()
+        return session
     }
 
     fun deleteSession(session: SessionSummary) {
@@ -125,9 +115,10 @@ class SessionRepository(private val sharedPrefs: SharedPreferences) {
             }
             
             sessionsCache.clear()
-            // distinctBy timestamp, not just sort: importSession refuses a
-            // duplicate timestamp, but storage written by an older build can
-            // still hold one, and the timestamp is the session's identity.
+            // distinctBy timestamp, not just sort: importSession never stores
+            // a second session under one timestamp, but storage written by an
+            // older build can still hold one, and the timestamp is the
+            // session's identity.
             sessionsCache.addAll(
                 sessions.sortedByDescending { it.timestamp }.distinctBy { it.timestamp }
             )
