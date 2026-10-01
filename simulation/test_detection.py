@@ -905,7 +905,10 @@ def _requirement_verifications():
 
 def _watch_unit_test_names():
     names = set()
-    for filename in ("DetectorTest.mc", "SelectionTest.mc"):
+    test_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "connectiq", "test")
+    for filename in sorted(os.listdir(test_dir)):
+        if not filename.endswith(".mc"):
+            continue
         source = _read_source("connectiq", "test", filename)
         names |= set(re.findall(r"\(:test\)\s*\nfunction (\w+)", source))
     return names

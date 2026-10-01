@@ -311,9 +311,13 @@ ignored.
 *Verified by:* not automatically tested — needs a device context.
 
 **REC-2.** A run stops automatically at **3000 samples (120 s)**, or earlier if
-free memory drops below 16 KB. The app gets 128 KB and each sample costs three
-boxed array entries, so a long run would otherwise exhaust memory and crash.
-*Verified by:* not automatically tested — needs device memory statistics.
+free memory drops below 16 KB. The samples go into one buffer allocated when
+Record mode opens: 6 bytes per sample (three signed 16-bit values), 18 KB for
+the full 3000, reused for every run. The 16 KB floor still guards the
+detector's and the transfer's own allocations.
+*Verified by:* `rec2_sampleBufferRoundTripsAndStopsAtCapacity`, `rec2_sampleBufferClampsAndClears`
+(buffer contents, cap and reuse); the 16 KB floor needs device memory
+statistics and has no automatic test.
 
 **REC-3.** After a run the detector's own count is offered as the starting
 label; UP and DOWN adjust it and it never goes below 0. The point is comparing
