@@ -111,7 +111,7 @@ x,y,z
 ...
 ```
 
-`catches` is the ground-truth label. `detectedAtCapture` is what the detector counted when the run was recorded — a historical result, not a property of the measurement, so it goes stale whenever the detector changes. `source` is `watch` (25 Hz) or `phone` (labelled 200 Hz, the rate the phone app requests from its accelerometer). `juggler`, `hand` (`left` or `right`, the wrist wearing the watch) and `firstThrow` (`left` or `right`, the hand that made the first throw, which may or may not wear the watch) are asked for when the phone app exports recordings; the phone stores runs without them and adds them to the exported copies.
+`catches` is the ground-truth label. `detectedAtCapture` is what the detector counted when the run was recorded — a historical result, not a property of the measurement, so it goes stale whenever the detector changes. `source` is `watch` (25 Hz) or `phone`. `sampleRate` is the rate in whole Hz: 25 for the watch, and for phone runs the rate the accelerometer actually delivered, measured from the first and last sample's sensor timestamps (the app requests 200 Hz, but Android treats that only as a hint, so phones differ). Phone runs saved before this was measured are labelled 200. `juggler`, `hand` (`left` or `right`, the wrist wearing the watch) and `firstThrow` (`left` or `right`, the hand that made the first throw, which may or may not wear the watch) are asked for when the phone app exports recordings; the phone stores runs without them and adds them to the exported copies.
 
 ## Communication Payloads
 
