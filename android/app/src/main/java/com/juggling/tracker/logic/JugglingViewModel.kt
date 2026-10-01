@@ -98,7 +98,7 @@ class JugglingViewModel(
     // Without one (tests) the view model gets an inbox of its own.
     inbox: WatchInbox? = null,
 ) : ViewModel() {
-    private val inbox = inbox ?: WatchInbox(repository, recordingRepository, analytics)
+    private val inbox = inbox ?: WatchInbox(repository, recordingRepository, analytics) { currentJuggler }
 
     // Garmin Status
     var garminStatus by mutableStateOf(GarminConnectionStatus.NOT_INITIALIZED)
@@ -121,10 +121,20 @@ class JugglingViewModel(
     val watchHand get() = settings?.watchHand
     val firstThrowHand get() = settings?.firstThrowHand
 
-    /** Remember who juggled, the watch wrist and the first-throw hand; the next export writes them. */
+    /**
+     * Who is juggling now, once a name and both hands have been entered. New
+     * recordings are saved with it, and an export tags older runs that have
+     * none with it.
+     */
+    val currentJuggler: RecordingRepository.Juggler? get() = settings?.currentJuggler
+
+    /** Remember who juggles, the watch wrist and the first-throw hand for the next recordings. */
     fun setExportDetails(name: String, hand: String, firstThrow: String) {
         settings?.updateExportDetails(name.trim(), hand, firstThrow)
     }
+
+    /** Stored recordings saved before the juggler was stored with each run. */
+    val recordingsWithoutJuggler get() = recordings.count { it.juggler == null }
 
     fun toggleAnalytics(enabled: Boolean) {
         settings?.updateAnalyticsEnabled(enabled)
@@ -334,16 +344,11 @@ class JugglingViewModel(
     }
 
     /**
-     * Zip of all stored recordings for export, each header tagged with the
-     * juggler, watch hand and first-throw hand from [setExportDetails].
+     * Zip of all stored recordings for export. Each run keeps the juggler saved
+     * with it; runs without one are tagged with [currentJuggler].
      */
     fun writeRecordingsZip(out: java.io.OutputStream) {
-        recordingRepository?.exportAllZip(
-            out,
-            juggler = jugglerName,
-            hand = watchHand ?: RecordingRepository.HAND_LEFT,
-            firstThrow = firstThrowHand ?: RecordingRepository.HAND_RIGHT,
-        )
+        recordingRepository?.exportAllZip(out, fallback = currentJuggler)
     }
 
     /** Delete all stored recordings. */
@@ -397,6 +402,7 @@ class JugglingViewModel(
             accelY = rawAccelY,
             accelZ = rawAccelZ,
             source = RecordingRepository.SOURCE_PHONE,
+            juggler = currentJuggler,
         )
         
         refreshRecordings()

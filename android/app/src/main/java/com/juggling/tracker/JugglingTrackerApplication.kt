@@ -26,7 +26,7 @@ class JugglingTrackerApplication : Application() {
         FirebaseAnalytics.getInstance(this).apply { setAnalyticsCollectionEnabled(isAnalyticsEnabled) }
     }
 
-    val watchInbox: WatchInbox by lazy { WatchInbox(sessionRepository, recordingRepository, analytics) }
+    val watchInbox: WatchInbox by lazy { WatchInbox(sessionRepository, recordingRepository, analytics) { settingsManager.currentJuggler } }
     val garminLink: GarminLink by lazy { GarminLink(this, watchInbox) }
 
     override fun onCreate() {

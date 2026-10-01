@@ -32,17 +32,24 @@ class SettingsManager(context: Context) {
         prefs.edit().putString(KEY_WATCH_TYPE, type.name).apply()
     }
 
-    /** Who juggles, as last entered when exporting recordings; blank until then. */
+    /** Who juggles, as last entered in Settings or when exporting; blank until then. */
     var jugglerName: String by mutableStateOf(prefs.getString(KEY_JUGGLER_NAME, null) ?: "")
         private set
 
-    /** The wrist the watch is on, as last picked when exporting; null until then. */
+    /** The wrist the watch is on, as last picked; null until then. */
     var watchHand: String? by mutableStateOf(prefs.getString(KEY_WATCH_HAND, null))
         private set
 
-    /** The hand that made the first throw, as last picked when exporting; null until then. */
+    /** The hand that made the first throw, as last picked; null until then. */
     var firstThrowHand: String? by mutableStateOf(prefs.getString(KEY_FIRST_THROW, null))
         private set
+
+    /** Who is juggling, once a name and both hands have been entered; null until then. */
+    val currentJuggler: RecordingRepository.Juggler?
+        get() {
+            val name = jugglerName.takeIf { it.isNotBlank() } ?: return null
+            return RecordingRepository.Juggler(name, watchHand ?: return null, firstThrowHand ?: return null)
+        }
 
     fun updateExportDetails(name: String, hand: String, firstThrow: String) {
         jugglerName = name
