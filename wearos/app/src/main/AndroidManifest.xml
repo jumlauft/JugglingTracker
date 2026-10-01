@@ -8,6 +8,15 @@
 
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- An open session runs as a foreground service (platform/TrackingService.kt).
+         Android 14 lets a "health" service start with any one of a few sensor
+         permissions; HIGH_SAMPLING_RATE_SENSORS is granted at install. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
+    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+    <!-- The service's notification carries the Ongoing Activity. The app never
+         asks for it; where it is not granted the notification stays hidden. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -21,6 +30,11 @@
             android:name="com.google.android.wearable.standalone"
             android:value="true" />
 
+        <!-- Ambient mode on older watches. -->
+        <uses-library
+            android:name="com.google.android.wearable"
+            android:required="false" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -30,5 +44,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".platform.TrackingService"
+            android:exported="false"
+            android:foregroundServiceType="health" />
     </application>
 </manifest>

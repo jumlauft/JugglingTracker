@@ -1,105 +1,53 @@
 package com.juggling.tracker.wear
 
-import android.hardware.SensorManager
 import android.os.Bundle
-import android.os.SystemClock
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
-import com.juggling.tracker.wear.logic.AccelSample
-import com.juggling.tracker.wear.logic.AppNavigator
-import com.juggling.tracker.wear.logic.MonotonicClock
-import com.juggling.tracker.wear.logic.RecordingSession
-import com.juggling.tracker.wear.logic.Screen
-import com.juggling.tracker.wear.logic.TrackerSession
-import com.juggling.tracker.wear.platform.AccelerometerSource
-import com.juggling.tracker.wear.platform.AndroidWatchEffects
-import com.juggling.tracker.wear.platform.DataLayerPhoneLink
-import com.juggling.tracker.wear.platform.HandlerScheduler
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.wear.ambient.AmbientLifecycleObserver
 import com.juggling.tracker.wear.ui.WearApp
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
 
 /**
- * Wires the watch app together: the navigator and sessions from `logic/`,
- * the accelerometer, the Data Layer link to the phone, and the Compose UI.
+ * Shows the [WatchRuntime], which holds the sessions. When the screen times
+ * out the app stays up in ambient mode rather than keeping the display fully
+ * on; the session keeps counting either way.
  */
 class MainActivity : ComponentActivity() {
-    companion object {
-        private const val TAG = "MainActivity"
-        // Record mode writes a one-line RUN_DATA summary of each confirmed
-        // run to logcat under this tag (REC-4).
-        private const val RECORDING_LOG_TAG = "JugglingRecording"
-    }
+    private lateinit var runtime: WatchRuntime
+    private val finishOnExit: () -> Unit = { finish() }
+    private var isAmbient by mutableStateOf(false)
 
-    private lateinit var link: DataLayerPhoneLink
-    private lateinit var navigator: AppNavigator
-    private lateinit var accelerometer: AccelerometerSource
-    // True when the accelerometer is missing or would not start, so the
-    // tracking screens show an error instead of a count stuck at 0 (SENS-4).
-    private val sensorFailed = MutableStateFlow(false)
+    private val ambientCallback = object : AmbientLifecycleObserver.AmbientLifecycleCallback {
+        override fun onEnterAmbient(ambientDetails: AmbientLifecycleObserver.AmbientDetails) {
+            isAmbient = true
+        }
+
+        override fun onUpdateAmbient() = Unit
+
+        override fun onExitAmbient() {
+            isAmbient = false
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        link = DataLayerPhoneLink(this)
-        val scheduler = HandlerScheduler()
-        val effects = AndroidWatchEffects(this)
-        val clock = MonotonicClock { SystemClock.elapsedRealtime() }
-
-        navigator = AppNavigator(
-            newTracker = { balls -> TrackerSession(balls, link, scheduler, clock, effects) },
-            newRecording = { balls ->
-                RecordingSession(balls, link, scheduler, effects, log = { Log.i(RECORDING_LOG_TAG, it) })
-            },
-            effects = effects,
-        )
-
-        accelerometer = AccelerometerSource(getSystemService(SensorManager::class.java), ::onSamples)
-
+        lifecycle.addObserver(AmbientLifecycleObserver(this, ambientCallback))
+        runtime = WatchRuntime.get(this)
+        runtime.onExit = finishOnExit
         setContent {
-            val failed by sensorFailed.collectAsState()
-            WearApp(navigator, sensorFailed = failed)
-        }
-
-        // The sensor runs only while a tracking screen is showing and the app
-        // is visible. start() is idempotent, so re-showing never double-registers.
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                try {
-                    navigator.screen.collect { screen ->
-                        if (screen is Screen.Tracker || screen is Screen.Recording) {
-                            val started = accelerometer.start()
-                            if (!started) {
-                                Log.e(TAG, "No accelerometer available")
-                            }
-                            sensorFailed.value = !started
-                        } else {
-                            accelerometer.stop()
-                        }
-                    }
-                } finally {
-                    accelerometer.stop()
-                }
-            }
-        }
-    }
-
-    private fun onSamples(batch: List<AccelSample>) {
-        when (val screen = navigator.screen.value) {
-            is Screen.Tracker -> screen.session.onSamples(batch)
-            is Screen.Recording -> screen.session.onSamples(batch)
-            else -> Unit
+            val sensorFailed by runtime.sensorFailed.collectAsState()
+            WearApp(runtime.navigator, sensorFailed = sensorFailed, isAmbient = isAmbient)
         }
     }
 
     override fun onDestroy() {
-        link.close()
+        if (runtime.onExit === finishOnExit) runtime.onExit = null
+        // Leaving the app outside a session starts it afresh next time, as
+        // before; an open session stays, to be picked up again.
+        if (isFinishing && !runtime.isTracking) WatchRuntime.shutdown()
         super.onDestroy()
     }
 }

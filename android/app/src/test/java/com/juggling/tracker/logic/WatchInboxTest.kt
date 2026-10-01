@@ -25,7 +25,11 @@ class WatchInboxTest {
     @Before
     fun setup() {
         tempDir = createTempDirectory("watch_inbox_test_").toFile()
-        sessions = SessionRepository(FakeSharedPreferences())
+        sessions = SessionRepository(
+            FakeSharedPreferences(),
+            File(tempDir, "sessions.jsonl"),
+            java.util.concurrent.Executor { it.run() },
+        )
         recordings = RecordingRepository(File(tempDir, "recordings"))
         inbox = WatchInbox(sessions, recordings)
         inbox.addListener { events.add(it) }
@@ -123,6 +127,17 @@ class WatchInboxTest {
         assertEquals(WatchInbox.Ack(1_780_000_000L), ack)
         assertEquals(1, recordings.recordingCount())
         assertTrue(WatchInbox.Event.RecordingStored in events)
+    }
+
+    @Test
+    fun `a run is saved with whoever is juggling`() {
+        val ada = RecordingRepository.Juggler("Ada", RecordingRepository.HAND_LEFT, RecordingRepository.HAND_RIGHT)
+        val tagged = WatchInbox(sessions, recordings) { ada }
+        tagged.receive(recStart(samples = 2, chunks = 1), WatchInbox.Source.WEAR_OS)
+        tagged.receive(recChunk(0, listOf(1, 2)), WatchInbox.Source.WEAR_OS)
+        tagged.receive(recEnd(), WatchInbox.Source.WEAR_OS)
+
+        assertEquals(ada, recordings.listRecordings().single().juggler)
     }
 
     @Test

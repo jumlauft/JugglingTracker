@@ -29,6 +29,8 @@ class WatchInbox(
     private val repository: SessionRepository? = null,
     private val recordingRepository: RecordingRepository? = null,
     private val analytics: FirebaseAnalytics? = null,
+    /** Who is juggling now; each recorded run is saved with it. */
+    private val currentJuggler: () -> RecordingRepository.Juggler? = { null },
 ) {
     companion object {
         private const val TAG = "WatchInbox"
@@ -240,6 +242,7 @@ class WatchInbox(
                 accelY = run.y,
                 accelZ = run.z,
                 source = RecordingRepository.SOURCE_WATCH,
+                juggler = currentJuggler(),
             ) != null
         if (!written) return false
         publish(Event.RecordingStored)

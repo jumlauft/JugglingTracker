@@ -21,12 +21,22 @@
     <string name="email_recordings_chooser">Send recordings via</string>
     <string name="toast_no_recordings">No recordings to send</string>
     <string name="dialog_export_details_title">Who is juggling?</string>
-    <string name="label_juggler_name">Your name</string>
-    <string name="label_watch_hand">Which wrist was the watch on?</string>
-    <string name="label_first_throw_hand">Which hand made the first throw?</string>
+    <string name="label_juggler_name">Name</string>
+    <string name="label_watch_hand">Which wrist is the watch on?</string>
+    <string name="label_first_throw_hand">Which hand makes the first throw?</string>
     <string name="watch_hand_left">Left</string>
     <string name="watch_hand_right">Right</string>
     <string name="action_continue_export">Continue</string>
+    <string name="label_juggler">Juggler</string>
+    <string name="juggler_summary">%1$s: watch on the %2$s wrist, first throw with the %3$s hand</string>
+    <string name="hand_left_lower">left</string>
+    <string name="hand_right_lower">right</string>
+    <string name="juggler_not_set">Not set. Tap to say who is juggling.</string>
+    <string name="desc_juggler">Saved with each new recording, so exports keep who juggled each run. Change it before someone else records.</string>
+    <plurals name="dialog_export_untagged">
+        <item quantity="one">%d recording was saved without a juggler. These answers will be used for it.</item>
+        <item quantity="other">%d recordings were saved without a juggler. These answers will be used for them.</item>
+    </plurals>
     <string name="toast_no_email_app">No email app found</string>
 
     <string name="dialog_delete_session_title">Delete Session</string>
