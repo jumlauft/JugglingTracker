@@ -9,6 +9,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -37,7 +38,9 @@ fun JugglingTrackerApp(
     onCancelRawRecording: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var currentScreen by remember { mutableStateOf(Screen.Tracker) }
+    // Saved, so turning the phone or the system recreating the app comes back
+    // to the same screen instead of throwing the user back to the start.
+    var currentScreen by rememberSaveable { mutableStateOf(Screen.Tracker) }
     var showQuitConfirmation by remember { mutableStateOf(false) }
     var showGarminLinkInstructions by remember { mutableStateOf(false) }
     var showGarminSessionInstructions by remember { mutableStateOf(false) }

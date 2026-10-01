@@ -31,6 +31,11 @@
 
     <string name="dialog_delete_session_title">Delete Session</string>
     <string name="dialog_delete_session_text">Are you sure you want to delete this session from your history?</string>
+    <string name="dialog_clear_recordings_title">Delete All Recordings?</string>
+    <plurals name="dialog_clear_recordings_text">
+        <item quantity="one">This deletes the %1$d recording stored on this phone. Export or email it first to keep a copy.</item>
+        <item quantity="other">This deletes all %1$d recordings stored on this phone. Export or email them first to keep a copy.</item>
+    </plurals>
     <string name="dialog_quit_session_title">Quit Session?</string>
     <string name="dialog_quit_session_text">You are currently recording a session. What would you like to do?</string>
     <string name="dialog_session_details_title">Session Details</string>
