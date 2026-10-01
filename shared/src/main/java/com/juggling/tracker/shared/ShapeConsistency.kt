@@ -1,11 +1,11 @@
-package com.juggling.tracker.wear.logic
+package com.juggling.tracker.shared
 
 import kotlin.math.floor
 import kotlin.math.sqrt
 
 /**
  * Shape consistency: how alike each hand cycle is to the one before it.
- * Wear OS port of `connectiq/source/ShapeConsistency.mc`, line for line.
+ * Kotlin port of `connectiq/source/ShapeConsistency.mc`, line for line.
  *
  * Every sample is highpassed per axis (the detector's 0.7 Hz filter, which also
  * removes gravity) and kept in a short history. Once a second during a run, the

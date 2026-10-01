@@ -1,5 +1,7 @@
 package com.juggling.tracker.logic
 
+import com.juggling.tracker.shared.JugglingDetector
+
 /**
  * Thins the phone's ~200 Hz accelerometer to the detector's 25 Hz. It keeps
  * one sample per 40 ms slot on a fixed grid; measuring 40 ms from the last
@@ -9,7 +11,7 @@ package com.juggling.tracker.logic
  *
  * Same logic as the Wear OS app's SampleThrottle (wearos/.../logic).
  */
-class SampleThrottle(private val periodMs: Long = PhoneJugglingDetector.SAMPLE_PERIOD_MS) {
+class SampleThrottle(private val periodMs: Long = JugglingDetector.SAMPLE_PERIOD_MS) {
     private var nextDueMs: Long? = null
 
     /** Whether the sample stamped [timeMs] should go to the detector. */

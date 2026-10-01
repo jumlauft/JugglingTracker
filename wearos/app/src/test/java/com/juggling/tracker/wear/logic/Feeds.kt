@@ -1,5 +1,7 @@
 package com.juggling.tracker.wear.logic
 
+import com.juggling.tracker.shared.JugglingDetector
+
 /**
  * Synthetic accelerometer input, the same shapes `connectiq/test/DetectorTest.mc`
  * uses: a still watch with gravity on Z, and catch-like impulses against it.

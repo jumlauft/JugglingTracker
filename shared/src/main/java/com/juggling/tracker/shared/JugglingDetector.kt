@@ -1,32 +1,32 @@
-package com.juggling.tracker.logic
+package com.juggling.tracker.shared
 
 import kotlin.math.sqrt
 
 /**
- * Phone port of the watch catch detector in
- * `connectiq/source/JugglingDetector.mc`. It is deliberately the same
- * algorithm: gravity removal, a 25 Hz highpass, threshold-crossing candidates,
- * delayed burst clustering, and counting every other committed burst as a
- * catch by the counting hand. Samples arrive already in m/s² (the watch
- * converts from milli-g first), so `processSample` takes them directly.
+ * Kotlin port of `connectiq/source/JugglingDetector.mc`, line for line, used by
+ * both the Wear OS watch app and the phone app's phone-in-hand mode.
  *
- * Keep this in sync with `JugglingDetector.mc` and `simulation/eval_new_watch.py`
- * whenever detector parameters or semantics change.
+ * Like the Garmin detector it takes raw accelerometer samples in **milli-g
+ * including gravity** at 25 Hz and converts them to m/s² on entry, so recorded
+ * runs from either watch replay through it unchanged. The phone's own sensor
+ * already reports m/s² and enters at [processSampleMs2]. It removes a low-pass
+ * gravity estimate, highpasses the magnitude, turns threshold crossings into
+ * candidates, merges nearby candidates into bursts and counts every other
+ * committed burst as a catch by the watch hand.
+ *
+ * Keep this in sync with `JugglingDetector.mc` and `simulation/eval_new_watch.py`.
  */
-class PhoneJugglingDetector(val ballCount: Int) {
+class JugglingDetector(val ballCount: Int) {
     companion object {
-        // The detector is designed for 25 Hz; the ViewModel throttles the
-        // phone's higher-rate sensor down to this period before feeding it.
+        // The phone's ViewModel throttles its higher-rate sensor down to this
+        // period before feeding it.
         const val SAMPLE_RATE = 25
         const val SAMPLE_PERIOD_MS = 1000L / SAMPLE_RATE
-        const val WARMUP_SAMPLES = 25
+        const val MILLI_G_TO_MS2 = 9.80665 / 1000.0
 
-        // A run of fewer than this many catches is treated as a false start
-        // rather than a real run -- at any ball count, catching fewer than
-        // three times before dropping isn't a run someone was actually
-        // juggling, and recording it wrecks Prev/Avg/Max. Applied in
-        // recordRun(), so a manual stop and an idle auto-finish are covered
-        // identically. Mirrors MIN_RUN_CATCHES in JugglingDetector.mc.
+        // A run of fewer than this many watch-hand catches is a false start.
+        // Applied in recordRun(), so a manual stop and an idle timeout are
+        // treated the same way (RUN-1).
         const val MIN_RUN_CATCHES = 3
 
         const val GRAVITY_ALPHA_IDLE = 0.95
@@ -46,7 +46,7 @@ class PhoneJugglingDetector(val ballCount: Int) {
 
         const val AUTO_FINISH_DELAY_MS = 2000L
 
-        // 2nd-order Butterworth highpass, 0.7 Hz cutoff at fs = 25 Hz.
+        // 2nd-order Butterworth highpass, 0.7 Hz at fs = 25 Hz.
         const val HP_B0 = 0.883002
         const val HP_B1 = -1.766004
         const val HP_B2 = 0.883002
@@ -65,6 +65,9 @@ class PhoneJugglingDetector(val ballCount: Int) {
         const val MIN_RAW_MAG_5 = 13.0
         const val MIN_RAW_MAG_6 = 17.0
         const val MIN_RAW_MAG_7PLUS = 7.0
+
+        // Samples ignored while the gravity estimate settles (DET-4).
+        const val WARMUP_SAMPLES = 25
     }
 
     var currentCount: Int = 0
@@ -81,12 +84,14 @@ class PhoneJugglingDetector(val ballCount: Int) {
     private var samplesSeen = 0
 
     private var lastCandidateTimeMs = 0L
+    // Last time a burst committed. Auto-finish keys on this, not on raw
+    // motion, so wrist movement after a drop cannot hold a run open (DET-9).
     private var lastActiveTimeMs = 0L
 
     private var sessionRuns = 0
     private var sessionTotal = 0
-    private val runCatches = mutableListOf<Int>()
-    private val runDurationsMillis = mutableListOf<Long>()
+    private var runCatches = mutableListOf<Int>()
+    private var runDurationsMillis = mutableListOf<Long>()
 
     private var committedBurstCount = 0
     private var hasFirstCatchTime = false
@@ -108,10 +113,13 @@ class PhoneJugglingDetector(val ballCount: Int) {
     private var pendingPeakScore = 0.0
     private var clusterLastCandidateTimeMs = 0L
 
-    private val hpThreshold: Double
-    private val refractoryMs: Long
-    private val minRawMag: Double
-    private val mergeWindowMs: Long
+    // How alike each hand cycle is to the one before it, per run and session.
+    private val shape = ShapeConsistency()
+
+    val hpThreshold: Double
+    val refractoryMs: Long
+    val minRawMag: Double
+    val mergeWindowMs: Long
 
     init {
         when {
@@ -142,7 +150,7 @@ class PhoneJugglingDetector(val ballCount: Int) {
                 mergeWindowMs = MERGE_WINDOW_MS_6
             }
             else -> {
-                // 7+ has a distinctly faster cadence than 5-ball.
+                // 7+ is a distinctly faster cadence than 5.
                 hpThreshold = HP_THRESHOLD_7PLUS
                 refractoryMs = REFRACTORY_MS_7PLUS
                 minRawMag = MIN_RAW_MAG_7PLUS
@@ -151,20 +159,41 @@ class PhoneJugglingDetector(val ballCount: Int) {
         }
     }
 
+    /** Watch-hand catch counts of every completed run this session, in order. */
     fun runCatches(): List<Int> = runCatches.toList()
 
+    /** First-to-last watch-hand catch span of every completed run (DET-10). */
     fun runDurationsMillis(): List<Long> = runDurationsMillis.toList()
 
     fun sessionRuns(): Int = sessionRuns
 
+    /** Mean over completed runs, 0.0 before any run completes (RUN-3). */
     fun sessionAverage(): Double = if (sessionRuns == 0) 0.0 else sessionTotal.toDouble() / sessionRuns
 
     fun isRunActive(): Boolean = hasActiveRun()
 
-    /** Feed one accelerometer sample in m/s² at time [nowMs]. */
-    fun processSample(ax: Double, ay: Double, az: Double, nowMs: Long) {
-        // Seed the gravity estimate from the first sample so it matches the
-        // watch's actual orientation instead of an assumed "down".
+    /**
+     * Session shape consistency as a whole percentage, or -1 before any run
+     * has lasted long enough to be scored. See [ShapeConsistency].
+     */
+    fun shapeConsistencyPercent(): Int = shape.sessionPercent()
+
+    /** Feed one raw accelerometer sample in milli-g at time [nowMs]. */
+    fun processSample(gxMilliG: Int, gyMilliG: Int, gzMilliG: Int, nowMs: Long) {
+        // Before detection, so it sees every sample, warmup included.
+        shape.addSample(gxMilliG, gyMilliG, gzMilliG, nowMs, hasActiveRun(), hasFirstCatchTime, firstCatchTimeMs)
+
+        processSampleMs2(gxMilliG * MILLI_G_TO_MS2, gyMilliG * MILLI_G_TO_MS2, gzMilliG * MILLI_G_TO_MS2, nowMs)
+    }
+
+    /**
+     * Feed one accelerometer sample already in m/s², as the phone's sensor
+     * reports it. Counts exactly as [processSample] does, but does not score
+     * shape consistency, which needs the raw milli-g samples.
+     */
+    fun processSampleMs2(ax: Double, ay: Double, az: Double, nowMs: Long) {
+        // Seed gravity from the first real sample so it matches the watch's
+        // actual orientation instead of an assumed "down" (DET-2).
         if (!gravityInitialized) {
             gravityX = ax
             gravityY = ay
@@ -184,8 +213,8 @@ class PhoneJugglingDetector(val ballCount: Int) {
 
         samplesSeen += 1
 
-        // Feed every sample into the filter, including warmup, so its state
-        // tracks the signal from the start and detection begins cleanly.
+        // Every sample goes through the filter, warmup included, so its state
+        // tracks the signal and detection begins without a transient.
         val filtered = applyHighpass(mag)
 
         if (samplesSeen <= WARMUP_SAMPLES) return
@@ -207,6 +236,7 @@ class PhoneJugglingDetector(val ballCount: Int) {
             }
             if (filtered < hpThreshold * HP_HYSTERESIS) {
                 above = false
+                // DET-5: refractory period elapsed and the raw gate cleared.
                 if (peakTimeMs - lastCandidateTimeMs > refractoryMs && peakRawMag > minRawMag) {
                     addCandidate(peakTimeMs, peakFiltered, nowMs)
                     lastCandidateTimeMs = peakTimeMs
@@ -217,6 +247,10 @@ class PhoneJugglingDetector(val ballCount: Int) {
         flushPendingPeak(nowMs)
     }
 
+    /**
+     * Finishes the run if it has been idle long enough. Returns the finished
+     * run's watch-hand catch count, or 0 if nothing finished.
+     */
     fun checkAutoFinish(nowMs: Long): Int {
         flushPendingPeak(nowMs)
         if (currentCount > 0 && lastActiveTimeMs > 0 && nowMs - lastActiveTimeMs > AUTO_FINISH_DELAY_MS) {
@@ -229,6 +263,10 @@ class PhoneJugglingDetector(val ballCount: Int) {
         return 0
     }
 
+    /**
+     * Ends a run still in progress, committing any pending burst first, exactly
+     * as an idle timeout would (RUN-6). Returns its watch-hand catch count.
+     */
     fun finishCurrentRun(): Int {
         if (hasPendingPeak) {
             commitPendingPeak(pendingPeakTimeMs)
@@ -243,16 +281,42 @@ class PhoneJugglingDetector(val ballCount: Int) {
         return 0
     }
 
-    private fun hasActiveRun(): Boolean {
-        return currentCount > 0 || hasPendingPeak || committedBurstCount > 0
+    /**
+     * Drops the run in progress, or else retroactively removes the last
+     * completed run and recomputes the session from the runs that remain
+     * (RUN-4). Returns false when there was nothing to discard (RUN-5).
+     */
+    fun discardLastRun(): Boolean {
+        if (hasActiveRun()) {
+            currentCount = 0
+            clearRunDetectionState()
+            return true
+        }
+
+        val n = runCatches.size
+        if (n == 0) return false
+
+        // Remove by index: removing by value would take an earlier run that
+        // happens to have the same catch count.
+        val removed = runCatches.removeAt(n - 1)
+        runDurationsMillis.removeAt(n - 1)
+        shape.discardLastRun()
+        sessionRuns -= 1
+        sessionTotal -= removed
+
+        // Max and previous depend on which runs remain, so recompute them.
+        sessionMax = runCatches.maxOrNull() ?: 0
+        previousCount = runCatches.lastOrNull() ?: 0
+        return true
     }
+
+    private fun hasActiveRun(): Boolean =
+        currentCount > 0 || hasPendingPeak || committedBurstCount > 0
 
     private fun recordRun(catches: Int) {
         if (catches < MIN_RUN_CATCHES) {
-            // False start: too short to be a real run. Leave previousCount and
-            // every session statistic untouched, exactly as if it never
-            // happened -- the caller still resets currentCount for the next
-            // attempt regardless of this early return.
+            // False start: leave previous and every session statistic exactly
+            // as they were. The caller still resets currentCount.
             return
         }
         previousCount = catches
@@ -261,6 +325,7 @@ class PhoneJugglingDetector(val ballCount: Int) {
         if (catches > sessionMax) sessionMax = catches
         runCatches.add(catches)
         runDurationsMillis.add(currentRunDurationMillis())
+        shape.commitRun()
     }
 
     private fun currentRunDurationMillis(): Long {
@@ -283,12 +348,13 @@ class PhoneJugglingDetector(val ballCount: Int) {
         hasFirstCatchTime = false
         firstCatchTimeMs = 0L
         lastCatchTimeMs = 0L
+        shape.clearRun()
     }
 
     private fun commitPendingPeak(nowMs: Long) {
         if (!hasPendingPeak) return
-
         committedBurstCount += 1
+        // DET-8: hands alternate, so only odd-numbered bursts are the watch hand.
         if (committedBurstCount % 2 == 1) {
             currentCount += 1
             if (!hasFirstCatchTime) {
@@ -296,6 +362,7 @@ class PhoneJugglingDetector(val ballCount: Int) {
                 hasFirstCatchTime = true
             }
             lastCatchTimeMs = pendingPeakTimeMs
+            shape.onCatch(lastCatchTimeMs)
         }
         lastActiveTimeMs = nowMs
         hasPendingPeak = false
@@ -313,6 +380,7 @@ class PhoneJugglingDetector(val ballCount: Int) {
             return
         }
 
+        // DET-7: candidates inside the merge window are lobes of one catch.
         if (candidateTimeMs - clusterLastCandidateTimeMs < mergeWindowMs) {
             if (score > pendingPeakScore) {
                 pendingPeakTimeMs = candidateTimeMs

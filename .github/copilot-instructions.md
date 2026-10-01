@@ -11,7 +11,8 @@ Juggling tracker with two watch apps and a phone app: a Garmin watch app and a W
   - `ShapeConsistency.mc` — the Regularity score (SHAPE-1..4), fed by the detector.
   - `MainView.mc` — Juggle mode: tracking UI, sensor listener, sync logic.
   - `RecordingView.mc` — Record mode: raw accelerometer capture and labeling for tuning data.
-- `wearos/` — Wear OS watch app, a Kotlin/Compose port of the Garmin app. Behaviour lives in plain-Kotlin `logic/` (detector, shape consistency, Juggle and Record sessions, navigation) and follows `connectiq/REQUIREMENTS.md`; it talks to the phone over the Wear OS Data Layer with the same payloads as the Garmin app. Keep its `JugglingDetector.kt` and `ShapeConsistency.kt` in sync with the other ports. See `wearos/README.md`.
+- `wearos/` — Wear OS watch app, a Kotlin/Compose port of the Garmin app. Behaviour lives in plain-Kotlin `logic/` (Juggle and Record sessions, navigation) on top of `shared/` and follows `connectiq/REQUIREMENTS.md`; it talks to the phone over the Wear OS Data Layer with the same payloads as the Garmin app. See `wearos/README.md`.
+- `shared/` — plain-Kotlin module both `android/` and `wearos/` include as `:shared`: `JugglingDetector.kt` and `ShapeConsistency.kt` (keep them in sync with the Monkey C and Python versions) and `WatchProtocol.kt` (Data Layer paths, capability names and the JSON codec). Test with `./gradlew :shared:test` from either app.
 - `android/` — Kotlin/Compose Android app.
   - `MainActivity.kt` — Permissions, the phone accelerometer listener, the watch cards' status.
   - `JugglingTrackerApplication.kt` — One repository, `WatchInbox` and `GarminLink` per process, shared by the screens and `WatchMessageService`.
@@ -21,7 +22,6 @@ Juggling tracker with two watch apps and a phone app: a Garmin watch app and a W
   - `logic/JugglingViewModel.kt` — State management, session import, CSV export.
   - `data/SessionRepository.kt` — Persistence layer (in-memory cache + SharedPreferences with manual JSON).
   - `data/RecordingRepository.kt` — Raw recording CSV storage and zip export.
-  - `data/WearMessageCodec.kt` — Wear OS message paths and JSON codec.
   - `data/SettingsManager.kt` — Settings (watch type, voice, analytics, export details).
   - `model/` — Data classes (`JugglingRun`, `SessionSummary`).
   - `ui/` — Compose screens and components.
@@ -32,7 +32,7 @@ Juggling tracker with two watch apps and a phone app: a Garmin watch app and a W
 
 Garmin: watch accelerometer (25 Hz) → `JugglingDetector` (burst-clustered watch-hand catch detection) → `MainView` (run/session state) → `Communications.transmit()` → `GarminLink` (Garmin SDK) → `WatchInbox` → `SessionRepository`, with `JugglingViewModel` following the inbox's events. The phone sends an `ack` back only once the session is stored; the watch only exits after receiving it.
 
-Wear OS: accelerometer thinned to 25 Hz → `JugglingDetector.kt` → `TrackerSession` → `DataLayerPhoneLink` (JSON over the Data Layer) → `WatchMessageService` → the same `WatchInbox`. The `ack` goes back over the Data Layer to the sending watch.
+Wear OS: accelerometer thinned to 25 Hz → `JugglingDetector.kt` (shared) → `TrackerSession` → `DataLayerPhoneLink` (JSON over the Data Layer) → `WatchMessageService` → the same `WatchInbox`. The `ack` goes back over the Data Layer to the sending watch.
 
 Recording mode uses `RecordingView` (Wear OS: `RecordingSession`) to capture raw accelerometer samples. Start begins and ends each run; Back returns to ball selection while idle, offers to quit while recording, offers to discard while labeling, and is ignored while syncing. The user corrects the detected count to the true watch-hand count, then the run transfers as `rec_start` / `rec_chunk` × N / `rec_end` and the Android app writes it through `RecordingRepository` in the same CSV format as `connectiq/data/`.
 

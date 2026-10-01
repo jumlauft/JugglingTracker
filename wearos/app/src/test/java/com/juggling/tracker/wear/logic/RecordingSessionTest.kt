@@ -1,5 +1,6 @@
 package com.juggling.tracker.wear.logic
 
+import com.juggling.tracker.shared.WatchProtocol
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

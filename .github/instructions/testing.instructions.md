@@ -1,6 +1,6 @@
 ---
 description: "Use when writing, modifying, or discussing tests. Covers test structure, frameworks, and patterns for Android, Wear OS, ConnectIQ, the detector simulation, and repository tests."
-applyTo: ["android/**/test/**/*.kt", "android/**/androidTest/**/*.kt", "wearos/**/test/**/*.kt", "wearos/**/androidTest/**/*.kt", "connectiq/test/**/*.mc", "simulation/test_*.py"]
+applyTo: ["android/**/test/**/*.kt", "android/**/androidTest/**/*.kt", "wearos/**/test/**/*.kt", "wearos/**/androidTest/**/*.kt", "shared/**/test/**/*.kt", "connectiq/test/**/*.mc", "simulation/test_*.py"]
 ---
 # Test Conventions
 
@@ -46,7 +46,8 @@ The first Robolectric run downloads a ~170 MB framework jar per SDK level into
 that directory.
 
 ## Wear OS Tests
-- `wearos/app/src/test/.../logic/` holds plain JVM tests for everything with behaviour (detector, shape consistency, Juggle and Record sessions, navigation, protocol), driven by fake clocks, schedulers and links. `DetectorCorpusTest` replays every recording in `connectiq/data` and requires the counts `simulation/test_detection.py` pins, read out of that file.
+- `shared/src/test/` holds the plain JVM tests for the detector, shape consistency and the watch-phone protocol, which both apps use. `DetectorCorpusTest` replays every recording in `connectiq/data` and requires the counts `simulation/test_detection.py` pins, read out of that file; `PhoneInputCorpusTest` replays recordings through the phone's m/s² entry point. Run them with `./gradlew :shared:test` from `android/` or `wearos/`.
+- `wearos/app/src/test/.../logic/` holds plain JVM tests for the Juggle and Record sessions and navigation, driven by fake clocks, schedulers and links.
 - `wearos/app/src/test/.../ui/` holds the Robolectric Compose tests (`WearAppTest`, `TextFitTest`).
 - `wearos/app/src/androidTest/` runs on a Wear OS emulator in CI (API 30, large round) and saves the screenshots CI uploads.
 - Name tests after the requirement they cover in `connectiq/REQUIREMENTS.md` where there is one; `wearos/README.md` maps each requirement to its test.

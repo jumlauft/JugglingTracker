@@ -1,14 +1,18 @@
-package com.juggling.tracker.wear.logic
+package com.juggling.tracker.shared
 
 import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * The messages between this app and the phone app over the Wear OS Data
- * Layer. The payloads are the same dictionaries the Garmin app transmits
- * (SYNC-1, REC-5), carried as UTF-8 JSON, so the phone handles both watches
- * with one code path. The phone side of this lives in
- * `android/.../WearMessageCodec.kt`; keep the two in step.
+ * The messages between the Wear OS watch app and the phone app over the Wear
+ * OS Data Layer, used by both sides. The payloads are the same dictionaries the
+ * Garmin app transmits (SYNC-1, REC-5: `session`, `rec_start`, `rec_chunk`,
+ * `rec_end`), carried as UTF-8 JSON, so the phone handles both watches with one
+ * code path. The Garmin app speaks this through Connect IQ instead and is not
+ * covered here.
+ *
+ * org.json is the Android platform's copy at run time; it is only a
+ * compile-time dependency of this module.
  */
 object WatchProtocol {
     /** Watch to phone: `session`, `rec_start`, `rec_chunk`, `rec_end`. */
@@ -20,9 +24,19 @@ object WatchProtocol {
     /** Declared by the phone app in `res/values/wear.xml`. */
     const val PHONE_CAPABILITY = "juggling_tracker_phone"
 
+    /** Declared by the watch app (`wearos/.../res/values/wear.xml`); reachable means installed and connected. */
+    const val WATCH_CAPABILITY = "juggling_tracker_watch"
+
     fun encode(payload: Map<String, Any>): ByteArray = toJson(payload).toString().toByteArray(Charsets.UTF_8)
 
-    /** Returns null for anything that is not a JSON object. */
+    /** The phone's `ack`, echoing the payload's timestamp when it has one. */
+    fun encodeAck(timestamp: Long?): ByteArray {
+        val ack = JSONObject().put("type", "ack")
+        if (timestamp != null) ack.put("timestamp", timestamp)
+        return ack.toString().toByteArray(Charsets.UTF_8)
+    }
+
+    /** Returns the payload as a map with lists for arrays, or null for anything that is not a JSON object. */
     fun decode(bytes: ByteArray): Map<String, Any?>? = try {
         fromJson(JSONObject(String(bytes, Charsets.UTF_8)))
     } catch (e: org.json.JSONException) {

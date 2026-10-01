@@ -1,5 +1,6 @@
 package com.juggling.tracker.wear.logic
 
+import com.juggling.tracker.shared.JugglingDetector
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

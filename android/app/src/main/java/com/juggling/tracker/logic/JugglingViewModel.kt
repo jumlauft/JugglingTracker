@@ -10,6 +10,7 @@ import com.juggling.tracker.data.SessionRepository
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.data.SettingsManager
 import com.juggling.tracker.data.WatchType
+import com.juggling.tracker.shared.JugglingDetector
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -207,7 +208,7 @@ class JugglingViewModel(
     private var rawFirstSampleNanos: Long? = null
     private var rawLastSampleNanos: Long? = null
 
-    private var phoneDetector: PhoneJugglingDetector? = null
+    private var phoneDetector: JugglingDetector? = null
     private var phoneSessionStartedAtMillis: Long? = null
     private var phoneSessionStartSampleMillis: Long? = null
     private val phoneThrottle = SampleThrottle()
@@ -400,7 +401,7 @@ class JugglingViewModel(
         rawRecordingStartedAtMillis = System.currentTimeMillis()
 
         // Run the detector during capture so the UI can show a live count.
-        phoneDetector = PhoneJugglingDetector(balls)
+        phoneDetector = JugglingDetector(balls)
         phoneSessionStartSampleMillis = null
         phoneThrottle.reset()
     }
@@ -467,7 +468,7 @@ class JugglingViewModel(
     fun startPhoneSession(ballCount: Int, startedAtMillis: Long = System.currentTimeMillis()) {
         val sanitizedBallCount = ballCount.coerceIn(3, 9)
 
-        phoneDetector = PhoneJugglingDetector(sanitizedBallCount)
+        phoneDetector = JugglingDetector(sanitizedBallCount)
         phoneSessionStartedAtMillis = startedAtMillis
         phoneSessionStartSampleMillis = null
         phoneThrottle.reset()
@@ -527,7 +528,7 @@ class JugglingViewModel(
             }
 
             val oldCount = detector.currentCount
-            detector.processSample(s.ax, s.ay, s.az, sampleMs)
+            detector.processSampleMs2(s.ax, s.ay, s.az, sampleMs)
             val newCount = detector.currentCount
             detector.checkAutoFinish(sampleMs)
 
@@ -664,7 +665,7 @@ class JugglingViewModel(
         /** Seconds of an unchanging accelerometer before calling it broken. */
         const val FROZEN_SENSOR_SECONDS = 5L
         const val FROZEN_SENSOR_SAMPLES =
-            (FROZEN_SENSOR_SECONDS * PhoneJugglingDetector.SAMPLE_RATE).toInt()
+            (FROZEN_SENSOR_SECONDS * JugglingDetector.SAMPLE_RATE).toInt()
 
         /** The rate MainActivity asks the accelerometer for, in Hz. */
         const val PHONE_REQUESTED_SAMPLE_RATE = 200

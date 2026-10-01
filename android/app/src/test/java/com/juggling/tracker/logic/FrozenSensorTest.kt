@@ -1,6 +1,7 @@
 package com.juggling.tracker.logic
 
 import com.juggling.tracker.MainDispatcherRule
+import com.juggling.tracker.shared.JugglingDetector
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -26,7 +27,7 @@ class FrozenSensorTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private companion object {
-        const val PERIOD_MS = PhoneJugglingDetector.SAMPLE_PERIOD_MS
+        const val PERIOD_MS = JugglingDetector.SAMPLE_PERIOD_MS
         /** The exact vector the wedged Pixel 7a repeated; note |v| = 16.81, not 9.81. */
         const val STUCK_X = 9.68
         const val STUCK_Y = -9.79

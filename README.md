@@ -16,6 +16,7 @@ Juggling tracker focused on a single counting hand. Two watch apps, one for Garm
   - `source/RecordingView.mc` - Record mode: raw accelerometer capture and labeling.
   - `manifest.xml`, `monkey.jungle`, `resources/` - Connect IQ configuration and assets.
 - `wearos/` - Wear OS watch app, a Kotlin/Compose port of the Garmin app with the same behaviour. It sends sessions and recordings to the Android app over the Wear OS Data Layer. See `wearos/README.md`.
+- `shared/` - plain-Kotlin module that both `android/` and `wearos/` build in as `:shared`: the catch detector (`JugglingDetector.kt`, a line-for-line port of `JugglingDetector.mc`), the Regularity score (`ShapeConsistency.kt`) and the Wear OS Data Layer paths and JSON codec (`WatchProtocol.kt`). Its tests, including the corpus replays, run with `./gradlew :shared:test` from either app.
 - `android/` - Android companion app in Kotlin and Jetpack Compose.
   - `MainActivity.kt` - permissions, the phone accelerometer listener, and the watch cards' status.
   - `JugglingTrackerApplication.kt` - one repository, inbox and Garmin link per app process, shared by the screens and the Wear OS listener.
@@ -23,10 +24,8 @@ Juggling tracker focused on a single counting hand. Two watch apps, one for Garm
   - `WatchMessageService.kt` - receives the Wear OS watch's messages; Google Play services starts it, so the phone app does not have to be open.
   - `logic/WatchInbox.kt` - stores what either watch sends and decides whether it gets its `ack`.
   - `logic/JugglingViewModel.kt` - UI/session state, imports, CSV export, voice events.
-  - `logic/PhoneJugglingDetector.kt` - phone IMU detector mirroring the watch catch-detection state machine.
   - `data/SessionRepository.kt` - SharedPreferences persistence for finished sessions.
   - `data/RecordingRepository.kt` - raw recording CSV persistence and zip export.
-  - `data/WearMessageCodec.kt` - JSON codec and Data Layer paths for the Wear OS watch.
   - `data/SettingsManager.kt` - settings: watch type, voice, analytics, and the export details.
   - `ui/` - Compose screens, session cards, charts, tracker/settings UI.
   - `model/` - session/run data classes.
@@ -49,7 +48,7 @@ flowchart LR
     WS --> E
     E --> G[SessionRepository]
     E -->|stored| F[JugglingViewModel]
-    P[Phone accelerometer, 25 Hz effective] --> Q[PhoneJugglingDetector]
+    P[Phone accelerometer, 25 Hz effective] --> Q[JugglingDetector.kt]
     Q --> F
     F --> G
     GL -->|ack once stored| D
@@ -82,7 +81,7 @@ Current burst-clustering parameters:
 
 6 has its own bucket because six throws land harder and closer together than five, so the peak that marks a catch clears a higher bar. 7+ has its own because its cadence is distinctly faster than 5-ball, and it was previously run on parameters fitted entirely to 5-ball data.
 
-`simulate_watch()` in `simulation/eval_new_watch.py` is the shared Python implementation of the algorithm above, and the table is what `simulation/test_detection.py` feeds it through its own `WATCH_PARAMS`, so the locked corpus baseline reflects these values. Keep the table, `connectiq/source/JugglingDetector.mc`, `wearos/.../logic/JugglingDetector.kt`, `android/.../PhoneJugglingDetector.kt`, `simulation/test_detection.py`, and `.github/instructions/connectiq-monkeyc.instructions.md` in sync when changing detector behavior or parameters. The Wear OS `DetectorCorpusTest` and the phone `PhoneDetectorCorpusTest` replay the corpus through the Kotlin ports and require the counts `test_detection.py` pins.
+`simulate_watch()` in `simulation/eval_new_watch.py` is the shared Python implementation of the algorithm above, and the table is what `simulation/test_detection.py` feeds it through its own `WATCH_PARAMS`, so the locked corpus baseline reflects these values. Keep the table, `connectiq/source/JugglingDetector.mc`, `shared/.../JugglingDetector.kt` (used by the phone and Wear OS apps), `simulation/test_detection.py`, and `.github/instructions/connectiq-monkeyc.instructions.md` in sync when changing detector behavior or parameters. `DetectorCorpusTest` (milli-g input, as the watches feed it) and `PhoneInputCorpusTest` (m/s² input, as the phone feeds it) in `shared/` replay the corpus through the Kotlin port and require the counts `test_detection.py` pins.
 
 `eval_new_watch.py` keeps a second copy of the table in `CURRENT_WATCH_PARAMS`, which is what `params_for_balls()` and the sweep's tie-breaker read, and what `rhythm_gate.py` imports. `test_detection.py::test_evaluator_params_match_the_tested_watch_params` pins it to the values above so the two cannot drift apart unnoticed again — they did once, when the evaluator kept folding 6 balls onto the 5-ball parameters after the watch had shipped a separate bucket.
 

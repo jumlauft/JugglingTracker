@@ -1,0 +1,29 @@
+// Plain Kotlin code shared by the phone app (../android) and the Wear OS app
+// (../wearos): the catch detector, shape consistency (Regularity) and the
+// watch-phone message format. Both Gradle projects include this directory as
+// their :shared module, so there is one copy to change and test. The Garmin
+// (connectiq/) and Python (simulation/) versions stay separate and are held to
+// the same counts by the corpus tests.
+plugins {
+    id 'org.jetbrains.kotlin.jvm'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
+dependencies {
+    // Android ships org.json, so the apps get it from the platform at run
+    // time; the JVM needs the real library to compile and test against.
+    compileOnly 'org.json:json:20231013'
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20231013'
+}

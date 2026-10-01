@@ -1,4 +1,4 @@
-package com.juggling.tracker.wear.logic
+package com.juggling.tracker.shared
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

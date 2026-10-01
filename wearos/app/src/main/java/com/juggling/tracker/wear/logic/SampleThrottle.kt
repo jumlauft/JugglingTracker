@@ -1,5 +1,7 @@
 package com.juggling.tracker.wear.logic
 
+import com.juggling.tracker.shared.JugglingDetector
+
 /**
  * Thins a faster sensor stream to the detector's 25 Hz (DET-1). It keeps one
  * sample per 40 ms slot on a fixed grid; measuring 40 ms from the last kept
