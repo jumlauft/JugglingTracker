@@ -9,11 +9,13 @@ import androidx.compose.ui.test.performClick
 import androidx.lifecycle.Lifecycle
 import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.juggling.tracker.wear.logic.TrackerSession
 import com.juggling.tracker.wear.ui.Tags
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Rule
+import org.junit.rules.ExternalResource
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -23,7 +25,16 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class MainActivityEmulatorTest {
-    @get:Rule
+    // The session outlives the activity, so close it once the activity is
+    // gone: the next test starts at the first screen.
+    @get:Rule(order = 0)
+    val closeRuntime = object : ExternalResource() {
+        override fun after() {
+            InstrumentationRegistry.getInstrumentation().runOnMainSync { WatchRuntime.shutdown() }
+        }
+    }
+
+    @get:Rule(order = 1)
     val compose = createAndroidComposeRule<MainActivity>()
 
     private fun click(tag: String) = compose.onNodeWithTag(tag).performClick()

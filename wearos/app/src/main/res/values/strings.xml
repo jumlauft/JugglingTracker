@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Juggling Tracker</string>
+    <string name="session_channel">Juggling session</string>
+    <string name="session_running">Counting catches</string>
 </resources>

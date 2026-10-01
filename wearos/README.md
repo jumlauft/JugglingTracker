@@ -21,9 +21,25 @@ table below says which test covers each requirement here.
     - `Format.kt` - display strings, identical to what the Garmin draws.
     - `Platform.kt` - the interfaces the sessions use for timers, the clock,
       the phone link and vibration, so tests can fake them.
-  - `platform/` - the accelerometer, the Data Layer link, timers, vibration.
+  - `platform/` - the accelerometer, the Data Layer link, timers, vibration,
+    and the foreground service that runs while a session is open.
   - `ui/` - Compose for Wear OS screens.
-  - `MainActivity.kt` - wires it together.
+  - `WatchRuntime.kt` - wires it together and holds the running app.
+  - `MainActivity.kt` - shows it.
+
+## Battery and the screen
+
+The navigator, the open session, the accelerometer and the phone link live in
+`WatchRuntime`, which belongs to the process rather than the activity. While
+a juggling or record session is open, `TrackingService` keeps the app in the
+foreground with a partial wake lock and puts an Ongoing Activity on the watch
+face that leads back into the app. So the screen no longer has to stay on: when
+it times out the app drops into ambient mode (on-screen buttons hidden, count
+still updating), and with the screen off or another app open the session
+keeps counting.
+
+The accelerometer reports in hardware batches of up to one second on its own
+thread, and only each one-second batch reaches the main thread.
 
 ## Buttons
 

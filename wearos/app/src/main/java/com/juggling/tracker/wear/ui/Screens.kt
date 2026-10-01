@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -133,7 +134,7 @@ private fun ArrowButton(symbol: String, tag: String, onClick: () -> Unit) {
         // A 40 dp tap target rather than 48, so a stepper row fits across
         // the middle of a 192 dp watch.
         backgroundPadding = 4.dp,
-        modifier = Modifier.testTag(tag),
+        modifier = Modifier.testTag(tag).hiddenInAmbient(),
     ) { Text(symbol, fontSize = 12.sp) }
 }
 
@@ -157,9 +158,17 @@ private fun StartButton(label: String, onClick: () -> Unit) {
             )
         },
         colors = ChipDefaults.primaryChipColors(backgroundColor = WatchColors.Green, contentColor = Color.Black),
-        modifier = Modifier.testTag(Tags.START),
+        modifier = Modifier.testTag(Tags.START).hiddenInAmbient(),
     )
 }
+
+/**
+ * Buttons are invisible in ambient mode, where the first tap only wakes the
+ * screen, and a filled button would light a large patch of the display. They
+ * keep their space so nothing moves.
+ */
+@Composable
+private fun Modifier.hiddenInAmbient(): Modifier = alpha(if (LocalAmbient.current) 0f else 1f)
 
 // ── Start-up screens ──────────────────────────────────────────────────
 
