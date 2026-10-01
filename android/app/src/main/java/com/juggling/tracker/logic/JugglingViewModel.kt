@@ -190,7 +190,7 @@ class JugglingViewModel(
     private var phoneDetector: PhoneJugglingDetector? = null
     private var phoneSessionStartedAtMillis: Long? = null
     private var phoneSessionStartSampleMillis: Long? = null
-    private var phoneLastProcessedSampleMillis: Long? = null
+    private val phoneThrottle = SampleThrottle()
 
     // A wedged accelerometer keeps delivering events at full rate, but every
     // one carries the identical vector. The detector then sees zero linear
@@ -374,7 +374,7 @@ class JugglingViewModel(
         // Run the detector during capture so the UI can show a live count.
         phoneDetector = PhoneJugglingDetector(balls)
         phoneSessionStartSampleMillis = null
-        phoneLastProcessedSampleMillis = null
+        phoneThrottle.reset()
     }
 
     fun stopRawRecording() {
@@ -426,7 +426,7 @@ class JugglingViewModel(
         phoneDetector = PhoneJugglingDetector(sanitizedBallCount)
         phoneSessionStartedAtMillis = startedAtMillis
         phoneSessionStartSampleMillis = null
-        phoneLastProcessedSampleMillis = null
+        phoneThrottle.reset()
         resetFrozenSensorTracking()
         phoneSessionState = PhoneSessionUiState(
             selectedBallCount = sanitizedBallCount,
@@ -440,51 +440,60 @@ class JugglingViewModel(
     }
 
     fun processPhoneSample(ax: Double, ay: Double, az: Double, timestampNanos: Long) {
+        processPhoneSamples(listOf(PhoneAccelSample(ax, ay, az, timestampNanos)))
+    }
+
+    /**
+     * Takes a batch of raw phone accelerometer events (PhoneAccelerometerSource
+     * delivers about ten a second) and writes the Compose state once per batch
+     * rather than once per 200 Hz sample.
+     */
+    fun processPhoneSamples(samples: List<PhoneAccelSample>) {
+        if (samples.isEmpty()) return
         // Handle raw recording capture
         if (rawRecordingState.step == RawRecordingStep.RECORDING) {
-            // Convert m/s^2 to milli-g
-            val mx = (ax * 1000.0 / 9.80665).toInt()
-            val my = (ay * 1000.0 / 9.80665).toInt()
-            val mz = (az * 1000.0 / 9.80665).toInt()
-            rawAccelX.add(mx)
-            rawAccelY.add(my)
-            rawAccelZ.add(mz)
-            if (rawFirstSampleNanos == null) rawFirstSampleNanos = timestampNanos
-            rawLastSampleNanos = timestampNanos
+            for (s in samples) {
+                // Convert m/s^2 to milli-g
+                rawAccelX.add((s.ax * 1000.0 / 9.80665).toInt())
+                rawAccelY.add((s.ay * 1000.0 / 9.80665).toInt())
+                rawAccelZ.add((s.az * 1000.0 / 9.80665).toInt())
+            }
+            if (rawFirstSampleNanos == null) rawFirstSampleNanos = samples.first().timestampNanos
+            rawLastSampleNanos = samples.last().timestampNanos
             rawRecordingState = rawRecordingState.copy(sampleCount = rawAccelX.size)
         }
 
-        val detector = phoneDetector ?: return
-        if (!phoneSessionState.isRecording && rawRecordingState.step != RawRecordingStep.RECORDING) return
+        var lastProcessedMs: Long? = null
+        for (s in samples) {
+            val detector = phoneDetector ?: break
+            if (!phoneSessionState.isRecording && rawRecordingState.step != RawRecordingStep.RECORDING) break
 
-        val sampleMs = timestampNanos / 1_000_000L
-        val lastProcessed = phoneLastProcessedSampleMillis
-        if (lastProcessed != null && sampleMs - lastProcessed < PhoneJugglingDetector.SAMPLE_PERIOD_MS) {
-            return
+            val sampleMs = s.timestampNanos / 1_000_000L
+            if (!phoneThrottle.accept(sampleMs)) continue
+
+            if (phoneSessionStartSampleMillis == null) {
+                phoneSessionStartSampleMillis = sampleMs
+            }
+
+            if (phoneSessionState.isRecording && isSensorStreamFrozen(s.ax, s.ay, s.az)) {
+                markPhoneSensorUnavailable(
+                    "Accelerometer is not responding. Restart the phone and try again."
+                )
+                return
+            }
+
+            val oldCount = detector.currentCount
+            detector.processSample(s.ax, s.ay, s.az, sampleMs)
+            val newCount = detector.currentCount
+            detector.checkAutoFinish(sampleMs)
+
+            if (newCount > oldCount) {
+                checkVoiceAnnouncement(newCount)
+            }
+            lastProcessedMs = sampleMs
         }
 
-        if (phoneSessionStartSampleMillis == null) {
-            phoneSessionStartSampleMillis = sampleMs
-        }
-        phoneLastProcessedSampleMillis = sampleMs
-
-        if (phoneSessionState.isRecording && isSensorStreamFrozen(ax, ay, az)) {
-            markPhoneSensorUnavailable(
-                "Accelerometer is not responding. Restart the phone and try again."
-            )
-            return
-        }
-
-        val oldCount = detector.currentCount
-        detector.processSample(ax, ay, az, sampleMs)
-        val newCount = detector.currentCount
-        detector.checkAutoFinish(sampleMs)
-        
-        if (newCount > oldCount) {
-            checkVoiceAnnouncement(newCount)
-        }
-
-        updatePhoneSessionStateFromDetector(sampleMs)
+        lastProcessedMs?.let { updatePhoneSessionStateFromDetector(it) }
     }
 
     /**
@@ -589,7 +598,7 @@ class JugglingViewModel(
         phoneDetector = null
         phoneSessionStartedAtMillis = null
         phoneSessionStartSampleMillis = null
-        phoneLastProcessedSampleMillis = null
+        phoneThrottle.reset()
         resetFrozenSensorTracking()
         phoneSessionState = PhoneSessionUiState(
             selectedBallCount = selectedBallCount,
