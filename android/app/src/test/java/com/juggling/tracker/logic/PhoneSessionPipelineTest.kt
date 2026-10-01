@@ -11,8 +11,8 @@ import java.io.File
 
 /**
  * Drives a real recorded run through the whole phone session path --
- * `startPhoneSession` then `processPhoneSample` per sample -- the way
- * MainActivity's SensorEventListener does on the device.
+ * `startPhoneSession` then `processPhoneSample(s)` -- the way
+ * PhoneAccelerometerSource feeds it on the device.
  *
  * PhoneDetectorCorpusTest proves the detector counts real juggling correctly
  * when fed directly. This covers everything between the sensor callback and the
@@ -28,7 +28,7 @@ class PhoneSessionPipelineTest {
     private companion object {
         const val MILLI_G_TO_MS2 = 9.80665 / 1000.0
 
-        /** What MainActivity asks the sensor for: PHONE_SAMPLE_PERIOD_US = 5_000. */
+        /** What PhoneAccelerometerSource asks the sensor for: SAMPLE_PERIOD_US = 5_000. */
         const val PHONE_SAMPLE_PERIOD_MS = 5L
 
         const val RUN_ID = "20260603_201719"
@@ -97,6 +97,41 @@ class PhoneSessionPipelineTest {
         )
         assertEquals(
             "phone session counted $counted catches on $RUN_ID, expected $EXPECTED_CATCHES",
+            EXPECTED_CATCHES,
+            counted,
+        )
+    }
+
+    /**
+     * PhoneAccelerometerSource hands samples over in ~100 ms batches (20 at
+     * 200 Hz) rather than one at a time; the count must not change.
+     * SampleThrottleTest covers timestamp jitter.
+     */
+    @Test
+    fun `phone session counts the same when samples arrive in batches`() = runTest {
+        val viewModel = JugglingViewModel()
+        val samples = loadSamples(RUN_ID)
+        viewModel.startPhoneSession(BALLS, startedAtMillis = 0L)
+
+        val startMs = 1_000L
+        val endMs = startMs + samples.size * PhoneJugglingDetector.SAMPLE_PERIOD_MS
+        val batch = mutableListOf<PhoneAccelSample>()
+        var tMs = startMs
+        while (tMs < endMs) {
+            val (ax, ay, az) = samples[((tMs - startMs) / PhoneJugglingDetector.SAMPLE_PERIOD_MS).toInt()]
+            batch += PhoneAccelSample(ax, ay, az, tMs * 1_000_000L)
+            if (batch.size == 20) {
+                viewModel.processPhoneSamples(batch.toList())
+                batch.clear()
+            }
+            tMs += PHONE_SAMPLE_PERIOD_MS
+        }
+        viewModel.processPhoneSamples(batch.toList())
+
+        val state = viewModel.phoneSessionState
+        val counted = state.completedRuns.sum() + state.currentCount
+        assertEquals(
+            "batched phone session counted $counted catches on $RUN_ID",
             EXPECTED_CATCHES,
             counted,
         )

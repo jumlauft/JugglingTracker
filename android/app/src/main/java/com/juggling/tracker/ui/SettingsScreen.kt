@@ -23,22 +23,32 @@ import com.juggling.tracker.data.WatchType
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.logic.JugglingViewModel
 import java.util.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Settings, plus the recordings table and the export it offers. */
 @Composable
 fun SettingsScreen(viewModel: JugglingViewModel) {
     val context = LocalContext.current
+    // File writes for the exports run on Dispatchers.IO from here.
+    val scope = rememberCoroutineScope()
     val sessionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv")
     ) { uri ->
         uri?.let {
-            try {
-                context.contentResolver.openOutputStream(it)?.use { outputStream ->
-                    outputStream.write(viewModel.getSessionsCsv().toByteArray())
+            val csv = viewModel.getSessionsCsv()
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(it)?.use { outputStream ->
+                            outputStream.write(csv.toByteArray())
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("JugglingTrackerApp", "CSV export failed", e)
+                    Toast.makeText(context, context.getString(R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
                 }
-            } catch (e: Exception) {
-                Log.e("JugglingTrackerApp", "CSV export failed", e)
-                Toast.makeText(context, context.getString(R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -47,13 +57,17 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
         androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/zip")
     ) { uri ->
         uri?.let {
-            try {
-                context.contentResolver.openOutputStream(it)?.use { outputStream ->
-                    viewModel.writeRecordingsZip(outputStream)
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(it)?.use { outputStream ->
+                            viewModel.writeRecordingsZip(outputStream)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("JugglingTrackerApp", "Recording export failed", e)
+                    Toast.makeText(context, context.getString(R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
                 }
-            } catch (e: Exception) {
-                Log.e("JugglingTrackerApp", "Recording export failed", e)
-                Toast.makeText(context, context.getString(R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -86,13 +100,32 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
         )
     }
 
-    // The export waiting on the juggler's name, watch hand and first-throw hand, asked for first.
-    var pendingExport by remember { mutableStateOf<(() -> Unit)?>(null) }
-    pendingExport?.let { export ->
-        ExportDetailsDialog(
+    var editingJuggler by remember { mutableStateOf(false) }
+    if (editingJuggler) {
+        JugglerDialog(
             initialName = viewModel.jugglerName,
             initialHand = viewModel.watchHand,
             initialFirstThrow = viewModel.firstThrowHand,
+            message = null,
+            confirmLabel = stringResource(R.string.action_save),
+            onConfirm = { name, hand, firstThrow ->
+                viewModel.setExportDetails(name, hand, firstThrow)
+                editingJuggler = false
+            },
+            onDismiss = { editingJuggler = false },
+        )
+    }
+
+    // An export waiting on who juggled the runs saved without a juggler, asked for first.
+    var pendingExport by remember { mutableStateOf<(() -> Unit)?>(null) }
+    pendingExport?.let { export ->
+        val untagged = viewModel.recordingsWithoutJuggler
+        JugglerDialog(
+            initialName = viewModel.jugglerName,
+            initialHand = viewModel.watchHand,
+            initialFirstThrow = viewModel.firstThrowHand,
+            message = pluralStringResource(R.plurals.dialog_export_untagged, untagged, untagged),
+            confirmLabel = stringResource(R.string.action_continue_export),
             onConfirm = { name, hand, firstThrow ->
                 viewModel.setExportDetails(name, hand, firstThrow)
                 pendingExport = null
@@ -100,6 +133,11 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             },
             onDismiss = { pendingExport = null },
         )
+    }
+
+    // Ask who juggled only when some runs were saved without a juggler.
+    fun exportAfterAsking(export: () -> Unit) {
+        if (viewModel.recordingsWithoutJuggler > 0) pendingExport = export else export()
     }
 
     Column(
@@ -195,7 +233,17 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
 
         // Raw Data Recording
         Text(text = stringResource(R.string.section_raw_recording), style = MaterialTheme.typography.titleLarge)
-        
+
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            JugglerCard(viewModel.currentJuggler) { editingJuggler = true }
+            Text(
+                text = stringResource(R.string.desc_juggler),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+        }
+
         Button(
             onClick = { viewModel.startRawRecordingFlow() },
             modifier = Modifier.fillMaxWidth()
@@ -208,7 +256,7 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
 
             Button(
                 onClick = {
-                    pendingExport = {
+                    exportAfterAsking {
                         val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
                         recordingLauncher.launch("juggling_recordings_$ts.zip")
                     }
@@ -220,7 +268,7 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             }
 
             Button(
-                onClick = { pendingExport = { emailRecordings(context, viewModel) } },
+                onClick = { exportAfterAsking { scope.launch { emailRecordings(context, viewModel) } } },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
             ) {
@@ -274,16 +322,48 @@ private fun WatchTypeDropdown(selected: WatchType, onSelect: (WatchType) -> Unit
     }
 }
 
+/** Who is juggling, shown as one line; tapping it opens the [JugglerDialog]. */
+@Composable
+private fun JugglerCard(juggler: RecordingRepository.Juggler?, onClick: () -> Unit) {
+    val left = stringResource(R.string.hand_left_lower)
+    val right = stringResource(R.string.hand_right_lower)
+    fun handName(hand: String) = if (hand == RecordingRepository.HAND_LEFT) left else right
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Text(text = stringResource(R.string.label_juggler), style = MaterialTheme.typography.labelMedium)
+            Text(
+                text = if (juggler != null) {
+                    stringResource(
+                        R.string.juggler_summary,
+                        juggler.name,
+                        handName(juggler.hand),
+                        handName(juggler.firstThrow),
+                    )
+                } else {
+                    stringResource(R.string.juggler_not_set)
+                },
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        }
+    }
+}
+
 /**
- * Asks who juggled, which wrist wore the watch and which hand made the first
- * throw before recordings are exported, prefilled with the previous answers.
- * All three go into every exported CSV header.
+ * Asks who juggles, which wrist wears the watch and which hand makes the first
+ * throw, prefilled with the previous answers. New recordings are saved with
+ * them, and an export uses them for older runs saved without a juggler.
  */
 @Composable
-private fun ExportDetailsDialog(
+private fun JugglerDialog(
     initialName: String,
     initialHand: String?,
     initialFirstThrow: String?,
+    message: String?,
+    confirmLabel: String,
     onConfirm: (name: String, hand: String, firstThrow: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -297,6 +377,7 @@ private fun ExportDetailsDialog(
         title = { Text(stringResource(R.string.dialog_export_details_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                message?.let { Text(text = it, style = MaterialTheme.typography.bodyMedium) }
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -317,7 +398,7 @@ private fun ExportDetailsDialog(
                 },
                 enabled = name.isNotBlank() && selectedHand != null && selectedFirstThrow != null,
             ) {
-                Text(stringResource(R.string.action_continue_export))
+                Text(confirmLabel)
             }
         },
         dismissButton = {
@@ -382,18 +463,21 @@ private val recordingTimeFormat =
 // The developer collects recordings to tune the detector offline.
 private const val DEVELOPER_EMAIL = "jugglingtracker@gmail.com"
 
-// Write the merged recordings CSV to a shareable cache file and open an email
-// draft to the developer with it attached.
-private fun emailRecordings(context: android.content.Context, viewModel: JugglingViewModel) {
+// Write the recordings zip to a shareable cache file on the IO dispatcher and
+// open an email draft to the developer with it attached.
+private suspend fun emailRecordings(context: android.content.Context, viewModel: JugglingViewModel) {
     if (viewModel.recordingCount <= 0) {
         Toast.makeText(context, context.getString(R.string.toast_no_recordings), Toast.LENGTH_SHORT).show()
         return
     }
     try {
-        val dir = java.io.File(context.cacheDir, "shared").apply { mkdirs() }
         val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
-        val file = java.io.File(dir, "juggling_recordings_$ts.zip")
-        file.outputStream().use { viewModel.writeRecordingsZip(it) }
+        val file = withContext(Dispatchers.IO) {
+            val dir = java.io.File(context.cacheDir, "shared").apply { mkdirs() }
+            java.io.File(dir, "juggling_recordings_$ts.zip").also { f ->
+                f.outputStream().use { viewModel.writeRecordingsZip(it) }
+            }
+        }
 
         val uri = androidx.core.content.FileProvider.getUriForFile(
             context, "${context.packageName}.fileprovider", file
