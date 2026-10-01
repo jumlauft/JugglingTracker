@@ -103,24 +103,20 @@ class PhoneSessionPipelineTest {
     }
 
     /**
-     * Real phones stamp events a few ms either side of 5 ms, and
-     * PhoneAccelerometerSource hands them over in ~100 ms batches. The 25 Hz
-     * throttle has to stay on its 40 ms grid through the jitter: counting
-     * 40 ms from the last kept sample drifted to ~42 ms (23.8 Hz) and skipped
-     * about one corpus sample in twenty.
+     * PhoneAccelerometerSource hands samples over in ~100 ms batches (20 at
+     * 200 Hz) rather than one at a time; the count must not change.
+     * SampleThrottleTest covers timestamp jitter.
      */
     @Test
-    fun `phone session counts the same with jittered timestamps in batches`() = runTest {
+    fun `phone session counts the same when samples arrive in batches`() = runTest {
         val viewModel = JugglingViewModel()
         val samples = loadSamples(RUN_ID)
         viewModel.startPhoneSession(BALLS, startedAtMillis = 0L)
 
-        val gapsMs = longArrayOf(4, 6, 5, 7, 3, 6, 4)
         val startMs = 1_000L
         val endMs = startMs + samples.size * PhoneJugglingDetector.SAMPLE_PERIOD_MS
         val batch = mutableListOf<PhoneAccelSample>()
         var tMs = startMs
-        var i = 0
         while (tMs < endMs) {
             val (ax, ay, az) = samples[((tMs - startMs) / PhoneJugglingDetector.SAMPLE_PERIOD_MS).toInt()]
             batch += PhoneAccelSample(ax, ay, az, tMs * 1_000_000L)
@@ -128,14 +124,14 @@ class PhoneSessionPipelineTest {
                 viewModel.processPhoneSamples(batch.toList())
                 batch.clear()
             }
-            tMs += gapsMs[i++ % gapsMs.size]
+            tMs += PHONE_SAMPLE_PERIOD_MS
         }
         viewModel.processPhoneSamples(batch.toList())
 
         val state = viewModel.phoneSessionState
         val counted = state.completedRuns.sum() + state.currentCount
         assertEquals(
-            "batched, jittered phone session counted $counted catches on $RUN_ID",
+            "batched phone session counted $counted catches on $RUN_ID",
             EXPECTED_CATCHES,
             counted,
         )
