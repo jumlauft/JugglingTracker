@@ -168,7 +168,8 @@ class RecordingRepository(private val recordingsDir: File) {
                 timestamp = timestamp,
                 samples = n,
                 source = source,
-                juggler = juggler,
+                // As a re-read of the header would give it back.
+                juggler = juggler?.let { jugglerOf(headerFields(it.headerFields().joinToString(","))) },
             )
             synchronized(this) { summaryCache[file.name] = summary }
             file
