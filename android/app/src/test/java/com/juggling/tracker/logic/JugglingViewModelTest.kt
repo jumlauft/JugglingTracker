@@ -363,6 +363,56 @@ class JugglingViewModelTest {
         assertEquals(3, lines.size) // header + 2 data rows
     }
 
+    @Test
+    fun `csv export uses a dot for decimals whatever the phone's language`() = runTest {
+        // A decimal comma would split the average into two columns.
+        val previous = java.util.Locale.getDefault()
+        java.util.Locale.setDefault(java.util.Locale.GERMANY)
+        try {
+            viewModel.importSessionFromWatch(mapOf(
+                "balls" to 3, "timestamp" to 1716931200L, "runs" to listOf(10, 21)
+            ))
+            advanceUntilIdle()
+
+            val dataLine = viewModel.getSessionsCsv().lines()[1]
+            assertTrue(dataLine.contains(",15.50,"))
+            assertEquals(10, dataLine.split(",").size)
+        } finally {
+            java.util.Locale.setDefault(previous)
+        }
+    }
+
+    @Test
+    fun `csv export carries the Regularity score, empty when there is none`() = runTest {
+        viewModel.importSessionFromWatch(mapOf(
+            "balls" to 3, "timestamp" to 100L, "runs" to listOf(5)
+        ))
+        viewModel.importSessionFromWatch(mapOf(
+            "balls" to 3, "timestamp" to 200L, "runs" to listOf(8), "shapeConsistency" to 83
+        ))
+        advanceUntilIdle()
+
+        val lines = viewModel.getSessionsCsv().lines().filter { it.isNotBlank() }
+        assertTrue(lines[0].endsWith(",Regularity Percent"))
+        assertTrue(lines[1].endsWith(",83"))   // newest first
+        assertTrue(lines[2].endsWith(","))
+    }
+
+    @Test
+    fun `a resent session replaces the first copy`() = runTest {
+        // The watch ended the same session again after its first ack was lost.
+        viewModel.importSessionFromWatch(mapOf(
+            "balls" to 3, "timestamp" to 100L, "runs" to listOf(5)
+        ))
+        viewModel.importSessionFromWatch(mapOf(
+            "balls" to 3, "timestamp" to 100L, "runs" to listOf(5, 9)
+        ))
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.completedSessions.size)
+        assertEquals(listOf(5, 9), viewModel.completedSessions[0].runHistory)
+    }
+
     // ── Event emission ──────────────────────────────────────────────────
 
     @Test
