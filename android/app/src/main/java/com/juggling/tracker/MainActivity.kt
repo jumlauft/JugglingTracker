@@ -3,9 +3,6 @@ package com.juggling.tracker
 import android.Manifest
 import android.bluetooth.BluetoothManager
 import android.content.pm.PackageManager
-import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
 import android.os.Bundle
@@ -40,6 +37,7 @@ import com.juggling.tracker.data.SessionRepository
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.data.SettingsManager
 import com.juggling.tracker.data.WearMessageCodec
+import com.juggling.tracker.sensor.PhoneAccelerometerSource
 import com.juggling.tracker.ui.JugglingTrackerApp
 import com.juggling.tracker.ui.theme.JugglingTrackerTheme
 import com.google.firebase.analytics.FirebaseAnalytics
@@ -55,7 +53,6 @@ class MainActivity : ComponentActivity() {
         private val WATCH_APP_IDS = listOf(WATCH_APP_ID, WATCH_APP_ID_BETA)
         private const val PERMISSION_REQUEST_CODE = 1001
         private const val HEARTBEAT_TIMEOUT_MS = 15000L
-        private const val PHONE_SAMPLE_PERIOD_US = 5_000
     }
 
     private val repository: SessionRepository by lazy { SessionRepository(this) }
@@ -80,20 +77,8 @@ class MainActivity : ComponentActivity() {
 
     private val handler = Handler(Looper.getMainLooper())
     private val sensorManager: SensorManager by lazy { getSystemService(SensorManager::class.java) }
-    private var phoneSensorRegistered = false
-
-    private val phoneSensorListener = object : SensorEventListener {
-        override fun onSensorChanged(event: SensorEvent) {
-            if (event.sensor.type != Sensor.TYPE_ACCELEROMETER || event.values.size < 3) return
-            viewModel.processPhoneSample(
-                ax = event.values[0].toDouble(),
-                ay = event.values[1].toDouble(),
-                az = event.values[2].toDouble(),
-                timestampNanos = event.timestamp,
-            )
-        }
-
-        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+    private val phoneAccelerometer: PhoneAccelerometerSource by lazy {
+        PhoneAccelerometerSource(sensorManager, viewModel::processPhoneSamples)
     }
 
     private val heartbeatRunnable = Runnable {
@@ -524,7 +509,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startPhoneRecording(ballCount: Int): Boolean {
-        if (viewModel.phoneSessionState.isRecording && phoneSensorRegistered) return true
+        if (viewModel.phoneSessionState.isRecording && phoneAccelerometer.isActive) return true
 
         viewModel.startPhoneSession(ballCount)
         if (!registerPhoneSensorListener()) {
@@ -563,24 +548,10 @@ class MainActivity : ComponentActivity() {
         viewModel.cancelPhoneSession()
     }
 
-    private fun registerPhoneSensorListener(): Boolean {
-        if (phoneSensorRegistered) return true
-        val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) ?: return false
-        val registered = sensorManager.registerListener(
-            phoneSensorListener,
-            accelerometer,
-            PHONE_SAMPLE_PERIOD_US,
-            0,
-            handler,
-        )
-        phoneSensorRegistered = registered
-        return registered
-    }
+    private fun registerPhoneSensorListener(): Boolean = phoneAccelerometer.start()
 
     private fun stopPhoneSensorListener() {
-        if (!phoneSensorRegistered) return
-        sensorManager.unregisterListener(phoneSensorListener)
-        phoneSensorRegistered = false
+        phoneAccelerometer.stop()
     }
 
     override fun onResume() {
@@ -589,7 +560,7 @@ class MainActivity : ComponentActivity() {
         val isRecordingActive = viewModel.phoneSessionState.isRecording || 
                 viewModel.rawRecordingState.step == com.juggling.tracker.logic.RawRecordingStep.RECORDING
         
-        if (isRecordingActive && !phoneSensorRegistered) {
+        if (isRecordingActive && !phoneAccelerometer.isActive) {
             if (!registerPhoneSensorListener()) {
                 if (viewModel.phoneSessionState.isRecording) {
                     viewModel.markPhoneSensorUnavailable("Phone accelerometer unavailable")
