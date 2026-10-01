@@ -689,6 +689,38 @@ def test_main_view_reacquires_sensor_after_any_menu():
     assert "if (_sensorActive) {\n            return;" in m.group(1)
 
 
+def test_tracking_views_show_a_sensor_error():
+    """A failed accelerometer registration must show on screen (SENS-4).
+
+    It used to be only printed to the debug log, so the count silently stayed
+    at 0 and the juggler had no idea why.
+    """
+    for name in ("MainView.mc", "RecordingView.mc"):
+        source = _read_source("connectiq", "source", name)
+
+        m = re.search(r"private function startSensor\(\) as Void \{(.*?)\n    \}", source, re.DOTALL)
+        assert m, f"startSensor() not found in {name}"
+        catch = m.group(1).split("catch (ex)")
+        assert len(catch) == 2, f"startSensor() in {name} must catch a registration error"
+        assert "_sensorError = true;" in catch[1], f"{name} must flag a failed registration"
+        assert "_sensorError = false;" in catch[0], f"{name} must clear the flag once registered"
+
+        m = re.search(r"public function onUpdate\(dc as Dc\) as Void \{(.*?)\n    \}", source, re.DOTALL)
+        assert m, f"onUpdate() not found in {name}"
+        assert "_sensorError" in m.group(1) and "drawSensorError(dc);" in m.group(1), (
+            f"onUpdate() in {name} must draw the sensor error"
+        )
+        assert '"Sensor error"' in source and '"Restart the app"' in source
+
+    source = _read_source("connectiq", "source", "RecordingView.mc")
+    m = re.search(r"public function handleStartButton\(\) as Boolean \{(.*?)\n    \}", source, re.DOTALL)
+    assert m, "handleStartButton() not found in RecordingView.mc"
+    body = m.group(1)
+    assert 0 <= body.find("if (_sensorError)") < body.find("startRun();"), (
+        "START must not begin a run while the sensor is unavailable"
+    )
+
+
 def test_recording_view_rejects_a_stale_sync_ack():
     """A sync ack must be checked against the run it actually confirms.
 
@@ -959,7 +991,10 @@ def _requirement_verifications():
 
 def _watch_unit_test_names():
     names = set()
-    for filename in ("DetectorTest.mc", "SelectionTest.mc"):
+    test_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "connectiq", "test")
+    for filename in sorted(os.listdir(test_dir)):
+        if not filename.endswith(".mc"):
+            continue
         source = _read_source("connectiq", "test", filename)
         names |= set(re.findall(r"\(:test\)\s*\nfunction (\w+)", source))
     return names

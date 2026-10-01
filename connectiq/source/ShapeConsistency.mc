@@ -40,6 +40,13 @@ class ShapeConsistency {
     private var _head as Number;
     private var _samples as Number;
 
+    // Scratch for score(), allocated once: the history unrolled newest first,
+    // plus per-sample energy. Allocating these every second churned the heap.
+    private var _ax as Array<Float>;
+    private var _ay as Array<Float>;
+    private var _az as Array<Float>;
+    private var _e as Array<Float>;
+
     // Highpass state per axis: x[n-1], x[n-2], y[n-1], y[n-2].
     private var _hpX as Array<Float>;
     private var _hpY as Array<Float>;
@@ -62,6 +69,10 @@ class ShapeConsistency {
             _histY[i] = 0.0f;
             _histZ[i] = 0.0f;
         }
+        _ax = new [HISTORY] as Array<Float>;
+        _ay = new [HISTORY] as Array<Float>;
+        _az = new [HISTORY] as Array<Float>;
+        _e = new [HISTORY] as Array<Float>;
         _head = 0;
         _samples = 0;
         _hpX = [0.0f, 0.0f, 0.0f, 0.0f] as Array<Float>;
@@ -113,10 +124,10 @@ class ShapeConsistency {
 
     private function score() as Float {
         // Newest first: ax[k] is the sample k steps back.
-        var ax = new [HISTORY] as Array<Float>;
-        var ay = new [HISTORY] as Array<Float>;
-        var az = new [HISTORY] as Array<Float>;
-        var e = new [HISTORY] as Array<Float>;
+        var ax = _ax;
+        var ay = _ay;
+        var az = _az;
+        var e = _e;
         for (var k = 0; k < HISTORY; k++) {
             var i = (_head - 1 - k + HISTORY) % HISTORY;
             ax[k] = _histX[i];

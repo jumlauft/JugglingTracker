@@ -28,6 +28,9 @@ class MainView extends WatchUi.View {
     // was last drawn, with detection silently stopped: pressing Start/Stop
     // then Continue, or Start/Stop mid-run, both routed through such a menu.
     private var _sensorActive as Boolean;
+    // True when the accelerometer could not be registered. The screen then
+    // shows a sensor error instead of a count that would stay at 0 (SENS-4).
+    private var _sensorError as Boolean;
 
     // Timer that fires if a sync attempt does not complete within SYNC_TIMEOUT_MS.
     private var _syncTimer as Timer.Timer?;
@@ -78,6 +81,7 @@ class MainView extends WatchUi.View {
         Communications.registerForPhoneAppMessages(method(:onPhoneMessage));
 
         _sensorActive = false;
+        _sensorError = false;
         startSensor();
     }
 
@@ -99,8 +103,11 @@ class MainView extends WatchUi.View {
             };
             Sensor.registerSensorDataListener(self.method(:onSensor), options);
             _sensorActive = true;
+            _sensorError = false;
         } catch (ex) {
             System.println("Sensor registration error: " + ex.getErrorMessage());
+            _sensorError = true;
+            WatchUi.requestUpdate();
         }
     }
 
@@ -129,6 +136,11 @@ class MainView extends WatchUi.View {
             var fontH = dc.getFontHeight(Graphics.FONT_MEDIUM);
             var y = (dc.getHeight() / 2) - (fontH / 2);
             dc.drawText(dc.getWidth() / 2, y, Graphics.FONT_MEDIUM, syncText, Graphics.TEXT_JUSTIFY_CENTER);
+            return;
+        }
+
+        if (_sensorError) {
+            drawSensorError(dc);
             return;
         }
 
@@ -194,6 +206,20 @@ class MainView extends WatchUi.View {
             dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
             dc.drawText(cx, dc.getHeight() - statsH * 2, Graphics.FONT_XTINY, _errorMsg, Graphics.TEXT_JUSTIFY_CENTER);
         }
+    }
+
+    // Shown instead of the tracking screen when the accelerometer could not
+    // be registered (SENS-4). Short lines so it fits the smallest round
+    // screens. Keep the wording in step with wearos SensorErrorScreen.
+    private function drawSensorError(dc as Dc) as Void {
+        var cx = dc.getWidth() / 2;
+        var titleH = dc.getFontHeight(Graphics.FONT_MEDIUM);
+        var hintH = dc.getFontHeight(Graphics.FONT_XTINY);
+        var y = dc.getHeight() / 2 - (titleH + hintH) / 2;
+        dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_MEDIUM, "Sensor error", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y + titleH, Graphics.FONT_XTINY, "Restart the app", Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     public function onSensor(sensorData as Sensor.SensorData) as Void {

@@ -6,6 +6,8 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -20,6 +22,7 @@ import com.juggling.tracker.wear.platform.AndroidWatchEffects
 import com.juggling.tracker.wear.platform.DataLayerPhoneLink
 import com.juggling.tracker.wear.platform.HandlerScheduler
 import com.juggling.tracker.wear.ui.WearApp
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -37,6 +40,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var link: DataLayerPhoneLink
     private lateinit var navigator: AppNavigator
     private lateinit var accelerometer: AccelerometerSource
+    // True when the accelerometer is missing or would not start, so the
+    // tracking screens show an error instead of a count stuck at 0 (SENS-4).
+    private val sensorFailed = MutableStateFlow(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,7 +62,10 @@ class MainActivity : ComponentActivity() {
 
         accelerometer = AccelerometerSource(getSystemService(SensorManager::class.java), ::onSamples)
 
-        setContent { WearApp(navigator) }
+        setContent {
+            val failed by sensorFailed.collectAsState()
+            WearApp(navigator, sensorFailed = failed)
+        }
 
         // The sensor runs only while a tracking screen is showing and the app
         // is visible. start() is idempotent, so re-showing never double-registers.
@@ -65,9 +74,11 @@ class MainActivity : ComponentActivity() {
                 try {
                     navigator.screen.collect { screen ->
                         if (screen is Screen.Tracker || screen is Screen.Recording) {
-                            if (!accelerometer.start()) {
+                            val started = accelerometer.start()
+                            if (!started) {
                                 Log.e(TAG, "No accelerometer available")
                             }
+                            sensorFailed.value = !started
                         } else {
                             accelerometer.stop()
                         }

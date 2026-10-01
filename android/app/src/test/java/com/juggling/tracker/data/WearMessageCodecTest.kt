@@ -32,6 +32,16 @@ class WearMessageCodecTest {
     }
 
     @Test
+    fun `a full 1000-sample wear chunk keeps every sample`() {
+        val values = (0 until 1000).map { -16_000 + it }
+        val array = values.joinToString(",", "[", "]")
+        val json = """{"type":"rec_chunk","id":1700000000,"i":2,"x":$array,"y":$array,"z":$array}"""
+        val payload = WearMessageCodec.decode(json.toByteArray())!!
+        assertEquals(values, payload["x"])
+        assertEquals(values, payload["z"])
+    }
+
+    @Test
     fun `malformed messages decode to null`() {
         assertNull(WearMessageCodec.decode("not json".toByteArray()))
         assertNull(WearMessageCodec.decode("[1,2,3]".toByteArray()))
