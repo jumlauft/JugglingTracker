@@ -175,6 +175,11 @@ class JugglingViewModel(
     private val rawAccelY = mutableListOf<Int>()
     private val rawAccelZ = mutableListOf<Int>()
     private var rawRecordingStartedAtMillis: Long? = null
+    // Sensor timestamps of the first and last captured sample, so the saved
+    // file carries the rate the accelerometer actually delivered rather than
+    // the rate requested from it, which Android treats only as a hint.
+    private var rawFirstSampleNanos: Long? = null
+    private var rawLastSampleNanos: Long? = null
 
     private var phoneDetector: JugglingDetector? = null
     private var phoneSessionStartedAtMillis: Long? = null
@@ -442,6 +447,8 @@ class JugglingViewModel(
         rawAccelX.clear()
         rawAccelY.clear()
         rawAccelZ.clear()
+        rawFirstSampleNanos = null
+        rawLastSampleNanos = null
         rawRecordingStartedAtMillis = System.currentTimeMillis()
 
         // Run the detector during capture so the UI can show a live count.
@@ -464,7 +471,7 @@ class JugglingViewModel(
             balls = rawRecordingState.selectedBallCount,
             catches = actualCatches,
             detected = detected,
-            sampleRate = 200, // Phone target rate is 200Hz
+            sampleRate = measuredSampleRate(rawAccelX.size, rawFirstSampleNanos, rawLastSampleNanos),
             timestamp = timestamp / 1000L, // store as epoch seconds to match watch
             accelX = rawAccelX,
             accelY = rawAccelY,
@@ -482,6 +489,8 @@ class JugglingViewModel(
         rawAccelX.clear()
         rawAccelY.clear()
         rawAccelZ.clear()
+        rawFirstSampleNanos = null
+        rawLastSampleNanos = null
         phoneDetector = null
     }
 
@@ -521,6 +530,8 @@ class JugglingViewModel(
             rawAccelX.add(mx)
             rawAccelY.add(my)
             rawAccelZ.add(mz)
+            if (rawFirstSampleNanos == null) rawFirstSampleNanos = timestampNanos
+            rawLastSampleNanos = timestampNanos
             rawRecordingState = rawRecordingState.copy(sampleCount = rawAccelX.size)
         }
 
@@ -679,5 +690,21 @@ class JugglingViewModel(
         const val FROZEN_SENSOR_SECONDS = 5L
         const val FROZEN_SENSOR_SAMPLES =
             (FROZEN_SENSOR_SECONDS * JugglingDetector.SAMPLE_RATE).toInt()
+
+        /** The rate MainActivity asks the accelerometer for, in Hz. */
+        const val PHONE_REQUESTED_SAMPLE_RATE = 200
+
+        /**
+         * The whole-Hz rate [count] samples arrived at between the sensor
+         * timestamps of the first and last. Falls back to the requested rate
+         * when there are too few samples, or no time between them, to measure.
+         */
+        fun measuredSampleRate(count: Int, firstNanos: Long?, lastNanos: Long?): Int {
+            if (count < 2 || firstNanos == null || lastNanos == null || lastNanos <= firstNanos) {
+                return PHONE_REQUESTED_SAMPLE_RATE
+            }
+            val rate = (count - 1) * 1_000_000_000.0 / (lastNanos - firstNanos)
+            return Math.round(rate).toInt().coerceAtLeast(1)
+        }
     }
 }

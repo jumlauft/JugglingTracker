@@ -166,4 +166,27 @@ class WearAppEmulatorTest {
         compose.runOnUiThread { phone.ack(phone.sent.first()["id"] as Long) }
         compose.onNodeWithTag(Tags.REC_STATUS).assertTextEquals("Ready to record")
     }
+
+    @Test
+    fun aMissingSensorShowsAnErrorInsteadOfAZeroCount() {
+        compose.setContent { WearApp(navigator, sensorFailed = true) }
+        click(Tags.START)
+        click(Tags.START)
+        compose.onNodeWithTag(Tags.SENSOR_ERROR).assertTextEquals("Sensor error")
+        compose.onNodeWithText("Restart the app").assertIsDisplayed()
+        Emulator.screenshot("11_sensor_error")
+        // End still leads out of the session.
+        click(Tags.START)
+        compose.onNodeWithTag(Tags.MENU_TITLE).assertIsDisplayed()
+    }
+
+    @Test
+    fun aMissingSensorLeavesNothingToRecord() {
+        compose.setContent { WearApp(navigator, sensorFailed = true) }
+        click(Tags.UP)
+        click(Tags.START)
+        click(Tags.START)
+        compose.onNodeWithTag(Tags.SENSOR_ERROR).assertIsDisplayed()
+        compose.onNodeWithTag(Tags.START).assertDoesNotExist()
+    }
 }

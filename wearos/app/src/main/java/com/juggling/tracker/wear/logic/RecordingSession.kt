@@ -52,9 +52,12 @@ class RecordingSession(
         const val MAX_RUN_SAMPLES = 3000 // 120 s at 25 Hz (REC-2)
         const val SYNC_TIMEOUT_MS = 10_000L
         const val STATUS_TICK_MS = 1_000L
-        // Measured on the Garmin link: per-message cost is flat to ~150
-        // integers, so 50 samples (150 integers) per chunk (REC-5).
-        const val CHUNK_SAMPLES = 50
+        // The Garmin sends 50 samples per chunk because its link slows down
+        // past ~150 integers (REC-5). A Data Layer message carries up to
+        // ~100 KB and costs about the same whatever its size, so here a chunk
+        // is 1000 samples, about 21 KB of JSON at worst: a full 120 s run
+        // goes over in 3 chunks instead of 60.
+        const val CHUNK_SAMPLES = 1000
         const val NEXT_PART_DELAY_MS = 50L
 
         const val MENU_DISCARD = "rec_discard"
@@ -291,7 +294,7 @@ class RecordingSession(
         attemptSync()
     }
 
-    /** The part due next: header, one chunk per 50 samples, then the end marker. */
+    /** The part due next: header, one chunk per [CHUNK_SAMPLES] samples, then the end marker. */
     private fun buildPart(): Map<String, Any> {
         if (!headerSent) {
             return mapOf(

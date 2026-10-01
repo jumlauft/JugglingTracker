@@ -55,6 +55,16 @@ class WatchProtocolTest {
     }
 
     @Test
+    fun `a full 1000-sample wear chunk keeps every sample`() {
+        val values = (0 until 1000).map { -16_000 + it }
+        val array = values.joinToString(",", "[", "]")
+        val json = """{"type":"rec_chunk","id":1700000000,"i":2,"x":$array,"y":$array,"z":$array}"""
+        val payload = WatchProtocol.decode(json.toByteArray())!!
+        assertEquals(values, payload["x"])
+        assertEquals(values, payload["z"])
+    }
+
+    @Test
     fun `the ack echoes the timestamp when there is one`() {
         val withTs = JSONObject(String(WatchProtocol.encodeAck(1_700_000_000L)))
         assertEquals("ack", withTs.getString("type"))
