@@ -101,7 +101,7 @@ Controls, once a ball count is chosen:
 - On the labeling screen, **Up/Down** adjust the detected count to the true watch-hand count, **Start** confirms and transmits, **Back** discards the run after a confirmation.
 - **Back** on the idle *Press Start* screen returns to ball selection. While recording it offers to quit the app, and while a run is syncing it does nothing.
 
-A confirmed run transfers in chunks of 50 samples: a `rec_start` header, one `rec_chunk` per batch, then `rec_end`, which the phone acknowledges once it has handled the run. A failed transfer offers retry, skip, or quit. The Android app writes each run through `RecordingRepository` in the same format as `connectiq/data/`, so files can be copied straight into the corpus.
+A confirmed run transfers in chunks of 50 samples on the Garmin and 1000 on Wear OS: a `rec_start` header, one `rec_chunk` per batch, then `rec_end`, which the phone acknowledges once it has handled the run. A failed transfer offers retry, skip, or quit. The Android app writes each run through `RecordingRepository` in the same format as `connectiq/data/`, so files can be copied straight into the corpus.
 
 One run per file, named by its run id, starting with a metadata header:
 
@@ -111,7 +111,7 @@ x,y,z
 ...
 ```
 
-`catches` is the ground-truth label. `detectedAtCapture` is what the detector counted when the run was recorded — a historical result, not a property of the measurement, so it goes stale whenever the detector changes. `source` is `watch` (25 Hz) or `phone` (labelled 200 Hz, the rate the phone app requests from its accelerometer). `juggler`, `hand` (`left` or `right`, the wrist wearing the watch) and `firstThrow` (`left` or `right`, the hand that made the first throw, which may or may not wear the watch) are asked for when the phone app exports recordings; the phone stores runs without them and adds them to the exported copies.
+`catches` is the ground-truth label. `detectedAtCapture` is what the detector counted when the run was recorded — a historical result, not a property of the measurement, so it goes stale whenever the detector changes. `source` is `watch` (25 Hz) or `phone`. `sampleRate` is the rate in whole Hz: 25 for the watch, and for phone runs the rate the accelerometer actually delivered, measured from the first and last sample's sensor timestamps (the app requests 200 Hz, but Android treats that only as a hint, so phones differ). Phone runs saved before this was measured are labelled 200. `juggler`, `hand` (`left` or `right`, the wrist wearing the watch) and `firstThrow` (`left` or `right`, the hand that made the first throw, which may or may not wear the watch) are asked for when the phone app exports recordings; the phone stores runs without them and adds them to the exported copies.
 
 ## Communication Payloads
 
@@ -125,7 +125,7 @@ Finished sessions:
 
 `shapeConsistency` is the session's Regularity as a whole percent. It is left out until a run has been long enough to score.
 
-Raw recordings, sent as a header, then one message per chunk of 50 samples, then an end marker:
+Raw recordings, sent as a header, then one message per chunk of samples (50 from the Garmin, 1000 from Wear OS), then an end marker:
 
 ```json
 { "type": "rec_start", "id": 1790195504, "countMode": "watch_hand", "balls": 5, "catches": 94, "detected": 93, "sampleRate": 25, "samples": 1500, "chunks": 30, "timestamp": 1790195504 }

@@ -134,13 +134,13 @@ class RecordingSessionTest {
     // ── REC-5 ─────────────────────────────────────────────────────────
 
     @Test
-    fun `REC-5 runs transfer as rec_start, one chunk per 50 samples, then rec_end`() {
+    fun `REC-5 runs transfer as rec_start, one chunk per CHUNK_SAMPLES samples, then rec_end`() {
         recordRun(3)
         val samples = state.recordedSamples
         session.onStart()
         deliverAllParts()
 
-        val chunks = (samples + 49) / 50
+        val chunks = (samples + RecordingSession.CHUNK_SAMPLES - 1) / RecordingSession.CHUNK_SAMPLES
         assertEquals(listOf("rec_start") + List(chunks) { "rec_chunk" } + "rec_end", link.types)
 
         val start = link.sent.first()
@@ -165,7 +165,28 @@ class RecordingSessionTest {
         assertEquals(RecordingPhase.IDLE, state.phase)
     }
 
-    // ── REC-6 ─────────────────────────────────────────────────────────
+    @Test
+    fun `REC-5 a full-length run goes over in 3 chunks that fit a Data Layer message`() {
+        session.onStart()
+        // Six-digit readings on every axis, well past what the sensor reports,
+        // so this bounds the largest chunk the watch can ever send.
+        val loud = (0 until RecordingSession.MAX_RUN_SAMPLES).map {
+            AccelSample(-99_999, -99_999, -99_999, it * Feeds.PERIOD_MS)
+        }
+        feed(loud)
+        session.onStart() // label screen
+        session.onStart() // confirm
+        deliverAllParts()
+
+        val chunks = link.sent.filter { it["type"] == "rec_chunk" }
+        assertEquals(3, chunks.size)
+        assertEquals(3, link.sent.first()["chunks"])
+        // A Data Layer message carries up to about 100 KB; keep half of that spare.
+        val largest = chunks.maxOf { WatchProtocol.encode(it).size }
+        assertTrue("largest chunk is $largest bytes", largest < 50_000)
+    }
+
+    // ── REC-6─────────────────────────────────────────────────────────
 
     @Test
     fun `REC-6 a late failure from a skipped run does not fail the next one`() {
