@@ -17,7 +17,7 @@ import Toybox.Math;
 // each run by its windows and is reported as a whole percentage.
 //
 // Reference: simulation/shape_consistency.py. Keep in step with it and with
-// wearos/.../logic/ShapeConsistency.kt.
+// shared/.../ShapeConsistency.kt.
 class ShapeConsistency {
     private const SAMPLE_PERIOD_MS = 40;
     private const WINDOW = 50;

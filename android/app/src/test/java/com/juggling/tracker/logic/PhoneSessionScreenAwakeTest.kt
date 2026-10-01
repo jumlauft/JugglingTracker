@@ -1,6 +1,7 @@
 package com.juggling.tracker.logic
 
 import com.juggling.tracker.MainDispatcherRule
+import com.juggling.tracker.shared.JugglingDetector
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -30,7 +31,7 @@ class PhoneSessionScreenAwakeTest {
 
     private companion object {
         const val GRAVITY = 9.80665
-        const val PERIOD_NANOS = PhoneJugglingDetector.SAMPLE_PERIOD_MS * 1_000_000L
+        const val PERIOD_NANOS = JugglingDetector.SAMPLE_PERIOD_MS * 1_000_000L
         const val START_NANOS = 1_000_000_000L
 
         /** Committed bursts alternate hands, so five bursts are three catches. */
@@ -57,7 +58,7 @@ class PhoneSessionScreenAwakeTest {
             viewModel.shouldKeepScreenOn,
         )
 
-        var tNanos = feedBaseline(viewModel, START_NANOS, PhoneJugglingDetector.WARMUP_SAMPLES + 30)
+        var tNanos = feedBaseline(viewModel, START_NANOS, JugglingDetector.WARMUP_SAMPLES + 30)
         repeat(BURSTS_FOR_A_REAL_RUN) { burst ->
             tNanos = feedBurst(viewModel, tNanos)
             assertTrue(
@@ -78,7 +79,7 @@ class PhoneSessionScreenAwakeTest {
         val viewModel = JugglingViewModel()
         viewModel.startPhoneSession(3, startedAtMillis = 0L)
 
-        var tNanos = feedBaseline(viewModel, START_NANOS, PhoneJugglingDetector.WARMUP_SAMPLES + 30)
+        var tNanos = feedBaseline(viewModel, START_NANOS, JugglingDetector.WARMUP_SAMPLES + 30)
         repeat(BURSTS_FOR_A_REAL_RUN) { tNanos = feedBurst(viewModel, tNanos) }
 
         assertTrue(

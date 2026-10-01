@@ -1,6 +1,7 @@
 package com.juggling.tracker.logic
 
 import com.juggling.tracker.MainDispatcherRule
+import com.juggling.tracker.shared.JugglingDetector
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.*
@@ -13,7 +14,7 @@ import org.junit.Test
 class JugglingViewModelTest {
     private companion object {
         const val GRAVITY = 9.80665
-        const val PERIOD_MS = PhoneJugglingDetector.SAMPLE_PERIOD_MS
+        const val PERIOD_MS = JugglingDetector.SAMPLE_PERIOD_MS
     }
 
     @get:Rule
@@ -458,7 +459,7 @@ class JugglingViewModelTest {
     @Test
     fun `stop phone session saves detected runs in session history`() = runTest {
         viewModel.startPhoneSession(ballCount = 3, startedAtMillis = 100_000L)
-        var sampleMs = feedPhoneBaseline(0L, PhoneJugglingDetector.WARMUP_SAMPLES + 30)
+        var sampleMs = feedPhoneBaseline(0L, JugglingDetector.WARMUP_SAMPLES + 30)
         // Five bursts are three watch-hand catches, which clears
         // MIN_RUN_CATCHES; anything shorter is dropped as a false start.
         repeat(5) { sampleMs = feedPhoneBurst(sampleMs) }
@@ -485,7 +486,7 @@ class JugglingViewModelTest {
         }
 
         viewModel.startPhoneSession(ballCount = 3, startedAtMillis = 100_000L)
-        var sampleMs = feedPhoneBaseline(0L, PhoneJugglingDetector.WARMUP_SAMPLES + 30)
+        var sampleMs = feedPhoneBaseline(0L, JugglingDetector.WARMUP_SAMPLES + 30)
         // Three watch-hand catches, so the run survives MIN_RUN_CATCHES and
         // there is actually a session to save.
         repeat(5) { sampleMs = feedPhoneBurst(sampleMs) }
@@ -503,7 +504,7 @@ class JugglingViewModelTest {
     @Test
     fun `a phone session of only false starts saves nothing`() = runTest {
         viewModel.startPhoneSession(ballCount = 3, startedAtMillis = 100_000L)
-        var sampleMs = feedPhoneBaseline(0L, PhoneJugglingDetector.WARMUP_SAMPLES + 30)
+        var sampleMs = feedPhoneBaseline(0L, JugglingDetector.WARMUP_SAMPLES + 30)
         // Two catches: a drop, not a run.
         sampleMs = feedPhoneBurst(sampleMs)
         sampleMs = feedPhoneBurst(sampleMs)

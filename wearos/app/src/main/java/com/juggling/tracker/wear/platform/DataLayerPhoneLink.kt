@@ -9,7 +9,7 @@ import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.Wearable
 import com.juggling.tracker.wear.logic.PhoneLink
-import com.juggling.tracker.wear.logic.WatchProtocol
+import com.juggling.tracker.shared.WatchProtocol
 
 /**
  * [PhoneLink] over the Wear OS Data Layer. A message goes to the paired phone

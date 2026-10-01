@@ -62,10 +62,9 @@ there.
 ## DET — catch detection
 
 The detector is a single pipeline over the accelerometer stream. It is ported
-to Python (`../simulation/eval_new_watch.py`) and Kotlin
-(`../android/.../PhoneJugglingDetector.kt`), and the Wear OS app in
-`../wearos` carries a line-for-line Kotlin port (`JugglingDetector.kt`);
-**all of them must stay in sync.** The Wear OS app implements this whole
+to Python (`../simulation/eval_new_watch.py`) and line for line to Kotlin
+(`../shared/.../JugglingDetector.kt`), which the phone app and the Wear OS app
+in `../wearos` both build in; **all of them must stay in sync.** The Wear OS app implements this whole
 specification; `../wearos/README.md` maps each requirement to its tests there.
 
 **DET-1.** The accelerometer delivers samples in **milli-g including gravity**
@@ -398,13 +397,13 @@ The sensor, the timers and the phone-message listener are released first.
 
 ## Keeping this honest
 
-The four detector implementations — `source/JugglingDetector.mc`,
-`../wearos/.../logic/JugglingDetector.kt`,
-`../android/.../PhoneJugglingDetector.kt` and `../simulation/eval_new_watch.py`
-— must agree. `test_watch_params_match_detector_constants` pins the watch
-constants against the Python reference, and `DetectorCorpusTest` (Wear OS) and
-`PhoneDetectorCorpusTest` (phone) replay the same recordings through the Kotlin
-ports.
+The three detector implementations — `source/JugglingDetector.mc`,
+`../shared/.../JugglingDetector.kt` (phone and Wear OS) and
+`../simulation/eval_new_watch.py` — must agree.
+`test_watch_params_match_detector_constants` pins the watch constants against
+the Python reference, and `DetectorCorpusTest` (milli-g input, as the watches
+feed it) and `PhoneInputCorpusTest` (m/s² input, as the phone feeds it) in
+`../shared` replay the same recordings through the Kotlin port.
 
 When behaviour changes on purpose, change this document in the same commit as
 the code, and move the requirement's test with it.

@@ -6,8 +6,8 @@ import android.util.Log
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
-import com.juggling.tracker.data.WearMessageCodec
 import com.juggling.tracker.logic.WatchInbox
+import com.juggling.tracker.shared.WatchProtocol
 import com.juggling.tracker.util.CrashlyticsUtils
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -28,8 +28,8 @@ class WatchMessageService : WearableListenerService() {
     private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onMessageReceived(event: MessageEvent) {
-        if (event.path != WearMessageCodec.PATH_WATCH_TO_PHONE) return
-        val payload = WearMessageCodec.decode(event.data) ?: return
+        if (event.path != WatchProtocol.PATH_WATCH_TO_PHONE) return
+        val payload = WatchProtocol.decode(event.data) ?: return
         val inbox = (application as JugglingTrackerApplication).watchInbox
         val nodeId = event.sourceNodeId
 
@@ -53,7 +53,7 @@ class WatchMessageService : WearableListenerService() {
     private fun sendAck(nodeId: String, timestamp: Long?) {
         try {
             Wearable.getMessageClient(applicationContext)
-                .sendMessage(nodeId, WearMessageCodec.PATH_PHONE_TO_WATCH, WearMessageCodec.encodeAck(timestamp))
+                .sendMessage(nodeId, WatchProtocol.PATH_PHONE_TO_WATCH, WatchProtocol.encodeAck(timestamp))
                 .addOnFailureListener { e -> Log.e(TAG, "Error sending Wear OS ACK", e) }
         } catch (e: Exception) {
             Log.e(TAG, "Error sending Wear OS ACK", e)

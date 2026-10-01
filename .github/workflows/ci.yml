@@ -25,8 +25,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out
-        # Full checkout, not just android/: PhoneDetectorCorpusTest and
-        # PhoneSessionPipelineTest replay the recordings in connectiq/data/.
+        # Full checkout, not just android/: the app builds in ../shared, and
+        # the shared corpus tests and PhoneSessionPipelineTest replay the
+        # recordings in connectiq/data/.
         uses: actions/checkout@v7
 
       - name: Set up JDK 17
@@ -53,6 +54,13 @@ jobs:
         # they gate every pull request without an emulator.
         run: ./gradlew testDebugUnitTest
 
+      - name: Shared module tests
+        working-directory: android
+        # The detector, Regularity and protocol code in ../shared that both
+        # apps build in. Run once here; the Wear OS job builds against it too.
+        if: ${{ !cancelled() }}
+        run: ./gradlew :shared:test
+
       - name: Compile instrumented tests
         working-directory: android
         # The androidTest suite needs a device, which this runner has not got,
@@ -76,6 +84,7 @@ jobs:
           path: |
             android/app/build/reports/tests/
             android/app/build/reports/lint-results-debug.html
+            shared/build/reports/tests/
           if-no-files-found: ignore
 
   wearos:
@@ -83,7 +92,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out
-        # Full checkout: the tests replay the recordings in connectiq/data/.
+        # Full checkout: the app builds in ../shared, and the tests replay the
+        # recordings in connectiq/data/.
         uses: actions/checkout@v7
 
       - name: Set up JDK 17

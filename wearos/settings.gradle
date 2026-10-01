@@ -15,3 +15,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "JugglingTrackerWear"
 include ":app"
+
+// Detector, Regularity and watch-phone protocol, shared with the other app.
+include ":shared"
+project(":shared").projectDir = file("../shared")

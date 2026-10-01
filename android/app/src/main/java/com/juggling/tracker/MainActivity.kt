@@ -23,8 +23,8 @@ import com.google.android.gms.wearable.Wearable
 import com.juggling.tracker.logic.GarminConnectionStatus
 import com.juggling.tracker.logic.JugglingViewModel
 import com.juggling.tracker.logic.WearConnectionStatus
-import com.juggling.tracker.data.WearMessageCodec
 import com.juggling.tracker.sensor.PhoneAccelerometerSource
+import com.juggling.tracker.shared.WatchProtocol
 import com.juggling.tracker.ui.JugglingTrackerApp
 import com.juggling.tracker.ui.theme.JugglingTrackerTheme
 
@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity() {
         // The Wear OS watch app's messages arrive in WatchMessageService, even
         // with this screen closed. Here only the card's status is followed.
         Wearable.getCapabilityClient(this)
-            .addListener(wearCapabilityListener, WearMessageCodec.WATCH_CAPABILITY)
+            .addListener(wearCapabilityListener, WatchProtocol.WATCH_CAPABILITY)
             .addOnFailureListener { e -> Log.w(TAG, "Cannot watch the Wear OS capability", e) }
     }
 
@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
     private fun refreshWearStatus() {
         val nodes = Wearable.getNodeClient(this).connectedNodes
         val capable = Wearable.getCapabilityClient(this)
-            .getCapability(WearMessageCodec.WATCH_CAPABILITY, CapabilityClient.FILTER_REACHABLE)
+            .getCapability(WatchProtocol.WATCH_CAPABILITY, CapabilityClient.FILTER_REACHABLE)
         Tasks.whenAllComplete(nodes, capable).addOnCompleteListener(this) {
             val status = WearConnectionStatus.classify(
                 connectedWatches = if (nodes.isSuccessful) nodes.result.size else null,

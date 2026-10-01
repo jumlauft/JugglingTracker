@@ -31,9 +31,9 @@ applyTo: "android/**/*.kt"
 - ACK shape: `{ "type": "ack", "timestamp": Long? }`. The timestamp is included when available so the watch can match it to the pending send.
 
 ## Wear OS Data Layer
-- The Wear OS watch app (`../wearos`) sends the same payloads as the Garmin app, as UTF-8 JSON messages on `/juggling_tracker/watch_message`; `WatchMessageService` (a `WearableListenerService`, so it runs with the app closed) decodes them with `WearMessageCodec` and hands them to the same `WatchInbox` as Garmin messages.
+- The Wear OS watch app (`../wearos`) sends the same payloads as the Garmin app, as UTF-8 JSON messages on `/juggling_tracker/watch_message`; `WatchMessageService` (a `WearableListenerService`, so it runs with the app closed) decodes them with `WatchProtocol` from `../shared` and hands them to the same `WatchInbox` as Garmin messages.
 - The `ack` goes back to the sending node on `/juggling_tracker/phone_message`.
-- The phone advertises the `juggling_tracker_phone` capability in `res/values/wear.xml`, and the watch advertises `juggling_tracker_watch`, which drives the Wear OS status card. Keep the paths and capability names equal to `wearos/.../logic/WatchProtocol.kt`.
+- The phone advertises the `juggling_tracker_phone` capability in `res/values/wear.xml`, and the watch advertises `juggling_tracker_watch`, which drives the Wear OS status card. The paths and capability names live in `../shared/.../WatchProtocol.kt`, which both apps use.
 - The Data Layer only connects apps with the same `applicationId` and signing key, so the watch app's `applicationId` is also `com.juggling.tracker`.
 
 ## Error Handling

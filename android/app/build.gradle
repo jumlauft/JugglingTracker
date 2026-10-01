@@ -79,6 +79,9 @@ android {
 }
 
 dependencies {
+    // Catch detector, Regularity and the watch-phone protocol, in ../shared.
+    implementation project(':shared')
+
     // Garmin Connect IQ Mobile SDK for Android, published on Maven Central.
     implementation "com.garmin.connectiq:ciq-companion-app-sdk:2.4.0@aar"
 
