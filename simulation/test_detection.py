@@ -956,10 +956,10 @@ def test_every_watch_unit_test_backs_a_requirement():
 
 # ── Shape consistency (SHAPE-*) ──────────────────────────────────────────
 # simulation/shape_consistency.py is the reference for ShapeConsistency.mc and
-# the Wear OS ShapeConsistency.kt. The labelled runs in regularity_data were
+# the shared Kotlin ShapeConsistency.kt. The labelled runs in regularity_data were
 # juggled on purpose as regular or messy.
 
-# Session score of each labelled run. The Wear OS ShapeConsistencyTest reads
+# Session score of each labelled run. The shared ShapeConsistencyTest reads
 # this table, so the Kotlin port must reproduce it exactly.
 EXPECTED_SHAPE = [
     ("20260930_184904", "regular-low", 90),
@@ -1050,8 +1050,8 @@ def test_shape_constants_match_on_every_watch():
     """Window, lags and cadence are the same in the reference and both watches."""
     import shape_consistency as ref
     mc = _read_source("connectiq", "source", "ShapeConsistency.mc")
-    kt = _read_source("wearos", "app", "src", "main", "java", "com", "juggling", "tracker",
-                      "wear", "logic", "ShapeConsistency.kt")
+    kt = _read_source("shared", "src", "main", "java", "com", "juggling", "tracker",
+                      "shared", "ShapeConsistency.kt")
     for name in ("WINDOW", "MIN_LAG", "MAX_LAG", "SCORE_EVERY", "MAX_PENDING"):
         value = getattr(ref, name)
         assert re.search(rf"const {name} = {value};", mc), f"{name} in ShapeConsistency.mc"

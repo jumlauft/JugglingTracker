@@ -1,20 +1,22 @@
-package com.juggling.tracker.logic
+package com.juggling.tracker.shared
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.io.File
 
 /**
- * Replays real recorded runs from `connectiq/data` through PhoneJugglingDetector
- * and checks it counts what the reference implementations count.
+ * Replays real recorded runs from `connectiq/data` through JugglingDetector's
+ * m/s² entry point, the way the phone app feeds it, with the idle auto-finish
+ * running between samples, and checks it counts what the reference
+ * implementations count.
  *
- * The rest of PhoneJugglingDetectorTest drives the detector with synthetic
+ * PhoneInputDetectorTest drives the same entry point with synthetic
  * bursts, which verifies the clustering bookkeeping but cannot catch the
  * detector disagreeing with `JugglingDetector.mc` / `eval_new_watch.py` on real
  * juggling. The expected counts here are the ones pinned by
  * `simulation/test_detection.py` for the same recordings.
  */
-class PhoneDetectorCorpusTest {
+class PhoneInputCorpusTest {
 
     private data class Run(val x: List<Double>, val y: List<Double>, val z: List<Double>)
 
@@ -48,12 +50,12 @@ class PhoneDetectorCorpusTest {
 
     /** Feed a whole run at the detector's own 40 ms sample period. */
     private fun detect(run: Run, balls: Int): Int {
-        val detector = PhoneJugglingDetector(balls)
+        val detector = JugglingDetector(balls)
         var t = 0L
         for (i in run.x.indices) {
-            detector.processSample(run.x[i], run.y[i], run.z[i], t)
+            detector.processSampleMs2(run.x[i], run.y[i], run.z[i], t)
             detector.checkAutoFinish(t)
-            t += PhoneJugglingDetector.SAMPLE_PERIOD_MS
+            t += JugglingDetector.SAMPLE_PERIOD_MS
         }
         // A candidate raised by the final samples is still inside its merge
         // window when the data runs out, so it sits pending and uncounted.

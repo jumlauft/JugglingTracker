@@ -8,15 +8,17 @@ table below says which test covers each requirement here.
 
 ## Layout
 
+- `../shared/` - the catch detector (`JugglingDetector.kt`, a line-for-line
+  port of `JugglingDetector.mc`), the Regularity score (`ShapeConsistency.kt`,
+  a port of `ShapeConsistency.mc`) and the Data Layer paths and JSON payload
+  codec (`WatchProtocol.kt`). The phone app builds in the same module, so both
+  apps run one copy.
 - `app/src/main/java/com/juggling/tracker/wear/`
   - `logic/` - everything with behaviour, in plain Kotlin with no Android
     types, so it runs as ordinary JVM tests:
-    - `JugglingDetector.kt` - line-for-line port of `JugglingDetector.mc`.
-    - `ShapeConsistency.kt` - port of `ShapeConsistency.mc`, the Regularity score.
     - `TrackerSession.kt` - Juggle mode (`MainView.mc`): runs, menus, sync.
     - `RecordingSession.kt` - Record mode (`RecordingView.mc`).
     - `AppNavigator.kt` - mode and ball selection, and button routing.
-    - `WatchProtocol.kt` - Data Layer paths and the JSON payload codec.
     - `SampleThrottle.kt` - thins the sensor stream to 25 Hz on a fixed 40 ms grid.
     - `Format.kt` - display strings, identical to what the Garmin draws.
     - `Platform.kt` - the interfaces the sessions use for timers, the clock,
@@ -81,15 +83,17 @@ them, download that artifact from a green run and replace the files.
 cd wearos
 ./gradlew assembleDebug             # build
 ./gradlew testDebugUnitTest         # logic tests + Compose UI tests (Robolectric)
+./gradlew :shared:test              # detector, Regularity and protocol tests
 ./gradlew connectedDebugAndroidTest # on a Wear OS emulator or watch
 ```
 
-CI runs all three, the last on a Wear OS emulator (API 30, large round), and
+CI runs all of these (the shared tests in the Android job), the last on a Wear OS emulator (API 30, large round), and
 uploads screenshots of each step as the `wear-emulator-screenshots` artifact.
 
 ## Requirement coverage
 
-`logic/` tests live in `app/src/test/.../logic`, the Robolectric UI tests in
+`logic/` tests live in `app/src/test/.../logic`, the detector, Regularity and
+protocol tests in `../shared/src/test`, the Robolectric UI tests in
 `app/src/test/.../ui/WearAppTest.kt`, and the emulator tests in
 `app/src/androidTest`.
 

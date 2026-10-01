@@ -11,7 +11,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeRight
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.juggling.tracker.wear.logic.AppNavigator
-import com.juggling.tracker.wear.logic.JugglingDetector
+import com.juggling.tracker.shared.JugglingDetector
 import com.juggling.tracker.wear.logic.MonotonicClock
 import com.juggling.tracker.wear.logic.RecordingSession
 import com.juggling.tracker.wear.logic.Screen

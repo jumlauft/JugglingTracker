@@ -39,7 +39,7 @@ import com.juggling.tracker.logic.WearConnectionStatus
 import com.juggling.tracker.data.SessionRepository
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.data.SettingsManager
-import com.juggling.tracker.data.WearMessageCodec
+import com.juggling.tracker.shared.WatchProtocol
 import com.juggling.tracker.ui.JugglingTrackerApp
 import com.juggling.tracker.ui.theme.JugglingTrackerTheme
 import com.google.firebase.analytics.FirebaseAnalytics
@@ -139,7 +139,7 @@ class MainActivity : ComponentActivity() {
         Wearable.getMessageClient(this).addListener(wearMessageListener)
             .addOnFailureListener { e -> Log.w(TAG, "Wear OS Data Layer unavailable", e) }
         Wearable.getCapabilityClient(this)
-            .addListener(wearCapabilityListener, WearMessageCodec.WATCH_CAPABILITY)
+            .addListener(wearCapabilityListener, WatchProtocol.WATCH_CAPABILITY)
             .addOnFailureListener { e -> Log.w(TAG, "Cannot watch the Wear OS capability", e) }
     }
 
@@ -153,7 +153,7 @@ class MainActivity : ComponentActivity() {
     private fun refreshWearStatus() {
         val nodes = Wearable.getNodeClient(this).connectedNodes
         val capable = Wearable.getCapabilityClient(this)
-            .getCapability(WearMessageCodec.WATCH_CAPABILITY, CapabilityClient.FILTER_REACHABLE)
+            .getCapability(WatchProtocol.WATCH_CAPABILITY, CapabilityClient.FILTER_REACHABLE)
         Tasks.whenAllComplete(nodes, capable).addOnCompleteListener(this) {
             val status = WearConnectionStatus.classify(
                 connectedWatches = if (nodes.isSuccessful) nodes.result.size else null,
@@ -419,8 +419,8 @@ class MainActivity : ComponentActivity() {
     // Garmin one, so it goes through the same handler; only the ack travels
     // back over the Data Layer to the node that sent it.
     private val wearMessageListener = MessageClient.OnMessageReceivedListener { event ->
-        if (event.path != WearMessageCodec.PATH_WATCH_TO_PHONE) return@OnMessageReceivedListener
-        val payload = WearMessageCodec.decode(event.data) ?: return@OnMessageReceivedListener
+        if (event.path != WatchProtocol.PATH_WATCH_TO_PHONE) return@OnMessageReceivedListener
+        val payload = WatchProtocol.decode(event.data) ?: return@OnMessageReceivedListener
         handleWatchPayload(payload, fromGarmin = false) { timestamp ->
             sendWearAck(event.sourceNodeId, timestamp)
         }
@@ -496,7 +496,7 @@ class MainActivity : ComponentActivity() {
     private fun sendWearAck(nodeId: String, timestamp: Long?) {
         try {
             Wearable.getMessageClient(this)
-                .sendMessage(nodeId, WearMessageCodec.PATH_PHONE_TO_WATCH, WearMessageCodec.encodeAck(timestamp))
+                .sendMessage(nodeId, WatchProtocol.PATH_PHONE_TO_WATCH, WatchProtocol.encodeAck(timestamp))
                 .addOnFailureListener { e -> Log.e(TAG, "Error sending Wear OS ACK", e) }
         } catch (e: Exception) {
             Log.e(TAG, "Error sending Wear OS ACK", e)

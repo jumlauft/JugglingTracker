@@ -2,7 +2,7 @@
 Shape consistency: how alike each hand cycle is to the one before it.
 
 Reference implementation of `connectiq/source/ShapeConsistency.mc` and
-`wearos/.../logic/ShapeConsistency.kt`. Keep the three in step.
+`shared/.../ShapeConsistency.kt`. Keep the three in step.
 
 Every sample is highpassed per axis (the detector's 0.7 Hz filter, which also
 removes gravity) and kept in a short history. Once a second during a run, the

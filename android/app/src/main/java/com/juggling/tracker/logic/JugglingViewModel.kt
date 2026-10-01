@@ -10,6 +10,7 @@ import com.juggling.tracker.data.SessionRepository
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.data.SettingsManager
 import com.juggling.tracker.data.WatchType
+import com.juggling.tracker.shared.JugglingDetector
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
@@ -175,7 +176,7 @@ class JugglingViewModel(
     private val rawAccelZ = mutableListOf<Int>()
     private var rawRecordingStartedAtMillis: Long? = null
 
-    private var phoneDetector: PhoneJugglingDetector? = null
+    private var phoneDetector: JugglingDetector? = null
     private var phoneSessionStartedAtMillis: Long? = null
     private var phoneSessionStartSampleMillis: Long? = null
     private var phoneLastProcessedSampleMillis: Long? = null
@@ -444,7 +445,7 @@ class JugglingViewModel(
         rawRecordingStartedAtMillis = System.currentTimeMillis()
 
         // Run the detector during capture so the UI can show a live count.
-        phoneDetector = PhoneJugglingDetector(balls)
+        phoneDetector = JugglingDetector(balls)
         phoneSessionStartSampleMillis = null
         phoneLastProcessedSampleMillis = null
     }
@@ -494,7 +495,7 @@ class JugglingViewModel(
     fun startPhoneSession(ballCount: Int, startedAtMillis: Long = System.currentTimeMillis()) {
         val sanitizedBallCount = ballCount.coerceIn(3, 9)
 
-        phoneDetector = PhoneJugglingDetector(sanitizedBallCount)
+        phoneDetector = JugglingDetector(sanitizedBallCount)
         phoneSessionStartedAtMillis = startedAtMillis
         phoneSessionStartSampleMillis = null
         phoneLastProcessedSampleMillis = null
@@ -528,7 +529,7 @@ class JugglingViewModel(
 
         val sampleMs = timestampNanos / 1_000_000L
         val lastProcessed = phoneLastProcessedSampleMillis
-        if (lastProcessed != null && sampleMs - lastProcessed < PhoneJugglingDetector.SAMPLE_PERIOD_MS) {
+        if (lastProcessed != null && sampleMs - lastProcessed < JugglingDetector.SAMPLE_PERIOD_MS) {
             return
         }
 
@@ -545,7 +546,7 @@ class JugglingViewModel(
         }
 
         val oldCount = detector.currentCount
-        detector.processSample(ax, ay, az, sampleMs)
+        detector.processSampleMs2(ax, ay, az, sampleMs)
         val newCount = detector.currentCount
         detector.checkAutoFinish(sampleMs)
         
@@ -677,6 +678,6 @@ class JugglingViewModel(
         /** Seconds of an unchanging accelerometer before calling it broken. */
         const val FROZEN_SENSOR_SECONDS = 5L
         const val FROZEN_SENSOR_SAMPLES =
-            (FROZEN_SENSOR_SECONDS * PhoneJugglingDetector.SAMPLE_RATE).toInt()
+            (FROZEN_SENSOR_SECONDS * JugglingDetector.SAMPLE_RATE).toInt()
     }
 }

@@ -39,7 +39,7 @@ applyTo: "connectiq/**/*.mc"
 - True peak detection: threshold-crossing on the filtered signal with hysteresis (signal must drop below `threshold × 0.3` before re-arming). The strongest filtered peak in a burst represents the catch motion.
 - Auto-finish after 2s without a committed candidate burst. Do not refresh the finish timer from low-level filtered motion; otherwise the user has to hold the watch hand too still after a run.
 - 25-sample warmup before detection begins.
-- `simulation/eval_new_watch.py` must mirror `JugglingDetector.mc`; update both plus `simulation/test_detection.py`, `wearos/.../logic/JugglingDetector.kt` and `android/.../PhoneJugglingDetector.kt` whenever parameters or detection semantics change.
+- `simulation/eval_new_watch.py` must mirror `JugglingDetector.mc`; update both plus `simulation/test_detection.py`, and `shared/.../JugglingDetector.kt` (phone and Wear OS) whenever parameters or detection semantics change.
 - Delayed burst clustering must only flush a pending candidate when the filtered signal is no longer above threshold. Flushing while `_above` is true can split one physical catch motion into multiple counts.
 
 ## Communication Protocol

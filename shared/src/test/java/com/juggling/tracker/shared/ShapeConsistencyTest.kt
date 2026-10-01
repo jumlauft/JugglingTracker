@@ -1,4 +1,4 @@
-package com.juggling.tracker.wear.logic
+package com.juggling.tracker.shared
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -121,11 +121,5 @@ class ShapeConsistencyTest {
         tracker.discardLastRun()
         assertTrue(tracker.sessionPercent() >= 99)
         assertTrue(mixed < 99)
-    }
-
-    @Test
-    fun `SHAPE-4 the screen shows a percentage or a dash`() {
-        assertEquals("-", Format.percentOrDash(-1))
-        assertEquals("83%", Format.percentOrDash(83))
     }
 }

@@ -1,6 +1,7 @@
 package com.juggling.tracker.logic
 
 import com.juggling.tracker.MainDispatcherRule
+import com.juggling.tracker.shared.JugglingDetector
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -14,7 +15,7 @@ import java.io.File
  * `startPhoneSession` then `processPhoneSample` per sample -- the way
  * MainActivity's SensorEventListener does on the device.
  *
- * PhoneDetectorCorpusTest proves the detector counts real juggling correctly
+ * PhoneInputCorpusTest (in ../shared) proves the detector counts real juggling correctly
  * when fed directly. This covers everything between the sensor callback and the
  * detector: the 25 Hz throttle, the timestamp handling, and the UI state the
  * screen reads. A phone session that stays on "Ready" forever fails here.
@@ -78,7 +79,7 @@ class PhoneSessionPipelineTest {
 
         // Android hands out SensorEvent.timestamp in nanoseconds since boot.
         var tNanos = 1_000_000_000L
-        val perCorpusSample = PhoneJugglingDetector.SAMPLE_PERIOD_MS / PHONE_SAMPLE_PERIOD_MS
+        val perCorpusSample = JugglingDetector.SAMPLE_PERIOD_MS / PHONE_SAMPLE_PERIOD_MS
         for ((ax, ay, az) in samples) {
             for (i in 0 until perCorpusSample) {
                 viewModel.processPhoneSample(ax, ay, az, tNanos)

@@ -7,7 +7,7 @@ import android.hardware.SensorManager
 import android.os.Handler
 import android.os.Looper
 import com.juggling.tracker.wear.logic.AccelSample
-import com.juggling.tracker.wear.logic.JugglingDetector
+import com.juggling.tracker.shared.JugglingDetector
 import com.juggling.tracker.wear.logic.SampleThrottle
 
 /**

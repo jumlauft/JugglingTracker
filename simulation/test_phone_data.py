@@ -1,8 +1,8 @@
-"""Simulate the Android PhoneJugglingDetector on phone-recorded accelerometer CSVs.
+"""Simulate the phone app's detector on phone-recorded accelerometer CSVs.
 
-Exact Python port of
-android/app/src/main/java/com/juggling/tracker/logic/PhoneJugglingDetector.kt
-(200 Hz pipeline). Used to validate the Kotlin algorithm offline and to tune
+Exact Python port of the phone detector's early 200 Hz pipeline (then
+android/.../PhoneJugglingDetector.kt; the phone now uses the 25 Hz
+shared/.../JugglingDetector.kt). Used to validate the Kotlin algorithm offline and to tune
 its detection parameters.
 
 Usage:
