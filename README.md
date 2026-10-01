@@ -17,7 +17,11 @@ Juggling tracker focused on a single counting hand. Two watch apps, one for Garm
   - `manifest.xml`, `monkey.jungle`, `resources/` - Connect IQ configuration and assets.
 - `wearos/` - Wear OS watch app, a Kotlin/Compose port of the Garmin app with the same behaviour. It sends sessions and recordings to the Android app over the Wear OS Data Layer. See `wearos/README.md`.
 - `android/` - Android companion app in Kotlin and Jetpack Compose.
-  - `MainActivity.kt` - Garmin Connect IQ SDK integration, the Wear OS Data Layer listener, permissions, the phone accelerometer listener, and message routing.
+  - `MainActivity.kt` - permissions, the phone accelerometer listener, and the watch cards' status.
+  - `JugglingTrackerApplication.kt` - one repository, inbox and Garmin link per app process, shared by the screens and the Wear OS listener.
+  - `GarminLink.kt` - Garmin Connect IQ SDK integration; it lives as long as the app process, not the screen.
+  - `WatchMessageService.kt` - receives the Wear OS watch's messages; Google Play services starts it, so the phone app does not have to be open.
+  - `logic/WatchInbox.kt` - stores what either watch sends and decides whether it gets its `ack`.
   - `logic/JugglingViewModel.kt` - UI/session state, imports, CSV export, voice events.
   - `logic/PhoneJugglingDetector.kt` - phone IMU detector mirroring the watch catch-detection state machine.
   - `data/SessionRepository.kt` - SharedPreferences persistence for finished sessions.
@@ -36,20 +40,23 @@ flowchart LR
     A[Garmin accelerometer, 25 Hz] --> B[JugglingDetector.mc]
     B --> C[MainView watch-hand run/session state]
     C -->|session payload| D[Garmin Connect IQ channel]
-    D --> E[MainActivity]
+    D --> GL[GarminLink]
+    GL --> E[WatchInbox]
     W[Wear OS accelerometer, thinned to 25 Hz] --> X[JugglingDetector.kt]
     X --> Y[TrackerSession]
     Y -->|same payload as JSON| Z[Wear OS Data Layer]
-    Z --> E
-    E --> F[JugglingViewModel]
+    Z --> WS[WatchMessageService]
+    WS --> E
+    E --> G[SessionRepository]
+    E -->|stored| F[JugglingViewModel]
     P[Phone accelerometer, 25 Hz effective] --> Q[PhoneJugglingDetector]
     Q --> F
-    F --> G[SessionRepository]
-    E -->|ack| D
-    E -->|ack| Z
+    F --> G
+    GL -->|ack once stored| D
+    WS -->|ack once stored| Z
 ```
 
-The watch is the session controller for watch sessions, on Garmin and Wear OS alike. The phone listens, stores the received watch-hand catch counts, session duration and Regularity, and sends an `ack`; the watch only exits after receiving that acknowledgement or after the user explicitly quits without syncing. The phone app has to be open to receive: its listeners live in `MainActivity`. Phone IMU sessions are controlled entirely in the Android app and are saved through the same session repository.
+The watch is the session controller for watch sessions, on Garmin and Wear OS alike. The phone listens, stores the received watch-hand catch counts, session duration and Regularity, and only then sends an `ack`; the watch only exits after receiving that acknowledgement or after the user explicitly quits without syncing. A session keeps one timestamp, so ending it again after Continue replaces the phone's copy instead of adding a second one. Receiving lives in the app process, not a screen: a Wear OS watch can sync with the phone app closed, because Google Play services starts it for the message. A Garmin watch needs the phone app running, which it stays after its screen is closed for as long as Android keeps it in memory. Phone IMU sessions are controlled entirely in the Android app and are saved through the same session repository.
 
 ### Watch Detection
 
@@ -296,7 +303,7 @@ With a Garmin watch:
 2. Install the Connect IQ watch app on the watch.
 3. Install and open the Android app; grant Bluetooth permissions. Settings > Watch is Garmin by default.
 4. Start the watch app, choose Juggle and the ball count, and juggle normally.
-5. Press Start/Stop and choose *Sync and quit* when finished, with the phone app open.
+5. Press Start/Stop and choose *Sync and quit* when finished. The phone app has to be running; if the sync fails, open it and choose *Retry sync*.
 
 With a Wear OS watch:
 
@@ -304,7 +311,7 @@ With a Wear OS watch:
 2. Install the Android app on the phone and the Wear OS app on the watch (from the Play Store on the watch).
 3. Open the Android app and pick Wear OS under Settings > Watch.
 4. Open the watch app, choose Juggle and the ball count, and juggle normally.
-5. Tap End and choose *Sync and quit* when finished, with the phone app open.
+5. Tap End and choose *Sync and quit* when finished. The phone app does not have to be open.
 
 Alternatively, open the Android app, tap the phone button next to the watch status card, choose the ball count, start recording, and save when finished. Hold the phone in the counting hand for phone IMU sessions.
 
