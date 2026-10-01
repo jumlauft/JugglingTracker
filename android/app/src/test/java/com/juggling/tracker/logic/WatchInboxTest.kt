@@ -130,6 +130,17 @@ class WatchInboxTest {
     }
 
     @Test
+    fun `a run is saved with whoever is juggling`() {
+        val ada = RecordingRepository.Juggler("Ada", RecordingRepository.HAND_LEFT, RecordingRepository.HAND_RIGHT)
+        val tagged = WatchInbox(sessions, recordings) { ada }
+        tagged.receive(recStart(samples = 2, chunks = 1), WatchInbox.Source.WEAR_OS)
+        tagged.receive(recChunk(0, listOf(1, 2)), WatchInbox.Source.WEAR_OS)
+        tagged.receive(recEnd(), WatchInbox.Source.WEAR_OS)
+
+        assertEquals(ada, recordings.listRecordings().single().juggler)
+    }
+
+    @Test
     fun `a run with a lost chunk is not acked, and the watch's resend is`() {
         inbox.receive(recStart(samples = 4, chunks = 2), WatchInbox.Source.WEAR_OS)
         inbox.receive(recChunk(1, listOf(3, 4)), WatchInbox.Source.WEAR_OS)  // chunk 0 never came
