@@ -304,9 +304,12 @@ fun SessionDetailsDialog(session: SessionSummary, onDismiss: () -> Unit) {
                     StatItem(stringResource(R.string.stat_avg), "%.1f".format(session.avgThrows))
                     StatItem(stringResource(R.string.stat_max), session.bestRun.toString())
                     StatItem(stringResource(R.string.stat_total), session.totalThrows.toString())
-                    session.shapeConsistency?.let {
-                        StatItem(stringResource(R.string.label_regularity), stringResource(R.string.format_percent, it))
-                    }
+                    // Sessions from before the watches sent Regularity, or too short to score, show n/a.
+                    StatItem(
+                        stringResource(R.string.label_regularity),
+                        session.shapeConsistency?.let { stringResource(R.string.format_percent, it) }
+                            ?: stringResource(R.string.value_not_available)
+                    )
                 }
 
                 if (session.runDurationsMillis.isNotEmpty()) {

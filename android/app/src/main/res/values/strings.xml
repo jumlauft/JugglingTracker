@@ -101,6 +101,7 @@
     <string name="label_average">Average</string>
     <string name="label_regularity">Regularity</string>
     <string name="format_percent">%1$d%%</string>
+    <string name="value_not_available">n/a</string>
 
     <string name="format_balls_tab">%1$d Balls</string>
     <string name="format_session_summary">%1$d balls • %2$d runs • %3$d catches</string>
