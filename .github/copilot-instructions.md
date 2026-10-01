@@ -14,7 +14,11 @@ Juggling tracker with two watch apps and a phone app: a Garmin watch app and a W
 - `wearos/` — Wear OS watch app, a Kotlin/Compose port of the Garmin app. Behaviour lives in plain-Kotlin `logic/` (Juggle and Record sessions, navigation) on top of `shared/` and follows `connectiq/REQUIREMENTS.md`; it talks to the phone over the Wear OS Data Layer with the same payloads as the Garmin app. See `wearos/README.md`.
 - `shared/` — plain-Kotlin module both `android/` and `wearos/` include as `:shared`: `JugglingDetector.kt` and `ShapeConsistency.kt` (keep them in sync with the Monkey C and Python versions) and `WatchProtocol.kt` (Data Layer paths, capability names and the JSON codec). Test with `./gradlew :shared:test` from either app.
 - `android/` — Kotlin/Compose Android app.
-  - `MainActivity.kt` — Garmin Connect IQ SDK integration, the Wear OS Data Layer listener, permissions, the phone accelerometer listener, message routing.
+  - `MainActivity.kt` — Permissions, the phone accelerometer listener, the watch cards' status.
+  - `JugglingTrackerApplication.kt` — One repository, `WatchInbox` and `GarminLink` per process, shared by the screens and `WatchMessageService`.
+  - `GarminLink.kt` — Garmin Connect IQ SDK integration, process-scoped so a recreated screen cannot drop a transfer.
+  - `WatchMessageService.kt` — `WearableListenerService` for the Wear OS watch's messages; it receives with the app closed.
+  - `logic/WatchInbox.kt` — Stores every watch message and decides the `ack`: only what was stored is acked.
   - `logic/JugglingViewModel.kt` — State management, session import, CSV export.
   - `data/SessionRepository.kt` — Persistence layer (in-memory cache + SharedPreferences with manual JSON).
   - `data/RecordingRepository.kt` — Raw recording CSV storage and zip export.
@@ -26,9 +30,9 @@ Juggling tracker with two watch apps and a phone app: a Garmin watch app and a W
 
 ### Communication flow
 
-Garmin: watch accelerometer (25 Hz) → `JugglingDetector` (burst-clustered watch-hand catch detection) → `MainView` (run/session state) → `Communications.transmit()` → `MainActivity` (Garmin SDK) → `JugglingViewModel` → `SessionRepository`. The phone sends an `ack` back; the watch only exits after receiving it.
+Garmin: watch accelerometer (25 Hz) → `JugglingDetector` (burst-clustered watch-hand catch detection) → `MainView` (run/session state) → `Communications.transmit()` → `GarminLink` (Garmin SDK) → `WatchInbox` → `SessionRepository`, with `JugglingViewModel` following the inbox's events. The phone sends an `ack` back only once the session is stored; the watch only exits after receiving it.
 
-Wear OS: accelerometer thinned to 25 Hz → `JugglingDetector.kt` (shared) → `TrackerSession` → `DataLayerPhoneLink` (JSON over the Data Layer) → `MainActivity` → the same import path. The `ack` goes back over the Data Layer to the sending watch.
+Wear OS: accelerometer thinned to 25 Hz → `JugglingDetector.kt` (shared) → `TrackerSession` → `DataLayerPhoneLink` (JSON over the Data Layer) → `WatchMessageService` → the same `WatchInbox`. The `ack` goes back over the Data Layer to the sending watch.
 
 Recording mode uses `RecordingView` (Wear OS: `RecordingSession`) to capture raw accelerometer samples. Start begins and ends each run; Back returns to ball selection while idle, offers to quit while recording, offers to discard while labeling, and is ignored while syncing. The user corrects the detected count to the true watch-hand count, then the run transfers as `rec_start` / `rec_chunk` × N / `rec_end` and the Android app writes it through `RecordingRepository` in the same CSV format as `connectiq/data/`.
 
@@ -86,4 +90,4 @@ python eval_new_watch.py
 - Error handling: Always log exceptions. Android uses `Log.e(TAG, message, exception)` or `Log.w(TAG, message, exception)`. Watch uses `System.println()`. Never swallow exceptions silently.
 - Persistence: `SharedPreferences` with manual JSON serialization via `org.json.JSONArray`/`JSONObject` and `buildSessionJson()`. No ORM or serialization library.
 - The watch is the sole controller of a watch session; the phone only listens and records. Phone IMU sessions are the exception: the phone app runs those itself.
-- Session deduplication is by timestamp.
+- A session's timestamp is its identity. The watch keeps one per session (SYNC-5), and a resend under the same timestamp replaces the stored copy.

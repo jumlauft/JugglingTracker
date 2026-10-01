@@ -28,7 +28,8 @@ applyTo: ["android/**/test/**/*.kt", "android/**/androidTest/**/*.kt", "wearos/*
 
 ## What to Test
 - ViewModel: session import (happy path, missing fields, duplicate timestamps, empty runs, edge cases).
-- Repository: save/load cycle, JSON round-trip, deduplication, corruption recovery.
+- Repository: save/load cycle, JSON round-trip, a resend under the same timestamp replacing the stored copy, corruption recovery.
+- Watch inbox: only what was stored is acked (sessions and complete runs), never a payload that could not be read or a run with a lost chunk.
 - Recording repository: single-run CSV save, zip export with the juggler/hand/firstThrow header fields, empty export, delete behavior.
 - Watch-hand catch detection algorithm: threshold behavior, candidate refractory periods, delayed burst clustering, alternating watch-hand burst counting, auto-finish, warmup, adaptive thresholds, watch/Python parameter parity, and overcount regression.
 - Message parsing: valid payloads, malformed payloads, missing fields, wrong types.

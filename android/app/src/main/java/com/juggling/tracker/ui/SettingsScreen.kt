@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -55,6 +56,34 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
                 Toast.makeText(context, context.getString(R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    // Recordings are training data that exists nowhere else, so deleting them is asked about first.
+    var showClearRecordingsConfirmation by remember { mutableStateOf(false) }
+    if (showClearRecordingsConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showClearRecordingsConfirmation = false },
+            title = { Text(stringResource(R.string.dialog_clear_recordings_title)) },
+            text = {
+                Text(pluralStringResource(R.plurals.dialog_clear_recordings_text, viewModel.recordingCount, viewModel.recordingCount))
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.clearRecordings()
+                        showClearRecordingsConfirmation = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(stringResource(R.string.action_delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearRecordingsConfirmation = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
     }
 
     // The export waiting on the juggler's name, watch hand and first-throw hand, asked for first.
@@ -199,7 +228,7 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             }
 
             OutlinedButton(
-                onClick = { viewModel.clearRecordings() },
+                onClick = { showClearRecordingsConfirmation = true },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
             ) {
