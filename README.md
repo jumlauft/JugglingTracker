@@ -2,25 +2,28 @@
 
 [![CI](https://github.com/jumlauft/JugglingTracker/actions/workflows/ci.yml/badge.svg)](https://github.com/jumlauft/JugglingTracker/actions/workflows/ci.yml)
 
-Two-platform juggling tracker focused on a single counting hand. A Garmin Forerunner 245 watch app counts watch-hand catches from accelerometer data, stores runs for the active watch session, and sends finished sessions to an Android companion app for storage, charts, CSV export, and developer-only algorithm recording workflows. The Android app can also record sessions directly from the phone accelerometer when the phone is held in the counting hand. Counts are not both-hands totals.
+Juggling tracker focused on a single counting hand. Two watch apps, one for Garmin Connect IQ watches (developed on a Forerunner 245) and one for Wear OS, count watch-hand catches from accelerometer data, keep the runs of the current session, and send finished sessions to an Android companion app for storage, charts, CSV export, and algorithm recording workflows. The Android app can also record sessions directly from the phone accelerometer when the phone is held in the counting hand. Counts are not both-hands totals.
 
 ## Project Structure
 
-- `connectiq/` - Garmin Connect IQ watch app in Monkey C.
+- `connectiq/` - Garmin Connect IQ watch app in Monkey C. Its behaviour is specified in `connectiq/REQUIREMENTS.md`, and `connectiq/test/` holds its unit tests (`run_tests.sh`).
   - `source/JugglingTrackerApp.mc` - app entry point.
-  - `source/ModeSelectView.mc` - developer-only chooser for normal tracking vs recording mode, hidden in customer startup.
+  - `source/ModeSelectView.mc` - Juggle or Record chooser, shown at startup while `ENABLE_RECORDING_MODE` is `true` (it is, in released builds).
   - `source/BallSelectView.mc` - choose 3-9 balls before a run.
   - `source/JugglingDetector.mc` - watch-hand catch detection algorithm.
-  - `source/MainView.mc` - normal tracking UI, sensor listener, session sync.
-  - `source/RecordingView.mc` - developer-only raw accelerometer capture and labeling mode.
+  - `source/ShapeConsistency.mc` - the Regularity score, how alike each hand cycle is to the one before it.
+  - `source/MainView.mc` - Juggle mode: tracking UI, sensor listener, session sync.
+  - `source/RecordingView.mc` - Record mode: raw accelerometer capture and labeling.
   - `manifest.xml`, `monkey.jungle`, `resources/` - Connect IQ configuration and assets.
 - `wearos/` - Wear OS watch app, a Kotlin/Compose port of the Garmin app with the same behaviour. It sends sessions and recordings to the Android app over the Wear OS Data Layer. See `wearos/README.md`.
 - `android/` - Android companion app in Kotlin and Jetpack Compose.
-  - `MainActivity.kt` - Garmin Connect IQ SDK integration, permissions, message routing.
+  - `MainActivity.kt` - Garmin Connect IQ SDK integration, the Wear OS Data Layer listener, permissions, the phone accelerometer listener, and message routing.
   - `logic/JugglingViewModel.kt` - UI/session state, imports, CSV export, voice events.
   - `logic/PhoneJugglingDetector.kt` - phone IMU detector mirroring the watch catch-detection state machine.
   - `data/SessionRepository.kt` - SharedPreferences persistence for finished sessions.
-  - `data/RecordingRepository.kt` - raw recording CSV persistence/export.
+  - `data/RecordingRepository.kt` - raw recording CSV persistence and zip export.
+  - `data/WearMessageCodec.kt` - JSON codec and Data Layer paths for the Wear OS watch.
+  - `data/SettingsManager.kt` - settings: watch type, voice, analytics, and the export details.
   - `ui/` - Compose screens, session cards, charts, tracker/settings UI.
   - `model/` - session/run data classes.
 - `connectiq/data/` - labeled accelerometer recordings used to tune and verify detection, one run per file named `YYYYMMDD_HHMMSS.csv`.
@@ -30,18 +33,23 @@ Two-platform juggling tracker focused on a single counting hand. A Garmin Foreru
 
 ```mermaid
 flowchart LR
-    A[FR245 accelerometer, 25 Hz] --> B[JugglingDetector]
+    A[Garmin accelerometer, 25 Hz] --> B[JugglingDetector.mc]
     B --> C[MainView watch-hand run/session state]
     C -->|session payload| D[Garmin Connect IQ channel]
     D --> E[MainActivity]
-    P[Phone accelerometer, 25 Hz effective] --> Q[PhoneJugglingDetector]
-    Q --> E
+    W[Wear OS accelerometer, thinned to 25 Hz] --> X[JugglingDetector.kt]
+    X --> Y[TrackerSession]
+    Y -->|same payload as JSON| Z[Wear OS Data Layer]
+    Z --> E
     E --> F[JugglingViewModel]
+    P[Phone accelerometer, 25 Hz effective] --> Q[PhoneJugglingDetector]
+    Q --> F
     F --> G[SessionRepository]
-    E -->|ack| C
+    E -->|ack| D
+    E -->|ack| Z
 ```
 
-  The watch is the session controller for Garmin sessions. The phone listens, stores the received watch-hand catch counts and session duration, and sends an `ack`; the watch only exits after receiving that acknowledgement or after the user explicitly quits without syncing. Phone IMU sessions are controlled entirely in the Android app and are saved through the same session repository.
+The watch is the session controller for watch sessions, on Garmin and Wear OS alike. The phone listens, stores the received watch-hand catch counts, session duration and Regularity, and sends an `ack`; the watch only exits after receiving that acknowledgement or after the user explicitly quits without syncing. The phone app has to be open to receive: its listeners live in `MainActivity`. Phone IMU sessions are controlled entirely in the Android app and are saved through the same session repository.
 
 ### Watch Detection
 
@@ -67,13 +75,13 @@ Current burst-clustering parameters:
 
 6 has its own bucket because six throws land harder and closer together than five, so the peak that marks a catch clears a higher bar. 7+ has its own because its cadence is distinctly faster than 5-ball, and it was previously run on parameters fitted entirely to 5-ball data.
 
-`simulate_watch()` in `simulation/eval_new_watch.py` is the shared Python implementation of the algorithm above, and the table is what `simulation/test_detection.py` feeds it through its own `WATCH_PARAMS`, so the locked corpus baseline reflects these values. Keep the table, `connectiq/source/JugglingDetector.mc`, `android/.../PhoneJugglingDetector.kt`, `simulation/test_detection.py`, and `.github/instructions/connectiq-monkeyc.instructions.md` in sync when changing detector behavior or parameters.
+`simulate_watch()` in `simulation/eval_new_watch.py` is the shared Python implementation of the algorithm above, and the table is what `simulation/test_detection.py` feeds it through its own `WATCH_PARAMS`, so the locked corpus baseline reflects these values. Keep the table, `connectiq/source/JugglingDetector.mc`, `wearos/.../logic/JugglingDetector.kt`, `android/.../PhoneJugglingDetector.kt`, `simulation/test_detection.py`, and `.github/instructions/connectiq-monkeyc.instructions.md` in sync when changing detector behavior or parameters. The Wear OS `DetectorCorpusTest` and the phone `PhoneDetectorCorpusTest` replay the corpus through the Kotlin ports and require the counts `test_detection.py` pins.
 
 `eval_new_watch.py` keeps a second copy of the table in `CURRENT_WATCH_PARAMS`, which is what `params_for_balls()` and the sweep's tie-breaker read, and what `rhythm_gate.py` imports. `test_detection.py::test_evaluator_params_match_the_tested_watch_params` pins it to the values above so the two cannot drift apart unnoticed again — they did once, when the evaluator kept folding 6 balls onto the 5-ball parameters after the watch had shipped a separate bucket.
 
 ### Phone IMU Sessions
 
-The tracker screen has a phone button next to the Garmin status. It opens a full-screen phone tracker where the user selects the ball count, starts recording, juggles while holding the phone in the counting hand, then saves the finished session. The Android detector mirrors the watch burst-clustering/counting algorithm and processes phone accelerometer samples at an effective 25 Hz so the stored `runs`, `durationSeconds`, and `runDurationsMillis` match the watch session shape.
+The tracker screen has a phone button next to the watch status card. It opens a full-screen phone tracker where the user selects the ball count, starts recording, juggles while holding the phone in the counting hand, then saves the finished session. The Android detector mirrors the watch burst-clustering/counting algorithm and processes phone accelerometer samples at an effective 25 Hz so the stored `runs`, `durationSeconds`, and `runDurationsMillis` match the watch session shape.
 
 The screen is held awake for exactly as long as samples are being collected, driven by `JugglingViewModel.shouldKeepScreenOn`. `MainActivity.onPause` unregisters the sensor listener, and the display timeout calls `onPause` — juggling never touches the screen — so without this a session outlasting the timeout stopped counting silently and the gap in samples auto-finished the run in progress.
 
@@ -83,17 +91,17 @@ Phone sessions are stored in the same `SessionSummary` history as watch sessions
 
 **Recording mode ships enabled, deliberately.** It is how the labeled corpus grows: users capture runs, send them back through the Android app, and those recordings become the data every detector test runs against. The Connect IQ store description in `connectiq/PUBLISHING.md` advertises it as a feature.
 
-Setting `ENABLE_RECORDING_MODE` to `false` in `connectiq/source/JugglingTrackerApp.mc` skips the mode picker and starts users directly on ball selection. `test_detection.py::test_watch_startup_offers_recording_mode` pins the current value, so flipping it fails that test and forces the change to be deliberate. See requirement APP-1.
+Setting `ENABLE_RECORDING_MODE` to `false` in `connectiq/source/JugglingTrackerApp.mc` skips the mode picker and starts users directly on ball selection. `test_detection.py::test_watch_startup_offers_recording_mode` pins the current value, so flipping it fails that test and forces the change to be deliberate. See requirement APP-1. The Wear OS app has the same flag, `AppNavigator.ENABLE_RECORDING_MODE`, also `true` and pinned by `AppNavigatorTest`.
 
 > Earlier revisions of this file claimed the flag had to be turned off before release. That was wrong — it contradicted both the store listing and the test — and disabling it would have removed an advertised feature. Watch app 1.1.0 shipped with it on.
 
 Controls, once a ball count is chosen:
 
-- **Start** begins a run; **Start** again stops it. Runs are capped at 120 seconds, and end early if free memory runs low.
+- **Start** begins a run; **Start** again stops it. Runs are capped at 120 seconds, and on the Garmin they also end early if free memory runs low.
 - On the labeling screen, **Up/Down** adjust the detected count to the true watch-hand count, **Start** confirms and transmits, **Back** discards the run after a confirmation.
-- **Back** anywhere else offers to quit the app.
+- **Back** on the idle *Press Start* screen returns to ball selection. While recording it offers to quit the app, and while a run is syncing it does nothing.
 
-A confirmed run transfers in chunks of 50 samples: a `rec_start` header, one `rec_chunk` per batch, then `rec_end`, which the phone acknowledges once it has written the file. A failed transfer offers retry, skip, or quit. The Android app writes each run through `RecordingRepository` in the same format as `connectiq/data/`, so files can be copied straight into the corpus.
+A confirmed run transfers in chunks of 50 samples: a `rec_start` header, one `rec_chunk` per batch, then `rec_end`, which the phone acknowledges once it has handled the run. A failed transfer offers retry, skip, or quit. The Android app writes each run through `RecordingRepository` in the same format as `connectiq/data/`, so files can be copied straight into the corpus.
 
 One run per file, named by its run id, starting with a metadata header:
 
@@ -103,15 +111,19 @@ x,y,z
 ...
 ```
 
-`catches` is the ground-truth label. `detectedAtCapture` is what the detector counted when the run was recorded — a historical result, not a property of the measurement, so it goes stale whenever the detector changes. `source` is `watch` (25 Hz) or `phone` (200 Hz). `juggler`, `hand` (`left` or `right`, the wrist wearing the watch) and `firstThrow` (`left` or `right`, the hand that made the first throw, which may or may not wear the watch) are asked for when the phone app exports recordings; the phone stores runs without them and adds them to the exported copies.
+`catches` is the ground-truth label. `detectedAtCapture` is what the detector counted when the run was recorded — a historical result, not a property of the measurement, so it goes stale whenever the detector changes. `source` is `watch` (25 Hz) or `phone` (labelled 200 Hz, the rate the phone app requests from its accelerometer). `juggler`, `hand` (`left` or `right`, the wrist wearing the watch) and `firstThrow` (`left` or `right`, the hand that made the first throw, which may or may not wear the watch) are asked for when the phone app exports recordings; the phone stores runs without them and adds them to the exported copies.
 
 ## Communication Payloads
+
+Both watches send the same dictionaries. The Garmin app transmits them through Connect IQ; the Wear OS app encodes them as UTF-8 JSON and sends them over the Data Layer on `/juggling_tracker/watch_message`, and the phone answers on `/juggling_tracker/phone_message`.
 
 Finished sessions:
 
 ```json
-{ "type": "session", "countMode": "watch_hand", "balls": 3, "timestamp": 1780511578, "durationSeconds": 742, "runDurationsMillis": [8200, 5100, 10400], "runs": [17, 11, 21] }
+{ "type": "session", "countMode": "watch_hand", "balls": 3, "timestamp": 1780511578, "durationSeconds": 742, "runDurationsMillis": [8200, 5100, 10400], "runs": [17, 11, 21], "shapeConsistency": 86 }
 ```
+
+`shapeConsistency` is the session's Regularity as a whole percent. It is left out until a run has been long enough to score.
 
 Raw recordings, sent as a header, then one message per chunk of 50 samples, then an end marker:
 
@@ -133,8 +145,11 @@ Acknowledgement from phone to watch:
 
 `.github/workflows/ci.yml` runs on every pull request and on `main` after
 merge: the Android unit tests (Compose UI tests included), Android Lint (which
-fails the build on lint errors), a compile of the instrumented test suite, and
-the detection tests. Reports are uploaded as artifacts when a run fails.
+fails the build on lint errors), a compile of the instrumented test suite, the
+Wear OS unit and Robolectric tests, Wear OS Lint, a minified Wear OS release
+bundle, the Wear OS instrumented tests on an emulator (API 30, large round),
+and the detection tests. Reports are uploaded as artifacts when a run fails,
+and the Wear OS emulator screenshots on every run.
 
 The Compose UI tests run under Robolectric, in the unit test source set, so CI
 gates them without an emulator — which is what lets the UI effects be asserted
@@ -153,8 +168,10 @@ ground from the outside, by parsing `JugglingDetector.mc` to check its
 constants and by pinning `REQUIREMENTS.md` to the tests that verify it.
 
 `.github/workflows/release-android.yml` is separate and fires only on `v*`
-tags, which publishes the **Android** app to Google Play. Do not tag a watch
-release `v*`.
+tags. It publishes the **Android** phone app to the Play internal testing
+track and the **Wear OS** app to the Wear OS internal testing track of the same
+listing; see `android/PUBLISHING.md`. The Garmin app is not part of it, so do
+not tag a Garmin release `v*`.
 
 ### Android
 
@@ -170,6 +187,18 @@ cd android
 
 The first `test` run downloads a Robolectric framework jar (~170 MB per API
 level) into `~/.m2/repository/org/robolectric`; later runs reuse it.
+
+### Wear OS Watch
+
+```sh
+cd wearos
+./gradlew assembleDebug             # build
+./gradlew testDebugUnitTest         # logic tests + Compose UI tests (Robolectric)
+./gradlew connectedDebugAndroidTest # on a Wear OS emulator or watch
+```
+
+`wearos/README.md` maps each requirement in `connectiq/REQUIREMENTS.md` to the
+Wear OS test that covers it.
 
 ### Garmin Watch
 
@@ -198,20 +227,20 @@ python -m pytest test_detection.py -v
 python eval_new_watch.py
 ```
 
-`test_detection.py` locks the labeled-data detector baseline: 189 total absolute error and 69 total overcount error across 102 labeled runs / 2459 watch-hand catches. Every recording in `connectiq/data/` must have an entry in `EXPECTED_RUNS`, so adding data means adding its expected count there too.
+`test_detection.py` locks the labeled-data detector baseline: 203 total absolute error and 83 total overcount error across 108 labeled runs / 2554 watch-hand catches. Every recording in `connectiq/data/` must have an entry in `EXPECTED_RUNS`, so adding data means adding its expected count there too.
 
 Per-ball-count accuracy on that corpus:
 
 | Balls | Runs | Catches | Detected | Absolute error | Overcount | Undercount | Accuracy |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 3 | 14 | 343 | 337 | 16 | 5 | 11 | 95.3% |
+| 3 | 20 | 438 | 446 | 30 | 19 | 11 | 93.2% |
 | 4 | 13 | 291 | 282 | 11 | 1 | 10 | 96.2% |
 | 5 | 41 | 1345 | 1323 | 120 | 49 | 71 | 91.1% |
 | 6 | 11 | 215 | 216 | 11 | 6 | 5 | 94.9% |
 | 7+ | 23 | 265 | 250 | 31 | 8 | 23 | 88.3% |
-| **All** | **102** | **2459** | **2408** | **189** | **69** | **120** | **92.3%** |
+| **All** | **108** | **2554** | **2517** | **203** | **83** | **120** | **92.1%** |
 
-Accuracy is `1 - absolute error / catches`. The corpus undercounts on balance: net -51 catches (-2.1%), with undercounting making up 63% of all error and overcounting 37%. 6 balls is the second most accurate bucket, which is the case for it having parameters of its own; 7+ is the weakest and is almost entirely undercount.
+Accuracy is `1 - absolute error / catches`. The corpus undercounts on balance: net -37 catches (-1.4%), with undercounting making up 59% of all error and overcounting 41%. The six 3-ball runs from a second juggler, Moritz Wich, are overcounted by 14 in total, which is what moved the 3-ball row. 6 balls is the second most accurate bucket, which is the case for it having parameters of its own; 7+ is the weakest and is almost entirely undercount.
 
 ### Connect IQ Watch App
 
@@ -261,13 +290,23 @@ Resolve them against the `.prg.debug.xml` produced alongside the build the watch
 
 ## End-To-End Use
 
-1. Pair the Forerunner 245 with the phone in Garmin Connect.
-2. Install the Connect IQ watch app on the watch.
-3. Install and open the Android app; grant Bluetooth permissions.
-4. Start the watch app, choose the ball count, and juggle normally.
-5. Stop from the watch menu and choose sync when finished.
+With a Garmin watch:
 
-Alternatively, open the Android app, tap the phone button next to the Garmin status, choose the ball count, start recording, and save when finished. Hold the phone in the counting hand for phone IMU sessions.
+1. Pair the watch with the phone in Garmin Connect.
+2. Install the Connect IQ watch app on the watch.
+3. Install and open the Android app; grant Bluetooth permissions. Settings > Watch is Garmin by default.
+4. Start the watch app, choose Juggle and the ball count, and juggle normally.
+5. Press Start/Stop and choose *Sync and quit* when finished, with the phone app open.
+
+With a Wear OS watch:
+
+1. Pair the watch with the phone in its companion app.
+2. Install the Android app on the phone and the Wear OS app on the watch (from the Play Store on the watch).
+3. Open the Android app and pick Wear OS under Settings > Watch.
+4. Open the watch app, choose Juggle and the ball count, and juggle normally.
+5. Tap End and choose *Sync and quit* when finished, with the phone app open.
+
+Alternatively, open the Android app, tap the phone button next to the watch status card, choose the ball count, start recording, and save when finished. Hold the phone in the counting hand for phone IMU sessions.
 
 ## Security Note
 

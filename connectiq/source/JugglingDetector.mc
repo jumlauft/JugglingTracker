@@ -55,8 +55,8 @@ class JugglingDetector {
     private const HP_A2 =  0.779739f;  // negated in difference equation
 
     // Detection thresholds for the highpass-filtered signal. Tuned against
-    // labels that count catches by the watch-wearing hand only: total absolute
-    // error 55 across 36 runs, positive overcount error 5.
+    // labels that count catches by the watch-wearing hand only; the corpus
+    // totals they must hold are pinned in simulation/test_detection.py.
     private const HP_THRESHOLD_3 = 2.0f;
     private const HP_THRESHOLD_4 = 3.0f;
     private const HP_THRESHOLD_5 = 3.0f;
@@ -66,8 +66,8 @@ class JugglingDetector {
 
     // Minimum raw (pre-highpass) magnitude for a candidate to count.
     // Prevents false positives from noise that the highpass filter amplifies.
-    // Per-ball-count: 3b and 5+b use gates to suppress arm-swing noise;
-    // 4b disables the gate because threshold/cluster timing is selective enough.
+    // Per-ball-count, to suppress arm-swing noise; heavier patterns swing
+    // harder, so 4b to 6b need a higher gate than 3b and 7+b.
     private const MIN_RAW_MAG_3 = 7.0f;
     private const MIN_RAW_MAG_4 = 11.0f;
     private const MIN_RAW_MAG_5 = 13.0f;

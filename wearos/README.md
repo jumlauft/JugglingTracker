@@ -12,10 +12,15 @@ table below says which test covers each requirement here.
   - `logic/` - everything with behaviour, in plain Kotlin with no Android
     types, so it runs as ordinary JVM tests:
     - `JugglingDetector.kt` - line-for-line port of `JugglingDetector.mc`.
+    - `ShapeConsistency.kt` - port of `ShapeConsistency.mc`, the Regularity score.
     - `TrackerSession.kt` - Juggle mode (`MainView.mc`): runs, menus, sync.
     - `RecordingSession.kt` - Record mode (`RecordingView.mc`).
     - `AppNavigator.kt` - mode and ball selection, and button routing.
     - `WatchProtocol.kt` - Data Layer paths and the JSON payload codec.
+    - `SampleThrottle.kt` - thins the sensor stream to 25 Hz on a fixed 40 ms grid.
+    - `Format.kt` - display strings, identical to what the Garmin draws.
+    - `Platform.kt` - the interfaces the sessions use for timers, the clock,
+      the phone link and vibration, so tests can fake them.
   - `platform/` - the accelerometer, the Data Layer link, timers, vibration.
   - `ui/` - Compose for Wear OS screens.
   - `MainActivity.kt` - wires it together.
@@ -46,6 +51,10 @@ both into the same import code.
 In the phone app, Settings > Watch picks Garmin or Wear OS. With Wear OS
 picked, the watch card on the home screen is green when a connected watch has
 this app, and red otherwise; tapping the red card shows how to connect.
+
+The phone app has to be open to receive. If it is not, the message still
+leaves the watch but no ack comes back, and the sync times out after 10 s and
+offers a retry, as on the Garmin.
 
 The Data Layer only connects apps that share a package name and signing key,
 so this app's `applicationId` is `com.juggling.tracker`, like the phone app,
@@ -86,12 +95,13 @@ uploads screenshots of each step as the `wear-emulator-screenshots` artifact.
 
 | Requirement | Wear OS test |
 |---|---|
-| APP-1..4 | `AppNavigatorTest`, `WearAppTest`, `WearAppEmulatorTest.startUpFlowLeadsToTheTracker` |
+| APP-1..5 | `AppNavigatorTest`, `WearAppTest`, `WearAppEmulatorTest.startUpFlowLeadsToTheTracker` |
 | DET-1..10 | `JugglingDetectorTest` (the Garmin `DetectorTest.mc` cases, same inputs) |
-| DET-11 | `DetectorCorpusTest`: all 102 recordings give exactly the counts pinned in `simulation/test_detection.py` |
+| DET-11 | `DetectorCorpusTest`: every recording in `connectiq/data` gives exactly the count pinned in `simulation/test_detection.py` |
 | RUN-1..6 | `JugglingDetectorTest` |
+| SHAPE-1..4 | `ShapeConsistencyTest` (it replays the four labelled runs in `simulation/regularity_data`), `TrackerSessionTest` for the screen and the session payload |
 | JUG-1..8 | `TrackerSessionTest`, `WearAppTest`, `WearAppEmulatorTest` |
 | SENS-1, 2 | The sensor runs while a tracking screen is visible and `AccelerometerSource.start()` is idempotent. Menus are drawn in place rather than pushed as views, so they cannot drop the listener; detection still pauses under a menu, as on the Garmin (`TrackerSessionTest`) |
 | SENS-3 | Not applicable: Android does not pad sensor batches with nulls |
 | SYNC-1..4 | `TrackerSessionTest`, `WearAppTest`, `WearAppEmulatorTest.replayingARealRecordingShowsItsRunsAndSyncsThem` |
-| REC-1..10 | `RecordingSessionTest`, `WearAppEmulatorTest.recordModeLabelsARun`. REC-2's free-memory check is Garmin-specific (a 128 KB heap); the 3000-sample cap is kept. REC-4 writes the one-line `RUN_DATA` summary to logcat under the tag `JugglingRecording` |
+| REC-1..11 | `RecordingSessionTest`, `AppNavigatorTest` (REC-11), `WearAppEmulatorTest.recordModeLabelsARun`. REC-2's free-memory check is Garmin-specific (a 128 KB heap); the 3000-sample cap is kept. REC-4 writes the one-line `RUN_DATA` summary to logcat under the tag `JugglingRecording` |

@@ -9,7 +9,7 @@ test appear:
 | Kind | Where | What it does |
 |---|---|---|
 | **Unit** | `test/*.mc` | Compiles and runs the real Monkey C. Run with `./run_tests.sh`. |
-| **Corpus / pinning** | `../simulation/test_detection.py` | Replays 102 real recordings through the reference port, and pins source-level wiring that cannot be executed off-device. Run with `pytest`. |
+| **Corpus / pinning** | `../simulation/test_detection.py` | Replays 108 real recordings through the reference port, and pins source-level wiring that cannot be executed off-device. Run with `pytest`. |
 
 UI wiring, sensor lifecycle and the phone transfer are covered by the pinning
 tests rather than unit tests: instantiating those views needs a device context,
@@ -131,8 +131,8 @@ counted watch-hand catch**, not the wall time the screen was open.
 *Verified by:* `det10_runDurationSpansFirstToLastCatch`, `test_watch_transfers_run_durations`
 
 **DET-11.** Detection accuracy over the recorded corpus must not regress:
-total absolute error ≤ 189 and positive overcount error ≤ 69 across 102 runs
-(2459 real watch-hand catches), with every recording covered and each run's
+total absolute error ≤ 203 and positive overcount error ≤ 83 across 108 runs
+(2554 real watch-hand catches), with every recording covered and each run's
 count pinned individually.
 *Verified by:* `test_detection_count_per_run`, `test_total_absolute_error`, `test_total_overcount_error`, `test_every_recording_is_covered`
 
@@ -376,11 +376,13 @@ The sensor, the timers and the phone-message listener are released first.
 
 ## Keeping this honest
 
-The three detector implementations — `source/JugglingDetector.mc`,
+The four detector implementations — `source/JugglingDetector.mc`,
+`../wearos/.../logic/JugglingDetector.kt`,
 `../android/.../PhoneJugglingDetector.kt` and `../simulation/eval_new_watch.py`
 — must agree. `test_watch_params_match_detector_constants` pins the watch
-constants against the Python reference, and
-`PhoneDetectorCorpusTest` replays the same recordings through the Kotlin port.
+constants against the Python reference, and `DetectorCorpusTest` (Wear OS) and
+`PhoneDetectorCorpusTest` (phone) replay the same recordings through the Kotlin
+ports.
 
 When behaviour changes on purpose, change this document in the same commit as
 the code, and move the requirement's test with it.

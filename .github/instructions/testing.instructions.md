@@ -1,6 +1,6 @@
 ---
-description: "Use when writing, modifying, or discussing tests. Covers test structure, frameworks, and patterns for Android, ConnectIQ detector simulation, and repository tests."
-applyTo: ["android/**/test/**/*.kt", "android/**/androidTest/**/*.kt", "simulation/test_*.py"]
+description: "Use when writing, modifying, or discussing tests. Covers test structure, frameworks, and patterns for Android, Wear OS, ConnectIQ, the detector simulation, and repository tests."
+applyTo: ["android/**/test/**/*.kt", "android/**/androidTest/**/*.kt", "wearos/**/test/**/*.kt", "wearos/**/androidTest/**/*.kt", "connectiq/test/**/*.mc", "simulation/test_*.py"]
 ---
 # Test Conventions
 
@@ -29,7 +29,7 @@ applyTo: ["android/**/test/**/*.kt", "android/**/androidTest/**/*.kt", "simulati
 ## What to Test
 - ViewModel: session import (happy path, missing fields, duplicate timestamps, empty runs, edge cases).
 - Repository: save/load cycle, JSON round-trip, deduplication, corruption recovery.
-- Recording repository: single-run CSV save, merged CSV export, empty export, delete behavior.
+- Recording repository: single-run CSV save, zip export with the juggler/hand/firstThrow header fields, empty export, delete behavior.
 - Watch-hand catch detection algorithm: threshold behavior, candidate refractory periods, delayed burst clustering, alternating watch-hand burst counting, auto-finish, warmup, adaptive thresholds, watch/Python parameter parity, and overcount regression.
 - Message parsing: valid payloads, malformed payloads, missing fields, wrong types.
 
@@ -43,6 +43,22 @@ cd android
 The first Robolectric run downloads a ~170 MB framework jar per SDK level into
 `~/.m2/repository/org/robolectric`, so it is slow once and fast after. CI caches
 that directory.
+
+## Wear OS Tests
+- `wearos/app/src/test/.../logic/` holds plain JVM tests for everything with behaviour (detector, shape consistency, Juggle and Record sessions, navigation, protocol), driven by fake clocks, schedulers and links. `DetectorCorpusTest` replays every recording in `connectiq/data` and requires the counts `simulation/test_detection.py` pins, read out of that file.
+- `wearos/app/src/test/.../ui/` holds the Robolectric Compose tests (`WearAppTest`, `TextFitTest`).
+- `wearos/app/src/androidTest/` runs on a Wear OS emulator in CI (API 30, large round) and saves the screenshots CI uploads.
+- Name tests after the requirement they cover in `connectiq/REQUIREMENTS.md` where there is one; `wearos/README.md` maps each requirement to its test.
+
+```sh
+cd wearos
+./gradlew testDebugUnitTest         # logic + Robolectric UI tests
+./gradlew connectedDebugAndroidTest # on a Wear OS emulator or watch
+```
+
+## Garmin Watch Tests
+- `connectiq/test/*.mc` are `(:test)` functions compiled with the real sources through `test.jungle` and run in the Connect IQ simulator by `./connectiq/run_tests.sh` (macOS, needs the SDK and `developer_key.der`). They are not in CI.
+- Every test must back a requirement in `connectiq/REQUIREMENTS.md`, and every requirement must name its tests; `test_detection.py` fails otherwise.
 
 ## Running Detection Tests
 ```sh

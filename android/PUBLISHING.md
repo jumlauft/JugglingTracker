@@ -9,12 +9,12 @@ This document outlines the steps and assets needed to publish **Juggling Tracker
     - **Note**: Never commit the keystore file to git.
 - [ ] **Build App Bundle**: Generate the `.aab` file for upload.
     - Run: `cd android && ./gradlew bundleRelease`
-- [ ] **Versioning**: Ensure `versionCode` and `versionName` in `android/app/build.gradle` are incremented for every new release.
+- [ ] **Versioning**: Nothing to edit by hand. `versionName` comes from the release tag and `versionCode` from the git commit count (see section 6).
 
 ## 2. Store Listing Assets
 
-- **App Icon**: 512x512 PNG (Generated: `android/play_store_icon.png`).
-- **Feature Graphic**: 1024x500 PNG (Generated: `android/play_store_feature_graphic.png`).
+- **App Icon**: 512x512 PNG. Render the `PlayStoreIconPreview` Compose preview in `app/src/main/java/com/juggling/tracker/ui/IconPreview.kt` and export it from Android Studio.
+- **Feature Graphic**: 1024x500 PNG. Render the `FeatureGraphicPreview` preview in `app/src/main/java/com/juggling/tracker/ui/FeatureGraphicPreview.kt` the same way.
 - **Screenshots**: At least 2 phone screenshots (portrait).
     - *Tip*: Take screenshots of the Tracker screen and the Graph view.
 - **Short Description**: (Max 80 chars)
@@ -36,21 +36,11 @@ This document outlines the steps and assets needed to publish **Juggling Tracker
 
 Google Play requires a Privacy Policy hosted on a public URL.
 
-### Template
-> **Privacy Policy for Juggling Tracker**
-> 
-> Juggling Tracker ("the App") is provided as-is. 
-> 
-> **Data Collection:**
-> - **Sensor Data**: The App processes accelerometer data to detect juggling catches. This data is processed locally on your device.
-> - **Usage Data**: We use Firebase Analytics and Crashlytics to monitor app performance and improve the user experience. This may include anonymized device information and crash reports.
-> - **Bluetooth/Location**: The App requires Bluetooth permissions to communicate with Garmin watches. On some Android versions, this requires Location access, but the App does NOT track or store your physical location.
-> 
-> **Data Storage:**
-> Your juggling sessions are stored locally on your device. We do not upload your personal juggling history to our servers.
-> 
-> **Third Parties:**
-> The App uses Google Firebase services. You can find their privacy policy here: [https://policies.google.com/privacy](https://policies.google.com/privacy)
+The policy lives in `privacy_policy.md` at the repository root and covers the
+phone app and both watch apps. Its GitHub link,
+https://github.com/jumlauft/JugglingTracker/blob/main/privacy_policy.md, is the
+one the Connect IQ listing uses. Update it in the same change whenever an app
+starts collecting or sending something new.
 
 ## 4. Data Safety Form
 
