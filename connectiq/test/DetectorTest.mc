@@ -162,6 +162,22 @@ function det10_runDurationSpansFirstToLastCatch(logger as Logger) as Boolean {
     return true;
 }
 
+// SENS-5: the watch timer turns negative after about 25 days of uptime. Fed
+// times from there, the detector must count and auto-finish runs as it does
+// from 0; it used to count nothing because no peak was "after" time 0.
+(:test)
+function sens5_detectsWithNegativeTimes(logger as Logger) as Boolean {
+    var d = new JugglingDetector(3);
+    var nowMs = feedBaseline(d, -2000000000, 55);
+    nowMs = feedCatches(d, nowMs, 3);
+    Test.assertEqualMessage(d.currentCount, 3, "three catches at negative times");
+
+    feedBaseline(d, nowMs, 60);
+    Test.assertEqualMessage(d.sessionRuns(), 1, "the run auto-finishes at negative times");
+    Test.assertEqualMessage(d.previousCount, 3, "and becomes the previous run");
+    return true;
+}
+
 // ── RUN: run and session bookkeeping ───────────────────────────────────
 
 // RUN-1: fewer than three catches is a false start and must leave the session

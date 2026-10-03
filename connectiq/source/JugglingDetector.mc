@@ -81,6 +81,9 @@ class JugglingDetector {
     private var _gravityY as Float;
     private var _gravityZ as Float;
     private var _lastCandidateTime as Number;
+    // Whether _lastCandidateTime holds a real candidate. A sentinel time of 0
+    // would block every candidate when sample times are negative.
+    private var _hasLastCandidate as Boolean;
     // Last time a candidate burst was committed. Used for auto-finish: the run
     // ends after no catch-like burst has appeared for AUTO_FINISH_DELAY_MS.
     // Low-level post-run wrist motion must not keep the run alive.
@@ -150,6 +153,7 @@ class JugglingDetector {
         _gravityY = 0.0f;
         _gravityZ = 9.80665f;
         _lastCandidateTime = 0;
+        _hasLastCandidate = false;
         _lastActiveTime = 0;
         _samplesSeen = 0;
         _gravityInitialized = false;
@@ -258,6 +262,7 @@ class JugglingDetector {
 
     private function clearRunDetectionState() as Void {
         _lastCandidateTime = 0;
+        _hasLastCandidate = false;
         _lastActiveTime = 0;
         _above = false;
         _peakTime = 0;
@@ -490,10 +495,11 @@ class JugglingDetector {
                 _above = false;
                 // Add a candidate if refractory period has elapsed and the raw
                 // magnitude confirms a real catch motion (not just noise).
-                if (_peakTime - _lastCandidateTime > _refractoryMs &&
+                if ((!_hasLastCandidate || _peakTime - _lastCandidateTime > _refractoryMs) &&
                     _peakRawMag > _minRawMag) {
                     addCandidate(_peakTime, _peakFiltered, nowMs);
                     _lastCandidateTime = _peakTime;
+                    _hasLastCandidate = true;
                 }
             }
         }
@@ -505,7 +511,7 @@ class JugglingDetector {
     // number of watch-hand catches in the just-finished run, or 0 if no run finished.
     public function checkAutoFinish(nowMs as Number) as Number {
         flushPendingPeak(nowMs);
-        if (currentCount > 0 && _lastActiveTime > 0 && (nowMs - _lastActiveTime > AUTO_FINISH_DELAY_MS)) {
+        if (currentCount > 0 && (nowMs - _lastActiveTime > AUTO_FINISH_DELAY_MS)) {
             var finished = currentCount;
 
             // Fold the finished run into the session statistics.

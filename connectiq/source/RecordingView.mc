@@ -40,6 +40,9 @@ class RecordingView extends WatchUi.View {
     // Run the detection algorithm in parallel so we can compare its output
     // with the user-provided ground truth.
     private var _detector as JugglingDetector;
+    // System.getTimer() when the view was made; sample times are measured
+    // from here so they stay ordered past the timer's wrap (SENS-5).
+    private var _timeOriginMs as Number;
 
     // Labeling UI state
     private var _labelCount as Number;
@@ -75,6 +78,7 @@ class RecordingView extends WatchUi.View {
         _ballCount = ballCount;
         _samples = new SampleBuffer(MAX_RUN_SAMPLES);
         _detector = new JugglingDetector(ballCount);
+        _timeOriginMs = System.getTimer();
         _labelCount = 0;
         _detectedCount = 0;
         _runsCompleted = 0;
@@ -609,7 +613,7 @@ class RecordingView extends WatchUi.View {
             return;
         }
 
-        var now = System.getTimer();
+        var now = System.getTimer() - _timeOriginMs;
         var n = xs.size();
         if (ys.size() < n) { n = ys.size(); }
         if (zs.size() < n) { n = zs.size(); }
