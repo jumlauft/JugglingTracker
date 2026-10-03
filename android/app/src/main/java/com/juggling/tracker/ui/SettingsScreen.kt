@@ -488,15 +488,25 @@ private suspend fun emailRecordings(context: android.content.Context, viewModel:
             putExtra(android.content.Intent.EXTRA_SUBJECT, context.getString(R.string.email_recordings_subject))
             putExtra(android.content.Intent.EXTRA_TEXT, context.getString(R.string.email_recordings_body))
             putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            clipData = android.content.ClipData.newRawUri(null, uri)
             addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        val chooser = android.content.Intent.createChooser(
-            intent, context.getString(R.string.email_recordings_chooser)
-        )
+        // The mailto: selector limits the targets to email apps, so the draft
+        // opens prefilled instead of Android's general share menu.
+        val emailIntent = android.content.Intent(intent).apply {
+            selector = android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:"))
+        }
         try {
-            context.startActivity(chooser)
+            context.startActivity(emailIntent)
         } catch (e: android.content.ActivityNotFoundException) {
-            Toast.makeText(context, context.getString(R.string.toast_no_email_app), Toast.LENGTH_SHORT).show()
+            // No email app: fall back to the share menu so the zip can still be sent.
+            try {
+                context.startActivity(
+                    android.content.Intent.createChooser(intent, context.getString(R.string.email_recordings_chooser))
+                )
+            } catch (e: android.content.ActivityNotFoundException) {
+                Toast.makeText(context, context.getString(R.string.toast_no_email_app), Toast.LENGTH_SHORT).show()
+            }
         }
     } catch (e: Exception) {
         Log.e("JugglingTrackerApp", "Email recordings failed", e)
