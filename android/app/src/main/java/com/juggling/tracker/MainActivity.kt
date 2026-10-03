@@ -65,10 +65,7 @@ class MainActivity : ComponentActivity() {
 
         // The Garmin card follows the app-wide link; it reports its current
         // state straight away, then every change.
-        garminLink.setStatusListener { status, message ->
-            viewModel.garminStatus = status
-            viewModel.statusMessage = message
-        }
+        garminLink.setStatusListener(viewModel::onGarminLinkStatus)
 
         setContent {
             JugglingTrackerTheme {
@@ -104,8 +101,8 @@ class MainActivity : ComponentActivity() {
     private val wearCapabilityListener = CapabilityClient.OnCapabilityChangedListener { refreshWearStatus() }
 
     // Asks the Data Layer whether a watch is connected and whether it has the
-    // watch app, for the Wear OS card. Receiving keeps its own status until the
-    // transfer's timer puts it back.
+    // watch app, for the Wear OS card. While a transfer is arriving the card
+    // stays on "receiving" and shows this once it ends.
     private fun refreshWearStatus() {
         val nodes = Wearable.getNodeClient(this).connectedNodes
         val capable = Wearable.getCapabilityClient(this)
@@ -116,9 +113,7 @@ class MainActivity : ComponentActivity() {
                 watchesWithApp = if (capable.isSuccessful) capable.result.nodes.size else 0,
             )
             if (!nodes.isSuccessful) Log.w(TAG, "Wear OS Data Layer unavailable", nodes.exception)
-            if (viewModel.wearStatus != WearConnectionStatus.RECEIVING) {
-                viewModel.wearStatus = status
-            }
+            viewModel.onWearLinkStatus(status)
         }
     }
 

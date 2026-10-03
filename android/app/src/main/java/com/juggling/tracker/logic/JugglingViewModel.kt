@@ -13,6 +13,7 @@ import com.juggling.tracker.data.WatchType
 import com.juggling.tracker.shared.JugglingDetector
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -113,6 +114,24 @@ class JugglingViewModel(
 
     // Wear OS status
     var wearStatus by mutableStateOf(WearConnectionStatus.CHECKING)
+
+    // While a watch is sending, its card stays on "receiving"; a status its
+    // link reports meanwhile waits here and shows once the transfer ends.
+    private var garminReceiving: Job? = null
+    private var wearReceiving: Job? = null
+    private var garminLinkWhileReceiving: GarminConnectionStatus? = null
+    private var wearLinkWhileReceiving: WearConnectionStatus? = null
+
+    /** What the Garmin link reports about the watch's connection. */
+    fun onGarminLinkStatus(status: GarminConnectionStatus, message: String) {
+        statusMessage = message
+        if (garminReceiving != null) garminLinkWhileReceiving = status else garminStatus = status
+    }
+
+    /** What the Data Layer reports about the Wear OS watch's connection. */
+    fun onWearLinkStatus(status: WearConnectionStatus) {
+        if (wearReceiving != null) wearLinkWhileReceiving = status else wearStatus = status
+    }
 
     // Settings
     val isAnalyticsEnabled get() = settings?.isAnalyticsEnabled ?: true
@@ -231,7 +250,7 @@ class JugglingViewModel(
     // may have stored it while no screen was open at all.
     private val inboxListener: (WatchInbox.Event) -> Unit = { event ->
         when (event) {
-            is WatchInbox.Event.Receiving -> showReceiving(event.source)
+            is WatchInbox.Event.Receiving -> showReceiving(event.source, event.more)
             is WatchInbox.Event.SessionStored -> {
                 showStoredSession(event.session)
                 viewModelScope.launch {
@@ -269,16 +288,33 @@ class JugglingViewModel(
         super.onCleared()
     }
 
-    // The watch card shows "receiving" for a moment, then goes back to ready.
-    private fun showReceiving(source: WatchInbox.Source) {
+    // The watch card shows "receiving" from a transfer's first message until
+    // a moment after its last. A run arrives in several messages; between
+    // them the card holds on for up to RECEIVING_STALL_MS, longer than the
+    // watch itself waits, so a transfer that died cannot leave it orange.
+    private fun showReceiving(source: WatchInbox.Source, more: Boolean) {
+        val hold = if (more) RECEIVING_STALL_MS else RECEIVING_DISPLAY_MS
         when (source) {
-            WatchInbox.Source.GARMIN -> garminStatus = GarminConnectionStatus.RECEIVING
-            WatchInbox.Source.WEAR_OS -> wearStatus = WearConnectionStatus.RECEIVING
-        }
-        viewModelScope.launch {
-            delay(RECEIVING_DISPLAY_MS)
-            if (garminStatus == GarminConnectionStatus.RECEIVING) garminStatus = GarminConnectionStatus.READY
-            if (wearStatus == WearConnectionStatus.RECEIVING) wearStatus = WearConnectionStatus.READY
+            WatchInbox.Source.GARMIN -> {
+                garminStatus = GarminConnectionStatus.RECEIVING
+                garminReceiving?.cancel()
+                garminReceiving = viewModelScope.launch {
+                    delay(hold)
+                    garminReceiving = null
+                    garminStatus = garminLinkWhileReceiving ?: GarminConnectionStatus.READY
+                    garminLinkWhileReceiving = null
+                }
+            }
+            WatchInbox.Source.WEAR_OS -> {
+                wearStatus = WearConnectionStatus.RECEIVING
+                wearReceiving?.cancel()
+                wearReceiving = viewModelScope.launch {
+                    delay(hold)
+                    wearReceiving = null
+                    wearStatus = wearLinkWhileReceiving ?: WearConnectionStatus.READY
+                    wearLinkWhileReceiving = null
+                }
+            }
         }
     }
 
@@ -659,8 +695,14 @@ class JugglingViewModel(
     }
 
     companion object {
-        /** How long the watch card shows "receiving" after a message. */
+        /** How long the watch card shows "receiving" after a transfer's last message. */
         const val RECEIVING_DISPLAY_MS = 1500L
+
+        /**
+         * How long the card waits for a transfer's next message before giving
+         * up on it. Longer than the watches' own SYNC_TIMEOUT_MS (10 s).
+         */
+        const val RECEIVING_STALL_MS = 15_000L
 
         /** Seconds of an unchanging accelerometer before calling it broken. */
         const val FROZEN_SENSOR_SECONDS = 5L
