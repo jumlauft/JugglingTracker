@@ -48,6 +48,10 @@ class MainView extends WatchUi.View {
 
     // Monotonic timer value when this tracking session screen started.
     private var _sessionStartMs as Number;
+    // System.getTimer() when the view was made. Sample times are measured
+    // from here: the raw timer turns negative after about 25 days of watch
+    // uptime and the detector needs times that stay ordered (SENS-5).
+    private var _timeOriginMs as Number;
     // Monotonic timer value when the user ended the session, before sync menu time.
     private var _sessionEndMs as Number?;
     // The session's id on the phone, fixed by the first sync. Ending again
@@ -74,6 +78,7 @@ class MainView extends WatchUi.View {
         _syncDots = 0;
         _lastVibrateCount = 0;
         _sessionStartMs = System.getTimer();
+        _timeOriginMs = _sessionStartMs;
         _sessionEndMs = null;
         _sessionTimestamp = null;
 
@@ -238,7 +243,7 @@ class MainView extends WatchUi.View {
         // Run watch-hand catch detection locally on every sample in the batch.
         // Interpolate per-sample timestamps so the refractory period works
         // correctly within a single batch (at 25 Hz samples are 40ms apart).
-        var now = System.getTimer();
+        var now = System.getTimer() - _timeOriginMs;
         var n = xs.size();
         if (ys.size() < n) { n = ys.size(); }
         if (zs.size() < n) { n = zs.size(); }

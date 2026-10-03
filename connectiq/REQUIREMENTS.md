@@ -285,6 +285,13 @@ idle, since there is nothing to record. A later successful registration (on
 the next `onShow()`) clears the error.
 *Verified by:* `test_tracking_views_show_a_sensor_error`
 
+**SENS-5.** Detection works whatever the watch's millisecond timer reads.
+`System.getTimer()` is a 32-bit count since boot and turns **negative** after
+about 25 days of uptime (an Instinct 2 counted nothing at all), so both
+tracking screens time samples from when the screen opened, and the detector
+never treats time 0 as "no candidate yet".
+*Verified by:* `sens5_detectsWithNegativeTimes`
+
 ---
 
 ## SYNC — transfer to the phone
