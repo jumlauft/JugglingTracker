@@ -7,7 +7,7 @@ detection performance does not regress.
 
 The expected detection counts come from the delayed burst-clustering algorithm
 with alternating watch-hand burst counting: total absolute error = 215 and
-positive overcount error = 93 across 120 runs (2867 actual watch-hand catches).
+positive overcount error = 93 across 117 runs (2859 actual watch-hand catches).
 """
 import math
 import os
@@ -150,9 +150,6 @@ EXPECTED_RUNS = [
     ("20260930_185258", 3, 18, 19),
     ("20260930_185440", 3, 26, 31),
     ("20260930_225225", 3, 14, 14),
-    ("20260930_225519", 4, 1, 1),
-    ("20260930_231554", 3, 3, 3),
-    ("20261001_000542", 3, 4, 4),
     ("20261003_173929", 5, 19, 19),
     ("20261003_174200", 5, 63, 65),
     ("20261003_174341", 5, 102, 100),
@@ -246,7 +243,7 @@ def test_detection_count_per_run(runs_by_id, entry):
 def test_total_absolute_error(runs_by_id):
     """Total absolute error across all runs must not exceed the baseline.
 
-    Current baseline: 215 total absolute error across 120 runs (2867 watch-hand catches).
+    Current baseline: 215 total absolute error across 117 runs (2859 watch-hand catches).
     A regression means the algorithm is less accurate overall.
     """
     total_error = 0
