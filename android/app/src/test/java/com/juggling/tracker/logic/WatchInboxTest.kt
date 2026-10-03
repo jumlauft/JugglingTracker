@@ -114,6 +114,17 @@ class WatchInboxTest {
         assertEquals(WatchInbox.Event.Receiving(WatchInbox.Source.WEAR_OS), events.first())
     }
 
+    @Test
+    fun `every part of a run says whether more is coming`() {
+        inbox.receive(recStart(samples = 4, chunks = 2), WatchInbox.Source.GARMIN)
+        inbox.receive(recChunk(0, listOf(1, 2)), WatchInbox.Source.GARMIN)
+        inbox.receive(recChunk(1, listOf(3, 4)), WatchInbox.Source.GARMIN)
+        inbox.receive(recEnd(), WatchInbox.Source.GARMIN)
+
+        val more = events.filterIsInstance<WatchInbox.Event.Receiving>().map { it.more }
+        assertEquals(listOf(true, true, true, false), more)
+    }
+
     // ── Recorded runs ───────────────────────────────────────────────────
 
     @Test

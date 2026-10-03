@@ -43,8 +43,12 @@ class WatchInbox(
 
     /** What a screen showing the phone's data needs to hear about. */
     sealed class Event {
-        /** A session or a recorded run started arriving from [source]. */
-        data class Receiving(val source: Source) : Event()
+        /**
+         * A message from [source] arrived. [more] is true while the transfer
+         * it belongs to is still going (a run's header or one of its chunks),
+         * false once its last message is in.
+         */
+        data class Receiving(val source: Source, val more: Boolean = false) : Event()
 
         /** [session] was stored, replacing an earlier copy under its timestamp if there was one. */
         data class SessionStored(val session: SessionSummary) : Event()
@@ -81,14 +85,16 @@ class WatchInbox(
         val typed = payload as Map<String, Any>
 
         return when (type) {
-            // Chunks are frequent and must not each repaint a screen: the
-            // watch chains them on delivery and waits for an ack only at the end.
+            // The watch chains chunks on delivery and waits for an ack only
+            // at the end. Each one still tells the screen the transfer is
+            // alive, so the card stays on "receiving" until rec_end.
             "rec_chunk" -> {
                 appendRecordingChunk(typed)
+                publish(Event.Receiving(source, more = true))
                 null
             }
             "rec_start" -> {
-                publish(Event.Receiving(source))
+                publish(Event.Receiving(source, more = true))
                 startRecordingTransfer(typed)
                 null
             }
