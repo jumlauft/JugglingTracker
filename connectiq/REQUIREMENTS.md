@@ -217,7 +217,9 @@ adds a red banner.
 *Verified by:* `test_main_view_displays_run_state`, `test_main_view_displays_and_transfers_session_duration`, `test_watch_shows_and_transfers_shape_consistency`
 
 **JUG-2.** **START/STOP** opens the session-end menu: *Sync and quit*, *Quit
-without sync*, *Continue*. This is the only way to end a session.
+without sync*, *Continue*. This is the only way to end a session. The
+session time pauses while the menu is up; *Continue* resumes it from there, so
+time spent in the menu is never counted.
 *Verified by:* not automatically tested — needs a device context.
 
 **JUG-3.** **BACK** never ends the session and never exits. It offers to throw

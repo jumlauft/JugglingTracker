@@ -54,6 +54,10 @@ class MainView extends WatchUi.View {
     private var _timeOriginMs as Number;
     // Monotonic timer value when the user ended the session, before sync menu time.
     private var _sessionEndMs as Number?;
+    // Time spent in the session-end menu before picking Continue. The session
+    // clock stands still while that menu is up, so this is left out of the
+    // elapsed time shown and sent to the phone.
+    private var _pausedMs as Number;
     // The session's id on the phone, fixed by the first sync. Ending again
     // after Continue resends the whole session under the same id, so the
     // phone replaces its first copy instead of storing the runs twice.
@@ -80,6 +84,7 @@ class MainView extends WatchUi.View {
         _sessionStartMs = System.getTimer();
         _timeOriginMs = _sessionStartMs;
         _sessionEndMs = null;
+        _pausedMs = 0;
         _sessionTimestamp = null;
 
         // Listen for the phone's acknowledgement that a session was received.
@@ -462,7 +467,7 @@ class MainView extends WatchUi.View {
         if (endMs == null) {
             endMs = System.getTimer();
         }
-        var elapsedMs = endMs - _sessionStartMs;
+        var elapsedMs = endMs - _sessionStartMs - _pausedMs;
         if (elapsedMs < 0) {
             elapsedMs = 0;
         }
@@ -505,6 +510,11 @@ class MainView extends WatchUi.View {
 
     public function onContinueSession() as Void {
         _awaitingDecision = false;
+        // Resume the session clock from where the menu stopped it.
+        var endMs = _sessionEndMs;
+        if (endMs != null) {
+            _pausedMs += System.getTimer() - endMs;
+        }
         _sessionEndMs = null;
         // A failed sync's banner must not survive back onto the live tracker
         // screen: nothing is actually failing anymore once the user has
