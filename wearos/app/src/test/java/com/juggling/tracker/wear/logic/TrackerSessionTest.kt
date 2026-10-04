@@ -78,7 +78,7 @@ class TrackerSessionTest {
     }
 
     @Test
-    fun `JUG-2 the session end menu freezes the session clock and continue resumes it`() {
+    fun `JUG-2 the session end menu pauses the session clock and continue resumes it`() {
         scheduler.advance(10_000)
         session.onStartStop()
         scheduler.advance(20_000)
@@ -86,7 +86,10 @@ class TrackerSessionTest {
         assertEquals(10, state.elapsedSeconds)
         select(TrackerSession.ITEM_CONTINUE)
         assertNull(state.menu)
-        assertEquals(30, state.elapsedSeconds)
+        assertEquals(10, state.elapsedSeconds)
+        scheduler.advance(5_000)
+        session.tick()
+        assertEquals(15, state.elapsedSeconds)
     }
 
     @Test

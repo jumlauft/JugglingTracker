@@ -66,6 +66,10 @@ class TrackerSession(
     private val detector = JugglingDetector(ballCount)
     private val sessionStartMs = clock.nowMs()
     private var sessionEndMs: Long? = null
+    // Time spent in the session-end menu before picking Continue. The session
+    // clock stands still while that menu is up, so this is left out of the
+    // elapsed time shown and sent to the phone.
+    private var pausedMs = 0L
     // The session's id on the phone, fixed by the first sync. Ending again
     // after Continue resends the whole session under the same id, so the
     // phone replaces its first copy instead of storing the runs twice (SYNC-5).
@@ -216,6 +220,8 @@ class TrackerSession(
     }
 
     private fun onContinueSession() {
+        // Resume the session clock from where the menu stopped it.
+        sessionEndMs?.let { pausedMs += clock.nowMs() - it }
         sessionEndMs = null
         // JUG-8: nothing is failing any more once the user is juggling again.
         errorMessage = null
@@ -368,7 +374,7 @@ class TrackerSession(
 
     private fun sessionDurationSeconds(): Long {
         val end = sessionEndMs ?: clock.nowMs()
-        return ((end - sessionStartMs).coerceAtLeast(0L)) / 1000L
+        return ((end - sessionStartMs - pausedMs).coerceAtLeast(0L)) / 1000L
     }
 
     private fun publish() {
