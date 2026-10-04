@@ -511,8 +511,9 @@ class MainView extends WatchUi.View {
     public function onContinueSession() as Void {
         _awaitingDecision = false;
         // Resume the session clock from where the menu stopped it.
-        if (_sessionEndMs != null) {
-            _pausedMs += System.getTimer() - _sessionEndMs;
+        var endMs = _sessionEndMs;
+        if (endMs != null) {
+            _pausedMs += System.getTimer() - endMs;
         }
         _sessionEndMs = null;
         // A failed sync's banner must not survive back onto the live tracker
