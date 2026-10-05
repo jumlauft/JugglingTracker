@@ -132,13 +132,13 @@
     <string name="dialog_wear_condition_app">3. The \"Juggling Tracker\" app is installed on the watch. Open the Play Store on the watch to install it.</string>
     <string name="dialog_wear_condition_range">4. Your watch is within Bluetooth range of your phone.</string>
     <string name="dialog_wear_session_title">Start Wear OS Session</string>
-    <string name="dialog_wear_session_text">Your watch is connected. Open \"Juggling Tracker\" on your watch, choose Juggle and the number of balls, and press Start. \nEnd the session with \"Sync and quit\" while the phone is nearby to transfer the session data to the phone.</string>
+    <string name="dialog_wear_session_text">Your watch is connected. On your watch:\n1. Open the \"Juggling Tracker\" app.\n2. Select Juggle (not Record) and tap Start.\n3. Select the number of balls and tap Start. The session starts.\n\nTo end the session, tap End and choose \"Sync and quit\" while the phone is nearby to transfer the session data to the phone.</string>
     <string name="section_watch">Watch</string>
     <string name="desc_watch">The watch you record with. The card on the home screen shows whether it is connected.</string>
     <string name="watch_type_garmin">Garmin</string>
     <string name="watch_type_wear_os">Wear OS</string>
     <string name="dialog_garmin_session_title">Start Garmin Session</string>
-    <string name="dialog_garmin_session_text">Your setup is looking good. Download the \"Juggling Tracker\" app from the Connect IQ Store to your Garmin watch, and start the \"Juggling\" activity on your watch. \nTerminate the session while the phone is nearby to transfer the session data to the phone.</string>
+    <string name="dialog_garmin_session_text">Your setup is looking good. Download the \"Juggling Tracker\" app from the Connect IQ Store to your Garmin watch, then on your watch:\n1. Open the \"Juggling Tracker\" app.\n2. Select Juggle (not Record) with Up/Down and press Start.\n3. Select the number of balls with Up/Down and press Start. The session starts.\n\nTo end the session, press Start and choose \"Sync and quit\" while the phone is nearby to transfer the session data to the phone.</string>
 
     <string name="section_raw_recording">Raw Data Recording</string>
     <string name="action_start_raw_recording">Start Raw Recording</string>
