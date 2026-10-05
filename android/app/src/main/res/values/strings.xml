@@ -138,7 +138,7 @@
     <string name="watch_type_garmin">Garmin</string>
     <string name="watch_type_wear_os">Wear OS</string>
     <string name="dialog_garmin_session_title">Start Garmin Session</string>
-    <string name="dialog_garmin_session_text">Your setup is looking good. Download the \"Juggling Tracker\" app from the Connect IQ Store to your Garmin watch, then on your watch:\n1. Open the \"Juggling Tracker\" app.\n2. Select Juggle (not Record) with Up/Down and press Start.\n3. Select the number of balls with Up/Down and press Start. The session starts.\n\nTo end the session, press Start and choose \"Sync and quit\" while the phone is nearby to transfer the session data to the phone.</string>
+    <string name="dialog_garmin_session_text">Your setup is looking good. Download the \"Juggling Tracker\" app from the Connect IQ Store to your Garmin watch, then on your watch:\n1. Start the activity \"Juggling\".\n2. Select Juggle (not Record) with Up/Down and press Start.\n3. Select the number of balls with Up/Down and press Start. The session starts.\n\nTo end the session, press Start and choose \"Sync and quit\" while the phone is nearby to transfer the session data to the phone.</string>
 
     <string name="section_raw_recording">Raw Data Recording</string>
     <string name="action_start_raw_recording">Start Raw Recording</string>
