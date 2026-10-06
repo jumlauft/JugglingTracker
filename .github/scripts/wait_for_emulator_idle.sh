@@ -5,7 +5,8 @@
 # for a while after it, system windows (the keyguard, the home screen starting
 # up, "isn't responding" dialogs from slow system apps) come and go and take
 # window focus. Tests that need their activity to hold focus (Espresso's
-# pressBack) then time out. Waits until window focus has stayed on the same
+# pressBack) then time out. The Wear image's TrayInitializationOverlay is one:
+# it holds focus for a while after boot and is not a settled state. Waits until window focus has stayed on the same
 # window for several polls in a row. Never fails the job: if the emulator does
 # not settle in time, the tests run anyway and report what they find.
 set -u
@@ -21,7 +22,7 @@ stable=0
 while [ "$SECONDS" -lt "$deadline" ]; do
   focus=$(adb shell dumpsys window 2>/dev/null | grep -m1 'mCurrentFocus' | tr -d '\r' | sed 's/^ *//')
   case "$focus" in
-    ''|*=null*|*'Not Responding'*|*'isn'"'"'t responding'*|*Error*|*Keyguard*|*NotificationShade*)
+    ''|*=null*|*'Not Responding'*|*'isn'"'"'t responding'*|*Error*|*Keyguard*|*NotificationShade*|*TrayInitializationOverlay*)
       # Nothing focused yet, or a system window has it: close system dialogs
       # and keep waiting.
       echo "Waiting for the emulator to settle: ${focus:-no focus}"
