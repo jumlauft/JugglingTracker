@@ -48,6 +48,12 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // Bundles the native libraries' symbol tables (Compose ships a
+            // small .so) so Play can symbolicate native crashes and ANRs and
+            // stops warning that no debug symbols were uploaded.
+            ndk {
+                debugSymbolLevel 'SYMBOL_TABLE'
+            }
             if (System.getenv("KEYSTORE_FILE")?.isEmpty() == false) {
                 signingConfig signingConfigs.release
             }

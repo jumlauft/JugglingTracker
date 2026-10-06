@@ -76,6 +76,18 @@ jobs:
         if: ${{ !cancelled() }}
         run: ./gradlew :app:lintDebug
 
+      - name: Release bundle builds (minified, unsigned)
+        # The Play release uploads this bundle, so R8 problems show up here
+        # rather than on release day.
+        working-directory: android
+        if: ${{ !cancelled() }}
+        run: ./gradlew bundleRelease
+
+      - name: Release bundle carries native debug symbols
+        # Without them Play warns that the bundle has native code but no
+        # debug symbols (ndk.debugSymbolLevel in app/build.gradle).
+        run: unzip -l android/app/build/outputs/bundle/release/app-release.aab | grep -q 'BUNDLE-METADATA/com.android.tools.build.debugsymbols/'
+
       - name: Upload reports
         if: failure()
         uses: actions/upload-artifact@v4
@@ -160,6 +172,11 @@ jobs:
         # rather than on release day.
         working-directory: wearos
         run: ./gradlew --build-cache bundleRelease
+
+      - name: Release bundle carries native debug symbols
+        # Without them Play warns that the bundle has native code but no
+        # debug symbols (ndk.debugSymbolLevel in app/build.gradle).
+        run: unzip -l wearos/app/build/outputs/bundle/release/app-release.aab | grep -q 'BUNDLE-METADATA/com.android.tools.build.debugsymbols/'
 
   wearos-emulator:
     name: Wear OS emulator tests
