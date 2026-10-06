@@ -161,6 +161,10 @@ jobs:
         working-directory: wearos
         run: ./gradlew --build-cache bundleRelease
 
+      - name: Native debug symbols zip builds
+        # The release workflow uploads this to Play alongside the bundle.
+        run: .github/scripts/native-debug-symbols.sh wearos
+
   wearos-emulator:
     name: Wear OS emulator tests
     runs-on: ubuntu-latest
