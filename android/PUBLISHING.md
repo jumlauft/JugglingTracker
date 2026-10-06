@@ -18,19 +18,34 @@ This document outlines the steps and assets needed to publish **Juggling Tracker
 - **Screenshots**: At least 2 phone screenshots (portrait).
     - *Tip*: Take screenshots of the Tracker screen and the Graph view.
 - **Short Description**: (Max 80 chars)
-    Track your juggling progress with automatic catch detection.
+    Counts your juggling catches with a Garmin or Wear OS watch, or your phone.
 - **Full Description**: (Max 4000 chars)
-    Juggling Tracker is the ultimate companion for jugglers looking to quantify their practice.
+    Juggling Tracker counts your catches while you juggle, so you can stop counting in your head and see how your practice adds up over time.
 
-    Key Features:
-    * Automated Detection: Use your phone's sensors to track catches and runs automatically. 
-    * Visualization: View your progress over time with history graphs.
-    * Detailed Analytics: Track average throws, best runs, and consistency across different ball counts.
-    * Garmin Integration: If you don't want to wear the phone on your wrist, use a garmin watch and sync your sessions seamlessly. 
+    How it works
+    Wear a Garmin or Wear OS watch on one wrist. The watch detects each catch made by that hand from its motion sensor and groups the catches into runs automatically. Because it counts one hand, a 20-catch cascade shows about 10. When you finish, the session goes to this phone app, which keeps your history.
 
-    Whether you're working on your first 3-ball cascade or pushing for a new 7-ball record, Juggling Tracker helps you stay motivated and see your improvement.
+    Key features
+    * Automatic run and catch detection on the watch, for 3 to 9 balls
+    * Live count, best run and session average on your wrist
+    * Regularity score: how consistent your throws are from catch to catch
+    * History charts, best and average per number of balls
+    * Garmin watches (Forerunner, Fenix, Venu, Vivoactive, Instinct, Epix and more) via the Connect IQ app, and Wear OS watches via the companion watch app
+    * No watch? Hold the phone in your counting hand and track a session with the phone's sensor
+    * CSV export of your sessions
 
+    Accuracy
+    The count is often off by a catch or two per run, so use it for trends rather than to prove a new record. On our test set of 121 runs and about 3,000 catches from three jugglers, it is 92.7% accurate, with over- and undercounting roughly balanced.
 
+    Help improve it
+    Record mode lets you label runs with the number you counted yourself and email the recordings to the developer. Every recording makes detection better for everyone.
+
+    Privacy
+    Your history stays on your phone. The app uses Firebase Analytics and Crashlytics for usage stats and crash reports; you can turn this off in Settings.
+    Source code: https://github.com/jumlauft/JugglingTracker
+
+- *Note*: Keep the accuracy figure in step with the "All" row of the
+  per-ball-count table in the root README.
 
 ## 3. Privacy Policy
 
@@ -46,8 +61,13 @@ starts collecting or sending something new.
 
 In the Play Console, you will need to declare:
 - **Location**: Used for Bluetooth (on Android < 12).
-- **Device Identifiers**: Used by Firebase for analytics.
-- **Crash logs**: Collected by Firebase Crashlytics.
+- **Device or other IDs**: The Firebase Analytics app instance ID (Analytics).
+- **Crash logs** and **Diagnostics**: Collected by Firebase Crashlytics.
+- **App interactions**: Firebase Analytics usage events.
+- **Fitness info**: Session results and recordings.
+- **Name**: Collected, optional, for app functionality. The juggler name set
+  under Raw Data Recording is written into recordings, and "Send recordings by
+  email" sends them to the developer address.
 
 ## 5. Deployment
 
@@ -60,7 +80,10 @@ In the Play Console, you will need to declare:
 
 `.github/workflows/release-android.yml` builds a signed App Bundle and uploads
 it to the Play **internal testing** track whenever a tag matching `v*` is pushed.
-Promote a build from internal to production by hand in the Play Console.
+To move that build to closed testing, run the **Promote Play release** workflow
+(`.github/workflows/promote-play.yml`) from the Actions tab; it defaults to the
+`ClosedTestingTrack` closed track. Promote to production by hand in the Play
+Console.
 
 ### Cutting a release
 

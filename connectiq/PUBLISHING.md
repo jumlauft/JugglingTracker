@@ -31,7 +31,7 @@ Key Features:
 * Seamless Sync: Transmits finished sessions to the Juggling Tracker Android app for long-term visualization and history. (It can also be used standalone).  
 * Record labeled data and send to developers (via Android App) to improve detection precision in future releases.
 
-Disclaimer: The counting will often be off by 1 or 2 catches, so it is not suitable to document your newest high-score, but rather works based on statistics. On the training data, we see accuracies around 95% well balanced between over and undercounting, so it definitely will give you a trend on how fast you are improving.
+Disclaimer: The counting will often be off by 1 or 2 catches, so it is not suitable to document your newest high-score, but rather works based on statistics. On our test set of 121 runs and about 3,000 catches from three jugglers, the count is 92.7% accurate, with over- and undercounting roughly balanced, so it definitely will give you a trend on how fast you are improving.
 
 Call-for-action: Help to improve precision by running a "Record" session. Label the runs with the manually counted number of catches and send the data to the developer. We will use it to improve detection accuracy in future releases.
 
