@@ -62,6 +62,8 @@ starts collecting or sending something new.
 In the Play Console, you will need to declare:
 - **Location**: Used for Bluetooth (on Android < 12).
 - **Device or other IDs**: The Firebase Analytics app instance ID (Analytics).
+- **Advertising ID** (App content): "No". The manifest removes the AD_ID
+  permissions that Firebase Analytics adds and turns off ad ID collection.
 - **Crash logs** and **Diagnostics**: Collected by Firebase Crashlytics.
 - **App interactions**: Firebase Analytics usage events.
 - **Fitness info**: Session results and recordings.
