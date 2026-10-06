@@ -233,20 +233,20 @@ python -m pytest test_detection.py -v
 python eval_new_watch.py
 ```
 
-`test_detection.py` locks the labeled-data detector baseline: 215 total absolute error and 93 total overcount error across 117 labeled runs / 2859 watch-hand catches. Every recording in `connectiq/data/` must have an entry in `EXPECTED_RUNS`, so adding data means adding its expected count there too.
+`test_detection.py` locks the labeled-data detector baseline: 222 total absolute error and 93 total overcount error across 121 labeled runs / 3041 watch-hand catches. Every recording in `connectiq/data/` must have an entry in `EXPECTED_RUNS`, so adding data means adding its expected count there too.
 
 Per-ball-count accuracy on that corpus:
 
 | Balls | Runs | Catches | Detected | Absolute error | Overcount | Undercount | Accuracy |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 3 | 25 | 537 | 552 | 37 | 26 | 11 | 93.1% |
-| 4 | 13 | 291 | 282 | 11 | 1 | 10 | 96.2% |
+| 4 | 17 | 473 | 457 | 18 | 1 | 17 | 96.2% |
 | 5 | 45 | 1551 | 1530 | 125 | 52 | 73 | 91.9% |
 | 6 | 11 | 215 | 216 | 11 | 6 | 5 | 94.9% |
 | 7+ | 23 | 265 | 250 | 31 | 8 | 23 | 88.3% |
-| **All** | **117** | **2859** | **2830** | **215** | **93** | **122** | **92.5%** |
+| **All** | **121** | **3041** | **3005** | **222** | **93** | **129** | **92.7%** |
 
-Accuracy is `1 - absolute error / catches`. The corpus undercounts on balance: net -29 catches (-1.0%), with undercounting making up 57% of all error and overcounting 43%. The six 3-ball runs from a second juggler, Moritz Wich, are overcounted by 14 in total, which is what moved the 3-ball row. 6 balls is the second most accurate bucket, which is the case for it having parameters of its own; 7+ is the weakest and is almost entirely undercount.
+Accuracy is `1 - absolute error / catches`. The corpus undercounts on balance: net -36 catches (-1.2%), with undercounting making up 58% of all error and overcounting 42%. The six 3-ball runs from a second juggler, Moritz Wich, are overcounted by 14 in total, which is what moved the 3-ball row. Four 4-ball runs from a third juggler, Felix, are undercounted by 7 in total. 6 balls is the second most accurate bucket, which is the case for it having parameters of its own; 7+ is the weakest and is almost entirely undercount.
 
 ### Connect IQ Watch App
 
