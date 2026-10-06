@@ -208,7 +208,12 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           working-directory: wearos
+          # The APKs are already built, so the tests would otherwise start
+          # seconds after boot, while system windows still take focus away
+          # from the app (see the script). Before the build moved out of this
+          # step, compiling here gave the emulator that time to settle.
           script: |
+            ../.github/scripts/wait_for_emulator_idle.sh
             ./gradlew --build-cache connectedDebugAndroidTest
             adb pull /data/local/tmp/wear-screens app/build/wear-screens || true
 
