@@ -86,7 +86,10 @@ jobs:
       - name: Release bundle carries native debug symbols
         # Without them Play warns that the bundle has native code but no
         # debug symbols (ndk.debugSymbolLevel in app/build.gradle).
-        run: unzip -l android/app/build/outputs/bundle/release/app-release.aab | grep -q 'BUNDLE-METADATA/com.android.tools.build.debugsymbols/'
+        run: |
+          unzip -l android/app/build/outputs/bundle/release/app-release.aab | grep -E 'BUNDLE-METADATA|\.so$' || true
+          find android/app/build/intermediates -path '*native_symbol*' -o -path '*native_debug*' | head -20
+          unzip -l android/app/build/outputs/bundle/release/app-release.aab | grep -q 'BUNDLE-METADATA/com.android.tools.build.debugsymbols/'
 
       - name: Upload reports
         if: failure()
@@ -176,7 +179,10 @@ jobs:
       - name: Release bundle carries native debug symbols
         # Without them Play warns that the bundle has native code but no
         # debug symbols (ndk.debugSymbolLevel in app/build.gradle).
-        run: unzip -l wearos/app/build/outputs/bundle/release/app-release.aab | grep -q 'BUNDLE-METADATA/com.android.tools.build.debugsymbols/'
+        run: |
+          unzip -l wearos/app/build/outputs/bundle/release/app-release.aab | grep -E 'BUNDLE-METADATA|\.so$' || true
+          find wearos/app/build/intermediates -path '*native_symbol*' -o -path '*native_debug*' | head -20
+          unzip -l wearos/app/build/outputs/bundle/release/app-release.aab | grep -q 'BUNDLE-METADATA/com.android.tools.build.debugsymbols/'
 
   wearos-emulator:
     name: Wear OS emulator tests
