@@ -15,10 +15,6 @@ def releaseVersionName = System.getenv("VERSION_NAME") ?: "1.1"
 android {
     namespace 'com.juggling.tracker'
     compileSdk 36
-    // Pinned so AGP finds (or installs) the NDK it needs to strip Compose's
-    // .so and extract its symbol table for Play; without an NDK the release
-    // bundle silently ships without debug symbols.
-    ndkVersion "27.3.13750724"
 
     defaultConfig {
         applicationId "com.juggling.tracker"
@@ -49,12 +45,6 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            // Bundles the native libraries' symbol tables (Compose ships a
-            // small .so) so Play can symbolicate native crashes and ANRs and
-            // stops warning that no debug symbols were uploaded.
-            ndk {
-                debugSymbolLevel 'SYMBOL_TABLE'
-            }
             if (System.getenv("KEYSTORE_FILE")?.isEmpty() == false) {
                 signingConfig signingConfigs.release
             }

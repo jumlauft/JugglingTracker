@@ -55,6 +55,9 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew bundleRelease
 
+      - name: Zip native debug symbols
+        run: .github/scripts/native-debug-symbols.sh android
+
       - name: Upload to Play internal track
         uses: r0adkll/upload-google-play@v1
         with:
@@ -62,6 +65,7 @@ jobs:
           packageName: com.juggling.tracker
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           mappingFile: android/app/build/outputs/mapping/release/mapping.txt
+          debugSymbols: android/app/build/native-debug-symbols.zip
           tracks: internal
           status: completed
 
@@ -73,6 +77,9 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew bundleRelease
 
+      - name: Zip native debug symbols (Wear OS)
+        run: .github/scripts/native-debug-symbols.sh wearos
+
       - name: Upload Wear OS app to Play internal track
         # Wear OS builds of a listing go to their own form-factor track.
         # It exists once Wear OS is added under Test and release > Advanced
@@ -83,5 +90,6 @@ jobs:
           packageName: com.juggling.tracker
           releaseFiles: wearos/app/build/outputs/bundle/release/app-release.aab
           mappingFile: wearos/app/build/outputs/mapping/release/mapping.txt
+          debugSymbols: wearos/app/build/native-debug-symbols.zip
           tracks: wear:internal
           status: completed
