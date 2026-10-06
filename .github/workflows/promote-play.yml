@@ -1,0 +1,39 @@
+name: Promote Play release
+
+# Copies the current internal-testing release to another Play track (by
+# default the closed testing track), for the phone app and optionally the
+# Wear OS app. Run it by hand from the Actions tab. Google reviews closed and
+# production releases before testers see them. Uses the same
+# PLAY_SERVICE_ACCOUNT_JSON secret as release-android.yml.
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: Phone track to promote to
+        default: ClosedTestingTrack
+      wear_track:
+        description: Wear OS track to promote to (empty to skip), e.g. wear:ClosedTestingTrack
+        default: ''
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Install Google auth
+        run: pip install google-auth requests
+
+      - name: Promote phone app
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          TRACK: ${{ inputs.track }}
+        run: python .github/scripts/promote_play_release.py com.juggling.tracker internal "$TRACK"
+
+      - name: Promote Wear OS app
+        if: inputs.wear_track != ''
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          TRACK: ${{ inputs.wear_track }}
+        run: python .github/scripts/promote_play_release.py com.juggling.tracker wear:internal "$TRACK"

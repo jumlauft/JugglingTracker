@@ -80,7 +80,10 @@ In the Play Console, you will need to declare:
 
 `.github/workflows/release-android.yml` builds a signed App Bundle and uploads
 it to the Play **internal testing** track whenever a tag matching `v*` is pushed.
-Promote a build from internal to production by hand in the Play Console.
+To move that build to closed testing, run the **Promote Play release** workflow
+(`.github/workflows/promote-play.yml`) from the Actions tab; it defaults to the
+`ClosedTestingTrack` closed track. Promote to production by hand in the Play
+Console.
 
 ### Cutting a release
 
