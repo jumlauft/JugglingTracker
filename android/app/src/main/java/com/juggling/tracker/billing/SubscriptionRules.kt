@@ -11,6 +11,12 @@ object SubscriptionProducts {
     /** Google Play's page for managing (and cancelling) this subscription. */
     fun manageUrl(packageName: String): String =
         "https://play.google.com/store/account/subscriptions?sku=$SUBSCRIPTION_ID&package=$packageName"
+
+    /**
+     * SHA-256 of the code Jonas hands to testers, who get the app for free.
+     * Only the hash is kept here; a new code means a new hash and a new release.
+     */
+    const val TESTER_CODE_SHA256 = "93dd1eec458b494581f065ecc79299813ad5bac3772ec8fc3a2748c8cf5c07bb"
 }
 
 /** Where the user stands with Google Play, as last asked. */
@@ -83,8 +89,9 @@ object SubscriptionRules {
      * While Play is being asked or cannot be reached, the last answer stands, so
      * a subscriber who opens the app offline still gets in; with no answer ever
      * seen, a check in progress waits and an unreachable Play lets the user in.
+     * A tester who entered the tester code is always let in.
      */
-    fun isUnlocked(status: SubscriptionStatus, lastKnownActive: Boolean?): Boolean? = when (status) {
+    fun isUnlocked(status: SubscriptionStatus, lastKnownActive: Boolean?, isTester: Boolean = false): Boolean? = if (isTester) true else when (status) {
         SubscriptionStatus.ACTIVE, SubscriptionStatus.NOT_OFFERED -> true
         SubscriptionStatus.PENDING, SubscriptionStatus.NOT_SUBSCRIBED -> false
         SubscriptionStatus.CHECKING -> lastKnownActive
@@ -105,6 +112,13 @@ object SubscriptionRules {
      */
     fun pickOffer(offers: List<SubscriptionOffer>): SubscriptionOffer? =
         offers.firstOrNull { it.offerId == null } ?: offers.firstOrNull()
+
+    /** Whether [code] is the tester code; case and surrounding spaces do not matter. */
+    fun isTesterCode(code: String): Boolean {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(code.trim().lowercase().toByteArray(Charsets.UTF_8))
+        return digest.joinToString("") { "%02x".format(it) } == SubscriptionProducts.TESTER_CODE_SHA256
+    }
 
     /**
      * "P1M" as "month", "P3M" as "3 months", "P1Y" as "year", "P1W" as "week";

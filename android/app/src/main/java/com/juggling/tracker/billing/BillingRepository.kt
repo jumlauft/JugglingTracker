@@ -102,6 +102,14 @@ class BillingRepository(context: Context, private val cache: EntitlementCache) {
         return true
     }
 
+    /** Unlocks the app for good on this phone when [code] is the tester code. */
+    fun redeemTesterCode(code: String): Boolean {
+        if (!SubscriptionRules.isTesterCode(code)) return false
+        cache.isTester = true
+        _access.value = access(_access.value.status, _access.value.offer)
+        return true
+    }
+
     private suspend fun query() {
         val details = queryProductDetails()
         if (details == null) {
@@ -175,7 +183,7 @@ class BillingRepository(context: Context, private val cache: EntitlementCache) {
     }
 
     private fun access(status: SubscriptionStatus, offer: SubscriptionOffer?) =
-        SubscriptionAccess(status, offer, SubscriptionRules.isUnlocked(status, cache.lastKnownActive))
+        SubscriptionAccess(status, offer, SubscriptionRules.isUnlocked(status, cache.lastKnownActive, cache.isTester))
 
     private fun offerOf(details: ProductDetails): SubscriptionOffer? =
         SubscriptionRules.pickOffer(

@@ -170,6 +170,11 @@
     <string name="paywall_subscribe">Subscribe</string>
     <string name="paywall_check_again">Already subscribed? Check again</string>
     <string name="paywall_cancel_anytime">Renews automatically. Cancel anytime in Google Play.</string>
+    <string name="paywall_tester_code">Have a tester code?</string>
+    <string name="tester_code_label">Tester code</string>
+    <string name="tester_code_wrong">That code is not right</string>
+    <string name="tester_code_unlock">Unlock</string>
+    <string name="action_cancel_tester_code">Cancel</string>
     <string name="section_subscription">Subscription</string>
     <string name="action_manage_subscription">Manage subscription in Google Play</string>
 </resources>

@@ -10,6 +10,8 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import com.juggling.tracker.billing.PricingPhase
 import com.juggling.tracker.billing.SubscriptionAccess
 import com.juggling.tracker.billing.SubscriptionOffer
@@ -82,7 +84,7 @@ class PaywallTest {
         var access by mutableStateOf(SubscriptionAccess(SubscriptionStatus.NOT_SUBSCRIBED, monthly, unlocked = false))
         composeTestRule.setContent {
             JugglingTrackerTheme {
-                SubscriptionGate(access, onSubscribe = {}, onCheckAgain = {}) { Text("The app") }
+                SubscriptionGate(access, onSubscribe = {}, onCheckAgain = {}, onTesterCode = { false }) { Text("The app") }
             }
         }
         composeTestRule.onNodeWithText("The app").assertDoesNotExist()
@@ -92,10 +94,34 @@ class PaywallTest {
         composeTestRule.onNodeWithText("The app").assertIsDisplayed()
     }
 
-    private fun show(access: SubscriptionAccess, onSubscribe: () -> Unit = {}, onCheckAgain: () -> Unit = {}) {
+    @Test
+    fun aWrongTesterCodeSaysSoAndTheRightOneIsPassedOn() {
+        val tried = mutableListOf<String>()
+        show(
+            SubscriptionAccess(SubscriptionStatus.NOT_SUBSCRIBED, monthly, unlocked = false),
+            onTesterCode = { tried += it; it == "right" },
+        )
+
+        composeTestRule.onNodeWithText("Have a tester code?").performClick()
+        composeTestRule.onNodeWithText("Tester code").performTextInput("wrong")
+        composeTestRule.onNodeWithText("Unlock").performClick()
+        composeTestRule.onNodeWithText("That code is not right").assertIsDisplayed()
+
+        composeTestRule.onNodeWithText("Tester code").performTextReplacement("right")
+        composeTestRule.onNodeWithText("Unlock").performClick()
+        composeTestRule.onNodeWithText("Unlock").assertDoesNotExist()
+        assertEquals(listOf("wrong", "right"), tried)
+    }
+
+    private fun show(
+        access: SubscriptionAccess,
+        onSubscribe: () -> Unit = {},
+        onCheckAgain: () -> Unit = {},
+        onTesterCode: (String) -> Boolean = { false },
+    ) {
         composeTestRule.setContent {
             JugglingTrackerTheme {
-                SubscriptionGate(access, onSubscribe = onSubscribe, onCheckAgain = onCheckAgain) { Text("The app") }
+                SubscriptionGate(access, onSubscribe, onCheckAgain, onTesterCode) { Text("The app") }
             }
         }
     }

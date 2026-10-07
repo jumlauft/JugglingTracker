@@ -8,6 +8,8 @@ import com.juggling.tracker.billing.SubscriptionStatus.NOT_SUBSCRIBED
 import com.juggling.tracker.billing.SubscriptionStatus.PENDING
 import com.juggling.tracker.billing.SubscriptionStatus.UNAVAILABLE
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -73,6 +75,20 @@ class SubscriptionRulesTest {
         assertEquals(true, SubscriptionRules.isUnlocked(UNAVAILABLE, lastKnownActive = true))
         assertEquals(false, SubscriptionRules.isUnlocked(UNAVAILABLE, lastKnownActive = false))
         assertEquals(true, SubscriptionRules.isUnlocked(UNAVAILABLE, lastKnownActive = null))
+    }
+
+    @Test
+    fun testersAreAlwaysLetIn() {
+        assertEquals(true, SubscriptionRules.isUnlocked(NOT_SUBSCRIBED, lastKnownActive = false, isTester = true))
+        assertEquals(true, SubscriptionRules.isUnlocked(CHECKING, lastKnownActive = null, isTester = true))
+    }
+
+    @Test
+    fun theTesterCodeIgnoresCaseAndSpaces() {
+        assertTrue(SubscriptionRules.isTesterCode("juggle-5a02b4"))
+        assertTrue(SubscriptionRules.isTesterCode("  JUGGLE-5A02B4 "))
+        assertFalse(SubscriptionRules.isTesterCode("juggle-000000"))
+        assertFalse(SubscriptionRules.isTesterCode(""))
     }
 
     @Test

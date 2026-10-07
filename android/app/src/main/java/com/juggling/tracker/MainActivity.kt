@@ -83,6 +83,7 @@ class MainActivity : ComponentActivity() {
                         access = access,
                         onSubscribe = { app.billing.launchPurchase(this@MainActivity) },
                         onCheckAgain = app.billing::refresh,
+                        onTesterCode = app.billing::redeemTesterCode,
                     ) {
                         JugglingTrackerApp(
                             viewModel = viewModel,
