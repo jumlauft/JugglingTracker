@@ -63,7 +63,7 @@ object SessionCsv {
      * history at all.
      */
     fun parse(text: String, timeZone: TimeZone = TimeZone.getDefault()): Parsed {
-        val lines = text.removePrefix("﻿").lines().filter { it.isNotBlank() }
+        val lines = text.removePrefix("\uFEFF").lines().filter { it.isNotBlank() }
         require(lines.isNotEmpty()) { "Empty file" }
         // A spreadsheet app saving with a German locale separates with ';'.
         val headerLine = lines[0]

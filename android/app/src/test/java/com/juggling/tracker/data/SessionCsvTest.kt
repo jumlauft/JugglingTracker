@@ -48,7 +48,7 @@ class SessionCsvTest {
                     .joinToString("")
             }
 
-        assertEquals(sessions, SessionCsv.parse("﻿" + csv, berlin).sessions)
+        assertEquals(sessions, SessionCsv.parse("\uFEFF" + csv, berlin).sessions)
     }
 
     @Test
