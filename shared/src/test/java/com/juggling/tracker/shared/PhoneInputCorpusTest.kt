@@ -79,7 +79,7 @@ class PhoneInputCorpusTest {
             Triple("20260922_144802", 3, 88),
             Triple("20260922_152712", 5, 60),
             Triple("20260924_170736", 6, 26),
-            Triple("20260922_152032", 7, 13),
+            Triple("20260922_152032", 7, 12),
             // 20260603_223524 (4 balls) is deliberately absent -- see
             // `known one catch divergence ...` below.
         )

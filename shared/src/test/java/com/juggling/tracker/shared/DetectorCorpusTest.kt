@@ -65,6 +65,25 @@ class DetectorCorpusTest {
         assertEquals(emptyList<String>(), failures)
     }
 
+    /**
+     * DET-9: four 7-ball runs recorded back to back split into four runs on
+     * the Juggle screen, as `test_back_to_back_runs_split_at_the_right_places`
+     * pins for the reference. Samples arrive in one-second batches with the
+     * auto-finish checked after each, as the watches feed them.
+     */
+    @Test
+    fun `DET-9 back to back runs split where the reference splits them`() {
+        val samples = loadRun("20261007_184543")
+        val d = JugglingDetector(7)
+        samples.forEachIndexed { i, s ->
+            val t = i * JugglingDetector.SAMPLE_PERIOD_MS
+            d.processSample(s[0], s[1], s[2], t)
+            if ((i + 1) % JugglingDetector.SAMPLE_RATE == 0) d.checkAutoFinish(t)
+        }
+        d.finishCurrentRun()
+        assertEquals(listOf(9, 8, 10, 13), d.runCatches())
+    }
+
     @Test
     fun `DET-11 every recording on disk is covered`() {
         val onDisk = File(repoRoot(), "connectiq/data").listFiles { f -> f.name.endsWith(".csv") }!!
