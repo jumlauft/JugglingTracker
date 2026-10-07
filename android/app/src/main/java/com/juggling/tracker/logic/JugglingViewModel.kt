@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.juggling.tracker.model.SessionSummary
 import com.juggling.tracker.model.normalizeRunDurations
 import com.juggling.tracker.model.summarizeSession
+import com.juggling.tracker.data.SessionCsv
 import com.juggling.tracker.data.SessionRepository
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.data.SettingsManager
@@ -22,7 +23,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import android.os.Bundle
-import java.util.Locale
 import com.google.firebase.analytics.FirebaseAnalytics
 
 sealed class JugglingEvent {
@@ -362,26 +362,23 @@ class JugglingViewModel(
         repository?.deleteSession(session)
     }
 
-    // Numbers and dates are written the same way whatever the phone's
-    // language: a German phone would otherwise write 12,50 for the average,
-    // and that comma splits the row into one column too many.
-    fun getSessionsCsv(): String {
-        val builder = StringBuilder()
-        builder.append("Date,Ball Count,Run Count,Session Duration Seconds,Watch Hand Average,Watch Hand Best,Watch Hand Total,Run Durations Millis,Watch Hand Run History,Regularity Percent\n")
+    fun getSessionsCsv(): String = SessionCsv.write(completedSessions)
 
-        val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
-
-        completedSessions.forEach { session ->
-            val date = dateFormat.format(java.util.Date(session.timestamp))
-            val average = String.format(Locale.US, "%.2f", session.avgThrows)
-            val runHistory = session.runHistory.joinToString(";")
-            val runDurationsMillis = session.runDurationsMillis.joinToString(";")
-            // Empty when the session has no Regularity score.
-            val regularity = session.shapeConsistency?.toString() ?: ""
-            builder.append("$date,${session.ballCount},${session.runCount},${session.durationSeconds},$average,${session.bestRun},${session.totalThrows},\"$runDurationsMillis\",\"$runHistory\",$regularity\n")
+    /**
+     * Add a backup's sessions to the history, skipping those already here.
+     * Returns how many were added.
+     */
+    fun restoreSessions(backup: List<SessionSummary>): Int {
+        if (repository != null) {
+            val added = repository.restoreSessions(backup)
+            completedSessions.clear()
+            completedSessions.addAll(repository.getSessions())
+            return added
         }
-
-        return builder.toString()
+        val added = SessionCsv.newSessions(backup, completedSessions)
+        completedSessions.addAll(added)
+        completedSessions.sortByDescending { it.timestamp }
+        return added.size
     }
 
     // ── Recording support ──────────────────────────────────────────────

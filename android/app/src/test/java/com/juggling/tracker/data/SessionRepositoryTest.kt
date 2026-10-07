@@ -33,6 +33,25 @@ class SessionRepositoryTest {
         repository = newRepository()
     }
 
+    // ── restoreSessions ─────────────────────────────────────────────────
+
+    @Test
+    fun `restore adds only new sessions and keeps them after a reload`() {
+        repository.importSession(3, 1000_000L, listOf(10))
+        val backup = listOf(
+            com.juggling.tracker.model.summarizeSession(1000_000L, 3, listOf(99)),
+            com.juggling.tracker.model.summarizeSession(2000_000L, 4, listOf(7)),
+        )
+
+        assertEquals(1, repository.restoreSessions(backup))
+        assertEquals(0, repository.restoreSessions(backup))
+
+        val reloaded = newRepository().getSessions()
+        assertEquals(listOf(2000_000L, 1000_000L), reloaded.map { it.timestamp })
+        // The session already here is kept as it was, not replaced by the backup's copy.
+        assertEquals(listOf(10), reloaded[1].runHistory)
+    }
+
     // ── importSession ───────────────────────────────────────────────────
 
     @Test

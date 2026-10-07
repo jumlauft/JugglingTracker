@@ -62,6 +62,52 @@ class SettingsManager(context: Context) {
             .apply()
     }
 
+    /** Whether the weekly backup is on. It writes to [backupUri], which the user picked. */
+    var isBackupEnabled: Boolean by mutableStateOf(prefs.getBoolean(KEY_BACKUP_ENABLED, false))
+        private set
+
+    /** The backup file the user picked (usually in Google Drive), as a document URI; null until then. */
+    var backupUri: String? by mutableStateOf(prefs.getString(KEY_BACKUP_URI, null))
+        private set
+
+    /** The backup file's name as the picker showed it, for Settings to display. */
+    var backupFileName: String? by mutableStateOf(prefs.getString(KEY_BACKUP_FILE_NAME, null))
+        private set
+
+    /** When the last backup was written, in epoch ms; 0 for never. */
+    var lastBackupMillis: Long by mutableStateOf(prefs.getLong(KEY_LAST_BACKUP, 0L))
+        private set
+
+    /** True when the last backup attempt could not write the file. */
+    var lastBackupFailed: Boolean by mutableStateOf(prefs.getBoolean(KEY_LAST_BACKUP_FAILED, false))
+        private set
+
+    fun updateBackupFile(uri: String, fileName: String?) {
+        backupUri = uri
+        backupFileName = fileName
+        lastBackupFailed = false
+        prefs.edit()
+            .putString(KEY_BACKUP_URI, uri)
+            .putString(KEY_BACKUP_FILE_NAME, fileName)
+            .putBoolean(KEY_LAST_BACKUP_FAILED, false)
+            .apply()
+    }
+
+    fun updateBackupEnabled(enabled: Boolean) {
+        isBackupEnabled = enabled
+        prefs.edit().putBoolean(KEY_BACKUP_ENABLED, enabled).apply()
+    }
+
+    fun recordBackupResult(succeeded: Boolean, atMillis: Long = System.currentTimeMillis()) {
+        lastBackupFailed = !succeeded
+        val editor = prefs.edit().putBoolean(KEY_LAST_BACKUP_FAILED, !succeeded)
+        if (succeeded) {
+            lastBackupMillis = atMillis
+            editor.putLong(KEY_LAST_BACKUP, atMillis)
+        }
+        editor.apply()
+    }
+
     fun updateAnalyticsEnabled(enabled: Boolean) {
         isAnalyticsEnabled = enabled
         prefs.edit().putBoolean(KEY_ANALYTICS, enabled).apply()
@@ -85,5 +131,10 @@ class SettingsManager(context: Context) {
         private const val KEY_JUGGLER_NAME = "juggler_name"
         private const val KEY_WATCH_HAND = "watch_hand"
         private const val KEY_FIRST_THROW = "first_throw_hand"
+        private const val KEY_BACKUP_ENABLED = "backup_enabled"
+        private const val KEY_BACKUP_URI = "backup_uri"
+        private const val KEY_BACKUP_FILE_NAME = "backup_file_name"
+        private const val KEY_LAST_BACKUP = "last_backup_millis"
+        private const val KEY_LAST_BACKUP_FAILED = "last_backup_failed"
     }
 }

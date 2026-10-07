@@ -2,8 +2,10 @@
 <data-extraction-rules>
     <cloud-backup>
         <include domain="sharedpref" path="juggling_sessions.xml"/>
+        <include domain="file" path="sessions.jsonl"/>
     </cloud-backup>
     <device-transfer>
         <include domain="sharedpref" path="juggling_sessions.xml"/>
+        <include domain="file" path="sessions.jsonl"/>
     </device-transfer>
 </data-extraction-rules>

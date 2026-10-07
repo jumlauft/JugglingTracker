@@ -5,6 +5,8 @@ import com.juggling.tracker.shared.JugglingDetector
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.*
+import com.juggling.tracker.data.SessionCsv
+import com.juggling.tracker.model.summarizeSession
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
@@ -377,7 +379,7 @@ class JugglingViewModelTest {
 
             val dataLine = viewModel.getSessionsCsv().lines()[1]
             assertTrue(dataLine.contains(",15.50,"))
-            assertEquals(10, dataLine.split(",").size)
+            assertEquals(11, dataLine.split(",").size)
         } finally {
             java.util.Locale.setDefault(previous)
         }
@@ -394,9 +396,24 @@ class JugglingViewModelTest {
         advanceUntilIdle()
 
         val lines = viewModel.getSessionsCsv().lines().filter { it.isNotBlank() }
-        assertTrue(lines[0].endsWith(",Regularity Percent"))
-        assertTrue(lines[1].endsWith(",83"))   // newest first
-        assertTrue(lines[2].endsWith(","))
+        assertTrue(lines[0].endsWith(",Regularity Percent,Timestamp Millis"))
+        assertTrue(lines[1].endsWith(",83,200000"))   // newest first
+        assertTrue(lines[2].endsWith(",,100000"))
+    }
+
+    @Test
+    fun `restoring an export adds only the sessions not already here`() = runTest {
+        viewModel.importSessionFromWatch(mapOf(
+            "balls" to 3, "timestamp" to 1716931200L, "runs" to listOf(5)
+        ))
+        advanceUntilIdle()
+        val export = SessionCsv.parse(viewModel.getSessionsCsv()).sessions +
+            summarizeSession(1716940000000L, 4, listOf(7, 9))
+
+        assertEquals(1, viewModel.restoreSessions(export))
+        assertEquals(0, viewModel.restoreSessions(export))
+
+        assertEquals(listOf(1716940000000L, 1716931200000L), viewModel.completedSessions.map { it.timestamp })
     }
 
     @Test

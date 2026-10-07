@@ -18,7 +18,10 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.juggling.tracker.JugglingTrackerApplication
 import com.juggling.tracker.R
+import com.juggling.tracker.backup.SessionBackup
+import com.juggling.tracker.data.SessionCsv
 import com.juggling.tracker.data.WatchType
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.logic.JugglingViewModel
@@ -216,6 +219,11 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
 
         HorizontalDivider()
 
+        // Backup
+        BackupSection(viewModel)
+
+        HorizontalDivider()
+
         // Data Management
         Text(text = stringResource(R.string.section_data_management), style = MaterialTheme.typography.titleLarge)
         
@@ -283,6 +291,157 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
                 Text(stringResource(R.string.action_clear_recordings))
             }
         }
+    }
+}
+
+/**
+ * The weekly backup to a CSV file in Google Drive, and restoring from one.
+ * See [SessionBackup].
+ */
+@Composable
+private fun BackupSection(viewModel: JugglingViewModel) {
+    val context = LocalContext.current
+    val app = context.applicationContext as? JugglingTrackerApplication ?: return
+    val settings = app.settingsManager
+    val scope = rememberCoroutineScope()
+
+    fun toast(text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+
+    fun backUpNow() {
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                SessionBackup.backUp(app, app.sessionRepository, settings)
+            }
+            when (result) {
+                SessionBackup.Result.SAVED -> toast(context.getString(R.string.toast_backup_saved))
+                SessionBackup.Result.NOTHING_TO_SAVE -> toast(context.getString(R.string.toast_backup_nothing))
+                SessionBackup.Result.NO_FILE, SessionBackup.Result.FAILED ->
+                    toast(context.getString(R.string.toast_backup_failed))
+            }
+        }
+    }
+
+    // Picking a backup file also turns the weekly backup on and writes it at once.
+    val pickBackupFile = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        if (SessionBackup.connect(context, uri, settings)) {
+            SessionBackup.setEnabled(context, settings, true)
+            backUpNow()
+        } else {
+            toast(context.getString(R.string.toast_backup_location_unusable))
+        }
+    }
+
+    val pickRestoreFile = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val parsed = try {
+                withContext(Dispatchers.IO) { SessionCsv.parse(SessionBackup.read(context, uri)) }
+            } catch (e: Exception) {
+                Log.e("JugglingTrackerApp", "Restore failed", e)
+                toast(context.getString(R.string.toast_restore_failed))
+                return@launch
+            }
+            val added = viewModel.restoreSessions(parsed.sessions)
+            toast(
+                if (added > 0) {
+                    context.resources.getQuantityString(R.plurals.toast_restore_done, added, added)
+                } else {
+                    context.getString(R.string.toast_restore_nothing)
+                }
+            )
+        }
+    }
+
+    // The file is kept when the backup is turned off, so turning it back on
+    // reuses it, as long as the app may still write there.
+    fun hasBackupFile(): Boolean {
+        val uri = settings.backupUri ?: return false
+        return context.contentResolver.persistedUriPermissions.any {
+            it.uri.toString() == uri && it.isWritePermission
+        }
+    }
+
+    Text(text = stringResource(R.string.section_backup), style = MaterialTheme.typography.titleLarge)
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        SettingToggle(
+            label = stringResource(R.string.label_backup_enabled),
+            checked = settings.isBackupEnabled,
+            onCheckedChange = { enabled ->
+                when {
+                    !enabled -> SessionBackup.setEnabled(context, settings, false)
+                    hasBackupFile() -> SessionBackup.setEnabled(context, settings, true)
+                    else -> pickBackupFile.launch(SessionBackup.SUGGESTED_FILE_NAME)
+                }
+            }
+        )
+        Text(
+            text = stringResource(R.string.desc_backup),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+    }
+
+    if (settings.isBackupEnabled) {
+        val lastBackupFormat = remember { java.text.SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()) }
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = stringResource(
+                    R.string.backup_file,
+                    settings.backupFileName ?: stringResource(R.string.backup_file_unnamed),
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                text = if (settings.lastBackupMillis > 0L) {
+                    stringResource(R.string.backup_last, lastBackupFormat.format(Date(settings.lastBackupMillis)))
+                } else {
+                    stringResource(R.string.backup_never)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            if (settings.lastBackupFailed) {
+                Text(
+                    text = stringResource(R.string.backup_last_failed),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+        Button(onClick = { backUpNow() }, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.action_backup_now))
+        }
+        OutlinedButton(
+            onClick = { pickBackupFile.launch(SessionBackup.SUGGESTED_FILE_NAME) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.action_change_backup_file))
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        OutlinedButton(
+            // Drive may label a CSV as plain text or a spreadsheet, so offer all of them.
+            onClick = { pickRestoreFile.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel", "application/octet-stream")) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.action_restore_backup))
+        }
+        Text(
+            text = stringResource(R.string.desc_restore_backup),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
     }
 }
 
