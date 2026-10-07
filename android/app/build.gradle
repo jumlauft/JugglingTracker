@@ -75,6 +75,9 @@ android {
         // Robolectric needs the real merged resources and manifest to inflate
         // anything; without this the Compose tests cannot resolve R.string.
         unitTests.includeAndroidResources = true
+        // Gradle's default 512 MB test heap runs out once the Robolectric
+        // suites load several SDK levels and screen sizes in one JVM.
+        unitTests.all { maxHeapSize = "2g" }
     }
 }
 
