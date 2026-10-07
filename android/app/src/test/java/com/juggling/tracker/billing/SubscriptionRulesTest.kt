@@ -85,10 +85,17 @@ class SubscriptionRulesTest {
 
     @Test
     fun theTesterCodeIgnoresCaseAndSpaces() {
-        assertTrue(SubscriptionRules.isTesterCode("juggle-5a02b4"))
-        assertTrue(SubscriptionRules.isTesterCode("  JUGGLE-5A02B4 "))
-        assertFalse(SubscriptionRules.isTesterCode("juggle-000000"))
-        assertFalse(SubscriptionRules.isTesterCode(""))
+        // SHA-256 of "abc", standing in for the real code, which stays out of this public repository.
+        val abc = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        assertTrue(SubscriptionRules.isTesterCode("abc", abc))
+        assertTrue(SubscriptionRules.isTesterCode("  ABC ", abc))
+        assertFalse(SubscriptionRules.isTesterCode("abd", abc))
+        assertFalse(SubscriptionRules.isTesterCode("", abc))
+    }
+
+    @Test
+    fun theRealTesterCodeIsAFullSha256() {
+        assertTrue(Regex("^[0-9a-f]{64}$").matches(SubscriptionProducts.TESTER_CODE_SHA256))
     }
 
     @Test

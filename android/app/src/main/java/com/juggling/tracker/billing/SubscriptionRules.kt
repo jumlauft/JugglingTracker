@@ -16,7 +16,7 @@ object SubscriptionProducts {
      * SHA-256 of the code Jonas hands to testers, who get the app for free.
      * Only the hash is kept here; a new code means a new hash and a new release.
      */
-    const val TESTER_CODE_SHA256 = "93dd1eec458b494581f065ecc79299813ad5bac3772ec8fc3a2748c8cf5c07bb"
+    const val TESTER_CODE_SHA256 = "dfb69904bc8fafbbd81e1fd543c011118758416848e634f6868d6ceb7b515436"
 }
 
 /** Where the user stands with Google Play, as last asked. */
@@ -113,11 +113,15 @@ object SubscriptionRules {
     fun pickOffer(offers: List<SubscriptionOffer>): SubscriptionOffer? =
         offers.firstOrNull { it.offerId == null } ?: offers.firstOrNull()
 
-    /** Whether [code] is the tester code; case and surrounding spaces do not matter. */
-    fun isTesterCode(code: String): Boolean {
+    /**
+     * Whether [code] is the tester code; case and surrounding spaces do not
+     * matter. The repository is public, so the code itself is never written in
+     * it, tests included.
+     */
+    fun isTesterCode(code: String, expectedSha256: String = SubscriptionProducts.TESTER_CODE_SHA256): Boolean {
         val digest = java.security.MessageDigest.getInstance("SHA-256")
             .digest(code.trim().lowercase().toByteArray(Charsets.UTF_8))
-        return digest.joinToString("") { "%02x".format(it) } == SubscriptionProducts.TESTER_CODE_SHA256
+        return digest.joinToString("") { "%02x".format(it) } == expectedSha256
     }
 
     /**
