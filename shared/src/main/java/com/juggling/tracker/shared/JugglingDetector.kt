@@ -57,14 +57,14 @@ class JugglingDetector(val ballCount: Int) {
         const val HP_THRESHOLD_4 = 3.0
         const val HP_THRESHOLD_5 = 3.0
         const val HP_THRESHOLD_6 = 5.0
-        const val HP_THRESHOLD_7PLUS = 3.0
+        const val HP_THRESHOLD_7PLUS = 2.5
         const val HP_HYSTERESIS = 0.3
 
         const val MIN_RAW_MAG_3 = 7.0
         const val MIN_RAW_MAG_4 = 11.0
         const val MIN_RAW_MAG_5 = 13.0
         const val MIN_RAW_MAG_6 = 17.0
-        const val MIN_RAW_MAG_7PLUS = 7.0
+        const val MIN_RAW_MAG_7PLUS = 16.0
 
         // Samples ignored while the gravity estimate settles (DET-4).
         const val WARMUP_SAMPLES = 25

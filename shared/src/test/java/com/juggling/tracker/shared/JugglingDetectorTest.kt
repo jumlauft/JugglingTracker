@@ -52,8 +52,8 @@ class JugglingDetectorTest {
             4 to listOf(3.0, 80.0, 11.0, 160.0),
             5 to listOf(3.0, 40.0, 13.0, 160.0),
             6 to listOf(5.0, 40.0, 17.0, 120.0),
-            7 to listOf(3.0, 160.0, 7.0, 80.0),
-            9 to listOf(3.0, 160.0, 7.0, 80.0),
+            7 to listOf(2.5, 160.0, 16.0, 80.0),
+            9 to listOf(2.5, 160.0, 16.0, 80.0),
         )
         for ((balls, p) in expected) {
             val d = JugglingDetector(balls)

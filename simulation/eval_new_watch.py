@@ -31,7 +31,7 @@ CURRENT_WATCH_PARAMS = {
     4: {'threshold': 3.0, 'refractory_ms': 80, 'raw_gate': 11.0, 'merge_window_ms': 160},
     5: {'threshold': 3.0, 'refractory_ms': 40, 'raw_gate': 13.0, 'merge_window_ms': 160},
     6: {'threshold': 5.0, 'refractory_ms': 40, 'raw_gate': 17.0, 'merge_window_ms': 120},
-    7: {'threshold': 3.0, 'refractory_ms': 160, 'raw_gate': 7.0, 'merge_window_ms': 80},
+    7: {'threshold': 2.5, 'refractory_ms': 160, 'raw_gate': 16.0, 'merge_window_ms': 80},
 }
 
 
@@ -195,6 +195,132 @@ def simulate_watch(x_mg, y_mg, z_mg, balls, threshold, refractory_ms,
 
     return current_count, peaks
 
+
+
+AUTO_FINISH_DELAY_MS = 2000
+MIN_RUN_CATCHES = 3
+
+
+def simulate_session(x_mg, y_mg, z_mg, threshold, refractory_ms, raw_gate_val,
+                     merge_window_ms, batch_size=SAMPLE_RATE):
+    """
+    Replay a recording the way the Juggle screen sees it, split into runs.
+
+    Same detection as simulate_watch, plus what the watch adds between runs:
+    the samples arrive in one-second batches, checkAutoFinish() runs after
+    each batch and ends the run 2000 ms after its last committed burst, runs
+    under 3 watch-hand catches are dropped as false starts, and all run state
+    (gravity alpha included) resets once a run ends.
+
+    Returns a list of (catches, first_catch_idx, last_catch_idx) per recorded
+    run, in order.
+    """
+    n = len(x_mg)
+    period = 1000 // SAMPLE_RATE  # 40 ms, as the watch timestamps samples
+    low_threshold = threshold * HP_HYSTERESIS
+
+    gx = x_mg[0] * MILLI_G_TO_MS2
+    gy = y_mg[0] * MILLI_G_TO_MS2
+    gz = z_mg[0] * MILLI_G_TO_MS2
+    hp_x1 = hp_x2 = hp_y1 = hp_y2 = 0.0
+
+    runs = []
+    st = {}
+
+    def clear():
+        st.update(count=0, bursts=0, above=False, last_cand=None, last_active=None,
+                  peak_t=0, peak_raw=0.0, peak_f=0.0,
+                  pending_t=None, pending_score=0.0, cluster_last=None,
+                  first=None, last=None)
+
+    def commit(now):
+        if st['pending_t'] is None:
+            return
+        st['bursts'] += 1
+        if st['bursts'] % 2 == 1:
+            st['count'] += 1
+            if st['first'] is None:
+                st['first'] = st['pending_t']
+            st['last'] = st['pending_t']
+        st['last_active'] = now
+        st['pending_t'] = None
+        st['pending_score'] = 0.0
+        st['cluster_last'] = None
+
+    def add_candidate(t, score, now):
+        if st['pending_t'] is not None:
+            if t - st['cluster_last'] < merge_window_ms:
+                if score > st['pending_score']:
+                    st['pending_t'] = t
+                    st['pending_score'] = score
+                st['cluster_last'] = t
+                return
+            commit(now)
+        st['pending_t'] = t
+        st['pending_score'] = score
+        st['cluster_last'] = t
+
+    def flush(now):
+        if (st['pending_t'] is not None and not st['above'] and
+                now - st['cluster_last'] >= merge_window_ms):
+            commit(now)
+
+    def end_run():
+        if st['count'] >= MIN_RUN_CATCHES:
+            runs.append((st['count'], st['first'] // period, st['last'] // period))
+        clear()
+
+    clear()
+    for i in range(n):
+        now = i * period
+        ax = x_mg[i] * MILLI_G_TO_MS2
+        ay = y_mg[i] * MILLI_G_TO_MS2
+        az = z_mg[i] * MILLI_G_TO_MS2
+        if i > 0:
+            active = st['count'] > 0 or st['pending_t'] is not None or st['bursts'] > 0
+            alpha = GRAVITY_ALPHA_ACTIVE if active else GRAVITY_ALPHA_IDLE
+            gx = alpha * gx + (1 - alpha) * ax
+            gy = alpha * gy + (1 - alpha) * ay
+            gz = alpha * gz + (1 - alpha) * az
+        lx, ly, lz = ax - gx, ay - gy, az - gz
+        mag = math.sqrt(lx * lx + ly * ly + lz * lz)
+        filtered = (HP_B0 * mag + HP_B1 * hp_x1 + HP_B2 * hp_x2
+                    - HP_A1 * hp_y1 - HP_A2 * hp_y2)
+        hp_x2, hp_x1 = hp_x1, mag
+        hp_y2, hp_y1 = hp_y1, filtered
+
+        if i >= WARMUP:
+            if not st['above']:
+                if filtered > threshold:
+                    st.update(above=True, peak_t=now, peak_f=filtered, peak_raw=mag)
+            else:
+                if filtered > st['peak_f']:
+                    st['peak_f'] = filtered
+                    st['peak_t'] = now
+                if mag > st['peak_raw']:
+                    st['peak_raw'] = mag
+                if filtered < low_threshold:
+                    st['above'] = False
+                    last = st['last_cand']
+                    if ((last is None or st['peak_t'] - last > refractory_ms)
+                            and st['peak_raw'] > raw_gate_val):
+                        add_candidate(st['peak_t'], st['peak_f'], now)
+                        st['last_cand'] = st['peak_t']
+            flush(now)
+
+        # checkAutoFinish() after every batch.
+        if (i + 1) % batch_size == 0:
+            flush(now)
+            if (st['count'] > 0 and st['last_active'] is not None and
+                    now - st['last_active'] > AUTO_FINISH_DELAY_MS):
+                end_run()
+
+    # finishCurrentRun() when the session ends.
+    if st['pending_t'] is not None:
+        commit(st['pending_t'])
+    if st['count'] > 0:
+        end_run()
+    return runs
 
 if __name__ == '__main__':
     runs = load_all_runs()

@@ -61,18 +61,20 @@ class JugglingDetector {
     private const HP_THRESHOLD_4 = 3.0f;
     private const HP_THRESHOLD_5 = 3.0f;
     private const HP_THRESHOLD_6 = 5.0f;
-    private const HP_THRESHOLD_7PLUS = 3.0f;
+    private const HP_THRESHOLD_7PLUS = 2.5f;
     private const HP_HYSTERESIS = 0.3f;  // signal must drop below threshold * 0.3
 
     // Minimum raw (pre-highpass) magnitude for a candidate to count.
     // Prevents false positives from noise that the highpass filter amplifies.
     // Per-ball-count, to suppress arm-swing noise; heavier patterns swing
-    // harder, so 4b to 6b need a higher gate than 3b and 7+b.
+    // harder, so 4b and up need a higher gate than 3b. At 7+b the gate also
+    // keeps the wind-up before a run and the ball gathering after a drop from
+    // starting or prolonging a run.
     private const MIN_RAW_MAG_3 = 7.0f;
     private const MIN_RAW_MAG_4 = 11.0f;
     private const MIN_RAW_MAG_5 = 13.0f;
     private const MIN_RAW_MAG_6 = 17.0f;
-    private const MIN_RAW_MAG_7PLUS = 7.0f;
+    private const MIN_RAW_MAG_7PLUS = 16.0f;
 
     // Number of balls being juggled (3-9), selected at startup.
     public var ballCount as Number;

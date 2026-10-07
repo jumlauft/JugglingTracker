@@ -7,7 +7,7 @@ detection performance does not regress.
 
 The expected detection counts come from the delayed burst-clustering algorithm
 with alternating watch-hand burst counting: total absolute error = 222 and
-positive overcount error = 93 across 121 runs (3041 actual watch-hand catches).
+positive overcount error = 93 across 122 recordings (3080 actual watch-hand catches).
 """
 import math
 import os
@@ -18,7 +18,7 @@ import pytest
 # Ensure the simulation directory is importable.
 sys.path.insert(0, os.path.dirname(__file__))
 
-from eval_new_watch import simulate_watch, CURRENT_WATCH_PARAMS, params_for_balls
+from eval_new_watch import simulate_watch, simulate_session, CURRENT_WATCH_PARAMS, params_for_balls
 from data_utils import load_all_runs
 
 # ── Current watch parameters (must match JugglingDetector.mc) ──────────────
@@ -27,7 +27,7 @@ WATCH_PARAMS = {
     4: {"threshold": 3.0, "refractory_ms": 80, "raw_gate": 11.0, "merge_window_ms": 160},
     5: {"threshold": 3.0, "refractory_ms": 40, "raw_gate": 13.0, "merge_window_ms": 160},
     6: {"threshold": 5.0, "refractory_ms": 40, "raw_gate": 17.0, "merge_window_ms": 120},
-    7: {"threshold": 3.0, "refractory_ms": 160, "raw_gate": 7.0, "merge_window_ms": 80},
+    7: {"threshold": 2.5, "refractory_ms": 160, "raw_gate": 16.0, "merge_window_ms": 80},
 }
 
 # ── Expected detection counts per run ──────────────────────────────────────
@@ -80,11 +80,11 @@ EXPECTED_RUNS = [
     ("20260922_151408", 7, 8, 8),
     ("20260922_151455", 7, 8, 9),
     ("20260922_151547", 7, 7, 8),
-    ("20260922_151715", 7, 16, 14),
+    ("20260922_151715", 7, 16, 13),
     ("20260922_151758", 7, 10, 9),
     ("20260922_151910", 7, 11, 9),
     ("20260922_151957", 7, 10, 8),
-    ("20260922_152032", 7, 13, 13),
+    ("20260922_152032", 7, 13, 12),
     ("20260922_152153", 7, 9, 10),
     ("20260922_152424", 5, 49, 41),
     ("20260922_152542", 5, 39, 36),
@@ -97,13 +97,13 @@ EXPECTED_RUNS = [
     ("20260922_153715", 5, 11, 13),
     ("20260922_153754", 5, 24, 22),
     ("20260922_154055", 4, 60, 58),
-    ("20260922_154204", 7, 11, 11),
+    ("20260922_154204", 7, 11, 12),
     ("20260922_154237", 7, 11, 10),
-    ("20260922_154319", 7, 10, 10),
-    ("20260922_154408", 7, 18, 17),
-    ("20260922_154457", 7, 21, 16),
-    ("20260922_154640", 7, 15, 13),
-    ("20260922_154722", 7, 15, 11),
+    ("20260922_154319", 7, 10, 11),
+    ("20260922_154408", 7, 18, 16),
+    ("20260922_154457", 7, 21, 17),
+    ("20260922_154640", 7, 15, 14),
+    ("20260922_154722", 7, 15, 12),
     ("20260923_222840", 5, 36, 36),
     ("20260923_222936", 5, 35, 34),
     ("20260923_223021", 5, 15, 14),
@@ -130,10 +130,10 @@ EXPECTED_RUNS = [
     ("20260924_171239", 6, 32, 32),
     ("20260924_171333", 6, 33, 33),
     ("20260924_171644", 7, 12, 12),
-    ("20260924_171849", 7, 13, 11),
-    ("20260924_171927", 7, 11, 13),
+    ("20260924_171849", 7, 13, 12),
+    ("20260924_171927", 7, 11, 11),
     ("20260924_172053", 7, 13, 12),
-    ("20260924_172136", 7, 11, 11),
+    ("20260924_172136", 7, 11, 10),
     ("20260924_172333", 5, 25, 25),
     ("20260924_172451", 5, 77, 71),
     ("20260924_172608", 5, 68, 67),
@@ -159,6 +159,10 @@ EXPECTED_RUNS = [
     ("20261003_172504", 4, 44, 43),
     ("20261003_172632", 4, 40, 37),
     ("20261003_172755", 4, 50, 47),
+    # Jonas Umlauft: four 7-ball runs of 5, 9, 10 and 15 in one recording.
+    # The whole-file count is checked here; how it splits into runs is
+    # checked by test_back_to_back_runs_split_at_the_right_places.
+    ("20261007_184543", 7, 39, 39),
 ]
 
 # Maximum allowed total absolute error across all runs.
@@ -248,7 +252,7 @@ def test_detection_count_per_run(runs_by_id, entry):
 def test_total_absolute_error(runs_by_id):
     """Total absolute error across all runs must not exceed the baseline.
 
-    Current baseline: 222 total absolute error across 121 runs (3041 watch-hand catches).
+    Current baseline: 222 total absolute error across 122 recordings (3080 watch-hand catches).
     A regression means the algorithm is less accurate overall.
     """
     total_error = 0
@@ -276,6 +280,38 @@ def test_total_overcount_error(runs_by_id):
         f"Total overcount error {total_overcount} exceeds maximum {MAX_TOTAL_OVERCOUNT}"
     )
 
+
+# 20261007_184543 holds four 7-ball runs back to back. Where the juggling is
+# in it, in seconds from the start of the recording, read off the
+# acceleration trace: the wind-up before each run and the ball gathering
+# after each drop fall outside these windows.
+BACK_TO_BACK_RUN = "20261007_184543"
+BACK_TO_BACK_WINDOWS_S = [(1.5, 8.0), (18.9, 24.0), (34.3, 41.5), (51.4, 60.7)]
+BACK_TO_BACK_ACTUAL = [5, 9, 10, 15]
+BACK_TO_BACK_DETECTED = [9, 8, 10, 13]
+
+
+def test_back_to_back_runs_split_at_the_right_places(runs_by_id):
+    """On the Juggle screen, four runs with pauses between them are four runs.
+
+    Each run has to start and end inside its own stretch of juggling: a run
+    started early by the wind-up, or kept open by catching the dropped balls,
+    adds catches nobody juggled and shifts the next run's boundaries.
+    """
+    run = runs_by_id[BACK_TO_BACK_RUN]
+    p = WATCH_PARAMS[_bucket(run["meta"]["balls"])]
+    runs = simulate_session(run["x"], run["y"], run["z"], p["threshold"],
+                            p["refractory_ms"], p["raw_gate"], p["merge_window_ms"])
+
+    assert len(runs) == len(BACK_TO_BACK_WINDOWS_S), runs
+    period_s = 1.0 / run["meta"]["sampleRate"]
+    for (catches, first, last), (start, end) in zip(runs, BACK_TO_BACK_WINDOWS_S):
+        assert start <= first * period_s and last * period_s <= end, (
+            f"run of {catches} spans {first * period_s:.2f}-{last * period_s:.2f} s, "
+            f"outside the juggling at {start}-{end} s"
+        )
+    assert [r[0] for r in runs] == BACK_TO_BACK_DETECTED
+    assert sum(BACK_TO_BACK_ACTUAL) == run["meta"]["catches"]
 
 def test_every_recording_is_covered(runs_by_id):
     """Every recording on disk must appear in EXPECTED_RUNS.

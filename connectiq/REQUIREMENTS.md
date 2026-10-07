@@ -105,7 +105,7 @@ highpass would otherwise amplify.
 | 4 | 3.0 | 80 ms | 11.0 | 160 ms |
 | 5 | 3.0 | 40 ms | 13.0 | 160 ms |
 | 6 | 5.0 | 40 ms | 17.0 | 120 ms |
-| 7+ | 3.0 | 160 ms | 7.0 | 80 ms |
+| 7+ | 2.5 | 160 ms | 16.0 | 80 ms |
 
 *Verified by:* `det6_gateIsPerBallCount`, `test_watch_params_match_detector_constants`
 
@@ -123,7 +123,7 @@ is a watch-hand count.
 **DET-9.** A run ends by itself **2000 ms** after the last *committed burst*.
 The timer deliberately keys on committed bursts, not on raw motion, so
 low-level wrist movement after a drop cannot hold a finished run open.
-*Verified by:* `det9_runAutoFinishesAfterIdleDelay`, `test_auto_finish_timer_uses_committed_bursts_not_low_level_motion`
+*Verified by:* `det9_runAutoFinishesAfterIdleDelay`, `test_auto_finish_timer_uses_committed_bursts_not_low_level_motion`, `test_back_to_back_runs_split_at_the_right_places`
 
 **DET-10.** A completed run's duration is the span from its **first to its last
 counted watch-hand catch**, not the wall time the screen was open.
