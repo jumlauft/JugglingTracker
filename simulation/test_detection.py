@@ -6,8 +6,8 @@ datasets with the current JugglingDetector.mc parameters, asserting that
 detection performance does not regress.
 
 The expected detection counts come from the delayed burst-clustering algorithm
-with alternating watch-hand burst counting: total absolute error = 222 and
-positive overcount error = 93 across 122 recordings (3080 actual watch-hand catches).
+with alternating watch-hand burst counting: total absolute error = 239 and
+positive overcount error = 93 across 127 recordings (3206 actual watch-hand catches).
 """
 import math
 import os
@@ -163,10 +163,18 @@ EXPECTED_RUNS = [
     # The whole-file count is checked here; how it splits into runs is
     # checked by test_back_to_back_runs_split_at_the_right_places.
     ("20261007_184543", 7, 39, 39),
+    # Dominik aus Muc: one 4-ball run and four 7-ball runs. The 7-ball runs
+    # were typed as catches in both hands; the counts here are the left
+    # (watch) hand's share, rounded up since the first catch lands there.
+    ("20261004_141326", 4, 52, 52),
+    ("20261006_183939", 7, 27, 19),
+    ("20261006_184057", 7, 11, 10),
+    ("20261006_184141", 7, 6, 6),
+    ("20261006_184234", 7, 30, 22),
 ]
 
 # Maximum allowed total absolute error across all runs.
-MAX_TOTAL_ERROR = 222
+MAX_TOTAL_ERROR = 239
 MAX_TOTAL_OVERCOUNT = 93
 
 
@@ -252,7 +260,7 @@ def test_detection_count_per_run(runs_by_id, entry):
 def test_total_absolute_error(runs_by_id):
     """Total absolute error across all runs must not exceed the baseline.
 
-    Current baseline: 222 total absolute error across 122 recordings (3080 watch-hand catches).
+    Current baseline: 239 total absolute error across 127 recordings (3206 watch-hand catches).
     A regression means the algorithm is less accurate overall.
     """
     total_error = 0
