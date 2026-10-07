@@ -91,6 +91,21 @@ class SessionRepository(
         return session
     }
 
+    /**
+     * Add the sessions of a backup that are not stored yet (see
+     * [SessionCsv.newSessions]); sessions already here are kept as they are.
+     * Returns how many were added.
+     */
+    @Synchronized
+    fun restoreSessions(backup: List<SessionSummary>): Int {
+        val added = SessionCsv.newSessions(backup, sessionsCache)
+        if (added.isEmpty()) return 0
+        sessionsCache.addAll(added)
+        sessionsCache.sortByDescending { it.timestamp }
+        saveSessionsToStorage()
+        return added.size
+    }
+
     @Synchronized
     fun deleteSession(session: SessionSummary) {
         if (sessionsCache.remove(session)) {
