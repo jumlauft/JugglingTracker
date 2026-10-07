@@ -13,10 +13,12 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.android.gms.tasks.Tasks
 import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.Wearable
@@ -26,6 +28,7 @@ import com.juggling.tracker.logic.WearConnectionStatus
 import com.juggling.tracker.sensor.PhoneAccelerometerSource
 import com.juggling.tracker.shared.WatchProtocol
 import com.juggling.tracker.ui.JugglingTrackerApp
+import com.juggling.tracker.ui.SubscriptionGate
 import com.juggling.tracker.ui.theme.JugglingTrackerTheme
 
 class MainActivity : ComponentActivity() {
@@ -73,16 +76,25 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    JugglingTrackerApp(
-                        viewModel = viewModel,
-                        isWatchAppRunning = garminLink.isWatchAppRunning,
-                        onStartPhoneSession = ::startPhoneRecording,
-                        onStopPhoneSession = ::stopPhoneRecordingAndSave,
-                        onCancelPhoneSession = ::cancelPhoneRecording,
-                        onStartRawRecording = ::startRawRecording,
-                        onStopRawRecording = ::stopRawRecording,
-                        onCancelRawRecording = ::cancelRawRecording,
-                    )
+                    // Watch syncs keep arriving and being saved while the app
+                    // is locked; only the screens wait for the subscription.
+                    val access by app.billing.access.collectAsStateWithLifecycle()
+                    SubscriptionGate(
+                        access = access,
+                        onSubscribe = { app.billing.launchPurchase(this@MainActivity) },
+                        onCheckAgain = app.billing::refresh,
+                    ) {
+                        JugglingTrackerApp(
+                            viewModel = viewModel,
+                            isWatchAppRunning = garminLink.isWatchAppRunning,
+                            onStartPhoneSession = ::startPhoneRecording,
+                            onStopPhoneSession = ::stopPhoneRecordingAndSave,
+                            onCancelPhoneSession = ::cancelPhoneRecording,
+                            onStartRawRecording = ::startRawRecording,
+                            onStopRawRecording = ::stopRawRecording,
+                            onCancelRawRecording = ::cancelRawRecording,
+                        )
+                    }
                 }
             }
         }
@@ -232,6 +244,8 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshWearStatus()
+        // Play's answer can change while away: bought on another device, renewed, lapsed.
+        app.billing.refresh()
         val isRecordingActive = viewModel.phoneSessionState.isRecording || 
                 viewModel.rawRecordingState.step == com.juggling.tracker.logic.RawRecordingStep.RECORDING
         

@@ -4,6 +4,8 @@ import android.app.Application
 import com.google.firebase.FirebaseApp
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.juggling.tracker.billing.BillingRepository
+import com.juggling.tracker.billing.PrefsEntitlementCache
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.data.SessionRepository
 import com.juggling.tracker.data.SettingsManager
@@ -28,6 +30,7 @@ class JugglingTrackerApplication : Application() {
 
     val watchInbox: WatchInbox by lazy { WatchInbox(sessionRepository, recordingRepository, analytics) { settingsManager.currentJuggler } }
     val garminLink: GarminLink by lazy { GarminLink(this, watchInbox) }
+    val billing: BillingRepository by lazy { BillingRepository(this, PrefsEntitlementCache(this)) }
 
     override fun onCreate() {
         super.onCreate()

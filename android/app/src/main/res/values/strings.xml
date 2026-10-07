@@ -156,4 +156,20 @@
     <string name="recordings_col_duration">Length</string>
     <string name="recordings_source_watch">Watch 25Hz</string>
     <string name="recordings_source_phone">Phone %1$dHz</string>
+
+    <!-- Subscription -->
+    <string name="paywall_title">Juggling Tracker subscription</string>
+    <string name="paywall_body">Subscribe to keep counting your catches.</string>
+    <string name="paywall_feature_watch">Count catches with your Garmin or Wear OS watch</string>
+    <string name="paywall_feature_phone">Track sessions with the phone in your pocket</string>
+    <string name="paywall_feature_history">Session history, Regularity and CSV export</string>
+    <string name="paywall_price">%1$s per %2$s</string>
+    <string name="paywall_price_unknown">Price shown once Google Play responds</string>
+    <string name="paywall_pending">Your payment is pending. The app opens once Google Play confirms it.</string>
+    <string name="paywall_unavailable">Google Play cannot be reached. Check your connection and try again.</string>
+    <string name="paywall_subscribe">Subscribe</string>
+    <string name="paywall_check_again">Already subscribed? Check again</string>
+    <string name="paywall_cancel_anytime">Renews automatically. Cancel anytime in Google Play.</string>
+    <string name="section_subscription">Subscription</string>
+    <string name="action_manage_subscription">Manage subscription in Google Play</string>
 </resources>

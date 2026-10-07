@@ -19,6 +19,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.juggling.tracker.R
+import com.juggling.tracker.billing.SubscriptionProducts
 import com.juggling.tracker.data.WatchType
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.logic.JugglingViewModel
@@ -193,6 +194,21 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
                     }
                 }
             }
+        }
+
+        HorizontalDivider()
+
+        // Subscription: Play's own page, where it can be changed or cancelled.
+        Text(text = stringResource(R.string.section_subscription), style = MaterialTheme.typography.titleLarge)
+
+        OutlinedButton(
+            onClick = {
+                val url = SubscriptionProducts.manageUrl(context.packageName)
+                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(stringResource(R.string.action_manage_subscription))
         }
 
         HorizontalDivider()
