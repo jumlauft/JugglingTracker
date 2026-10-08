@@ -44,3 +44,40 @@ jobs:
       - name: Swift package tests
         working-directory: apple/JugglingCore
         run: swift test
+
+  watch:
+    name: Apple Watch app
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'run-apple-ci'
+    runs-on: macos-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Watch logic tests
+        # Juggle mode, Record mode and the start-up screens, with fake timers
+        # and a fake phone link.
+        working-directory: apple/WatchLogic
+        run: swift test
+
+      - name: Generate the Xcode project
+        working-directory: apple
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build for the watch simulator
+        # No signing: there is no paid Apple developer account, and the
+        # simulator does not need one.
+        working-directory: apple
+        run: |
+          xcodebuild build \
+            -project JugglingTracker.xcodeproj \
+            -scheme JugglingTrackerWatch \
+            -destination 'generic/platform=watchOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO
