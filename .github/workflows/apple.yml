@@ -1,0 +1,46 @@
+name: Apple
+
+# Checks for the iPhone and Apple Watch apps in apple/. They are a side
+# development stream, so this never runs on its own on a push or a pull
+# request. Start it one of two ways:
+#
+# - Add the label `run-apple-ci` to a pull request. This works on any branch,
+#   which matters while the Apple work lives only on unmerged branches:
+#   GitHub offers the button below only for workflows already on main.
+#   Remove and re-add the label to run it again on a newer commit.
+# - Actions tab > Apple > Run workflow, once this file is on main.
+#
+# The main CI (ci.yml) does not look at apple/.
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled]
+
+concurrency:
+  group: apple-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: JugglingCore tests
+    # Any other label added to a pull request also fires the labeled event;
+    # only this one runs the checks.
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'run-apple-ci'
+    runs-on: macos-latest
+    steps:
+      - name: Check out
+        # Full checkout: the tests replay the recordings in connectiq/data and
+        # read the pinned counts from simulation/test_detection.py.
+        uses: actions/checkout@v7
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Swift package tests
+        working-directory: apple/JugglingCore
+        run: swift test
