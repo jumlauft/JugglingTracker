@@ -287,7 +287,7 @@ private struct RecordingsSection: View {
 }
 
 extension RecordingsSection.Export: Identifiable {
-    var id: Self { self }
+    fileprivate var id: Self { self }
 }
 
 /// The stored runs: when, from which device, balls, catches (with what the
