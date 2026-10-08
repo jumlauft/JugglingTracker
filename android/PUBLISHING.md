@@ -131,10 +131,13 @@ Add these under *Settings → Secrets and variables → Actions*:
 
 The Wear OS watch app in `wearos/` is published in the same Play listing as
 the phone app (same package, `com.juggling.tracker`, and the same upload key,
-which the Data Layer needs). The release workflow uploads it to the Wear OS
-internal testing track, `wear:internal`, in the same run. Its `versionCode` is
-the phone's plus 1,000,000, so the two never collide.
+which the Data Layer needs). It is a side development stream and is no longer
+released: v1.6 was its last upload, to the Wear OS internal testing track
+`wear:internal`, and the release workflow now publishes only the phone app.
+Its `versionCode` was the phone's plus 1,000,000, so the two never collide.
 
+The steps below are kept for reference should Wear OS releases resume
+(the upload steps would have to be added back to the release workflow).
 One-time setup in the Play Console, before the first tag that includes it:
 
 1. *Test and release → Advanced settings → Form factors*: add **Wear OS**.
