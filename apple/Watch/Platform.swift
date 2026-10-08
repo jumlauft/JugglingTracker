@@ -4,13 +4,13 @@ import WatchLogic
 
 /// Timers on the main queue.
 final class MainQueueScheduler: Scheduler {
-    private final class Task: Cancellable {
+    private final class Task: WatchLogic.Cancellable {
         let item: DispatchWorkItem
         init(_ item: DispatchWorkItem) { self.item = item }
         func cancel() { item.cancel() }
     }
 
-    func schedule(afterMs delayMs: Int64, _ action: @escaping () -> Void) -> Cancellable {
+    func schedule(afterMs delayMs: Int64, _ action: @escaping () -> Void) -> WatchLogic.Cancellable {
         let item = DispatchWorkItem(block: action)
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(delayMs)), execute: item)
         return Task(item)

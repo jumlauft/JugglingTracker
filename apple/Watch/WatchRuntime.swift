@@ -22,7 +22,7 @@ final class WatchRuntime: ObservableObject {
     private let link: PhoneLink
     private let workout = WorkoutKeeper()
     private var motion: MotionSource!
-    private var clockTick: Cancellable?
+    private var clockTick: WatchLogic.Cancellable?
 
     init() {
         let scheduler = MainQueueScheduler()
