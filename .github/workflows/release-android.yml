@@ -1,10 +1,12 @@
 name: Release Android to Play
 
-# Publishes the Android phone app to the Google Play internal testing track,
-# and the Wear OS watch app (wearos/) to the Wear OS internal testing track of
-# the same listing, when a version tag is pushed. Promote from internal to
-# production by hand in the Play Console. See android/PUBLISHING.md for the one-time setup and the list
-# of repository secrets this workflow needs.
+# Publishes the Android phone app to the Google Play internal testing track
+# when a version tag is pushed. Promote from internal to production by hand in
+# the Play Console. See android/PUBLISHING.md for the one-time setup and the
+# list of repository secrets this workflow needs.
+#
+# The Wear OS watch app (wearos/) is a side development stream and is no
+# longer released; its last upload was v1.6.
 on:
   push:
     tags:
@@ -43,10 +45,6 @@ jobs:
         working-directory: android
         run: ./gradlew testDebugUnitTest
 
-      - name: Run Wear OS unit tests
-        working-directory: wearos
-        run: ./gradlew testDebugUnitTest
-
       - name: Build signed App Bundle
         working-directory: android
         env:
@@ -67,29 +65,4 @@ jobs:
           mappingFile: android/app/build/outputs/mapping/release/mapping.txt
           debugSymbols: android/app/build/native-debug-symbols.zip
           tracks: internal
-          status: completed
-
-      - name: Build signed Wear OS App Bundle
-        working-directory: wearos
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew bundleRelease
-
-      - name: Zip native debug symbols (Wear OS)
-        run: .github/scripts/native-debug-symbols.sh wearos
-
-      - name: Upload Wear OS app to Play internal track
-        # Wear OS builds of a listing go to their own form-factor track.
-        # It exists once Wear OS is added under Test and release > Advanced
-        # settings > Form factors (see android/PUBLISHING.md).
-        uses: r0adkll/upload-google-play@v1
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: com.juggling.tracker
-          releaseFiles: wearos/app/build/outputs/bundle/release/app-release.aab
-          mappingFile: wearos/app/build/outputs/mapping/release/mapping.txt
-          debugSymbols: wearos/app/build/native-debug-symbols.zip
-          tracks: wear:internal
           status: completed

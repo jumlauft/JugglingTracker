@@ -149,13 +149,21 @@ Acknowledgement from phone to watch:
 
 ## Build And Test
 
+The Android phone app and the Garmin watch app are the main development
+streams; only they get continuous testing and releases. The Wear OS app is a
+side stream: its checks run only when started by hand, and it is no longer
+released.
+
 `.github/workflows/ci.yml` runs on every pull request and on `main` after
 merge: the Android unit tests (Compose UI tests included), Android Lint (which
 fails the build on lint errors), a compile of the instrumented test suite, the
-Wear OS unit and Robolectric tests, Wear OS Lint, a minified Wear OS release
-bundle, the Wear OS instrumented tests on an emulator (API 30, large round),
-and the detection tests. Reports are uploaded as artifacts when a run fails,
-and the Wear OS emulator screenshots on every run.
+shared module tests, and the detection tests. Reports are uploaded as
+artifacts when a run fails.
+
+`.github/workflows/wearos.yml` holds the Wear OS checks and runs only from the
+Actions tab (Run workflow): the Wear OS unit and Robolectric tests, Wear OS
+Lint, a minified Wear OS release bundle, and the Wear OS instrumented tests on
+an emulator (API 30, large round), with the emulator screenshots uploaded.
 
 The Compose UI tests run under Robolectric, in the unit test source set, so CI
 gates them without an emulator — which is what lets the UI effects be asserted
@@ -175,8 +183,7 @@ constants and by pinning `REQUIREMENTS.md` to the tests that verify it.
 
 `.github/workflows/release-android.yml` is separate and fires only on `v*`
 tags. It publishes the **Android** phone app to the Play internal testing
-track and the **Wear OS** app to the Wear OS internal testing track of the same
-listing; see `android/PUBLISHING.md`. The Garmin app is not part of it, so do
+track; see `android/PUBLISHING.md`. The Wear OS app's last upload was v1.6. The Garmin app is not part of it, so do
 not tag a Garmin release `v*`.
 
 ### Android

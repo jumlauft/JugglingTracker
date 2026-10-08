@@ -83,8 +83,8 @@ and release builds must be signed with the same key.
 
 `screenshots/` holds the emulator screenshots (454×454, API 30, large round)
 used for the Wear OS store listing on Google Play. They are copies of the
-`wear-emulator-screenshots` artifact that CI uploads on every run; to refresh
-them, download that artifact from a green run and replace the files.
+`wear-emulator-screenshots` artifact that the Wear OS workflow uploads; to
+refresh them, run that workflow and replace the files with the artifact.
 
 | | |
 |---|---|
@@ -104,8 +104,12 @@ cd wearos
 ./gradlew connectedDebugAndroidTest # on a Wear OS emulator or watch
 ```
 
-CI runs all of these (the shared tests in the Android job), the last on a Wear OS emulator (API 30, large round), and
-uploads screenshots of each step as the `wear-emulator-screenshots` artifact.
+The Wear OS app is a side development stream, so these do not run on every
+push or pull request. `.github/workflows/wearos.yml` runs them when started by
+hand from the Actions tab (the shared tests run in the main CI's Android job),
+the last on a Wear OS emulator (API 30, large round), and uploads screenshots
+of each step as the `wear-emulator-screenshots` artifact. Wear OS releases
+stopped after v1.6: release tags publish only the phone app.
 
 ## Requirement coverage
 
