@@ -81,3 +81,57 @@ jobs:
             -destination 'generic/platform=watchOS Simulator' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO
+
+  iphone:
+    name: iPhone app
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'run-apple-ci'
+    runs-on: macos-latest
+    steps:
+      - name: Check out
+        # Full checkout: the app's tests replay recordings from connectiq/data.
+        uses: actions/checkout@v7
+
+      - name: Generate the Xcode project
+        working-directory: apple
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Pick an iPhone simulator
+        id: simulator
+        run: |
+          # The newest iOS runtime's first iPhone; runner images change their
+          # device list, so no model is hard-coded.
+          udid=$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          runtimes = sorted((r for r in devices if "iOS" in r), key=lambda r: [int(p) for p in r.rsplit("iOS-", 1)[1].split("-")])
+          for runtime in reversed(runtimes):
+              phones = [d for d in devices[runtime] if d["name"].startswith("iPhone")]
+              if phones:
+                  print(phones[0]["udid"])
+                  break
+          ')
+          echo "Using simulator $udid"
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+
+      - name: Build and test
+        working-directory: apple
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project JugglingTracker.xcodeproj \
+            -scheme JugglingTracker \
+            -destination "id=${{ steps.simulator.outputs.udid }}" \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee xcodebuild.log | grep -E "error:|warning: .*JugglingTracker/|Test Case .* (passed|failed)|\*\* (BUILD|TEST)" || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" xcodebuild.log
+
+      - name: Keep the build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iphone-xcodebuild-log
+          path: apple/xcodebuild.log
