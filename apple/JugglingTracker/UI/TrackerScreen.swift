@@ -56,8 +56,7 @@ struct TrackerScreen: View {
             HStack(spacing: 8) {
                 ForEach(counts, id: \.self) { count in
                     Button("\(count) Balls") { selectedBalls = count }
-                        .buttonStyle(.bordered)
-                        .tint(count == balls ? .accentColor : .secondary)
+                        .buttonStyle(BallChipStyle(isSelected: count == balls))
                         .accessibilityAddTraits(count == balls ? .isSelected : [])
                 }
             }

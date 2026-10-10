@@ -176,12 +176,46 @@ struct BallCountPicker: View {
             HStack(spacing: 8) {
                 ForEach(3...9, id: \.self) { count in
                     Button("\(count)") { selection = count }
-                        .buttonStyle(.bordered)
-                        .tint(selection == count ? .accentColor : .secondary)
+                        .buttonStyle(BallChipStyle(isSelected: selection == count))
                         .accessibilityAddTraits(selection == count ? .isSelected : [])
                 }
             }
         }
+    }
+}
+
+/// A ball-count chip: the selected one is filled with the accent color and
+/// bold contrasting text, the others are outlined and muted, so the choice
+/// reads at a glance in light and dark mode.
+struct BallChipStyle: ButtonStyle {
+    let isSelected: Bool
+
+    /// Text on the accent fill: white on the light-mode purple, the Android
+    /// theme's dark onPrimary (#381E72) on the pale dark-mode purple.
+    private static let onAccent = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0x38 / 255, green: 0x1E / 255, blue: 0x72 / 255, alpha: 1)
+            : .white
+    })
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.body.weight(isSelected ? .bold : .regular))
+            .foregroundStyle(isSelected ? AnyShapeStyle(Self.onAccent) : AnyShapeStyle(.secondary))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .frame(minWidth: 44, minHeight: 36)
+            .background {
+                Capsule()
+                    .fill(isSelected ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.clear))
+            }
+            .overlay {
+                Capsule()
+                    .strokeBorder(isSelected ? Color.accentColor : Color.secondary.opacity(0.5),
+                                  lineWidth: isSelected ? 2 : 1)
+            }
+            .contentShape(Capsule())
+            .opacity(configuration.isPressed ? 0.7 : 1)
     }
 }
 
