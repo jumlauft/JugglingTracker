@@ -31,7 +31,7 @@ simulator.
 | --- | --- | --- |
 | `App/` | App entry, the services wired together | `JugglingTrackerApplication`, `MainActivity` |
 | `Data/` | Session history (JSON Lines), raw recordings (CSV), settings, weekly backup | `data/`, `backup/` |
-| `Logic/` | `TrackerModel` (phone sessions, raw recording, watch card), `WatchInbox`, accelerometer, voice, Firebase | `logic/`, `sensor/` |
+| `Logic/` | `TrackerModel` (phone sessions, raw recording, watch card), `WatchInbox`, the watch links, accelerometer, voice, Firebase | `logic/`, `sensor/` |
 | `UI/` | SwiftUI screens | `ui/` |
 
 Counting, Regularity, the watch messages and the history CSV come from the
@@ -54,8 +54,6 @@ watch app they came from, exactly as on Android.
 
 ## Not done yet
 
-- **Apple Watch link.** WatchConnectivity is still a stub: with Apple Watch
-  picked in Settings, the watch card shows the setup checklist.
 - **Garmin link on a real watch.** `Logic/GarminLink.swift` talks to the
   Garmin app through Garmin's Connect IQ Mobile SDK
   (`Logic/ConnectIQSDKClient.swift`, a Swift package in `project.yml`) and is

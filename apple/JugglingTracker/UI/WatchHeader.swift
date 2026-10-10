@@ -42,7 +42,7 @@ struct WatchCardState: Equatable {
         case .watchAppMissing:
             return .init(tone: .error, title: "Juggling app is not installed on the watch", detail: nil, tap: .linkHelp)
         case .unavailable:
-            return .init(tone: .error, title: notConnected, detail: "The Apple Watch link is not part of this build yet", tap: .linkHelp)
+            return .init(tone: .error, title: notConnected, detail: "This iPhone cannot connect to an Apple Watch", tap: .linkHelp)
         }
     }
 }

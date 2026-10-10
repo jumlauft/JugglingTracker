@@ -40,18 +40,3 @@ protocol WatchLink: AnyObject {
     func start()
     func stop()
 }
-
-/// The Apple Watch link, until WatchConnectivity is wired in (a later stream).
-final class AppleWatchLinkStub: WatchLink {
-    private let onStatus: (AppleWatchConnectionStatus) -> Void
-
-    init(inbox: WatchInbox, onStatus: @escaping (AppleWatchConnectionStatus) -> Void) {
-        self.onStatus = onStatus
-    }
-
-    func start() {
-        onStatus(.unavailable)
-    }
-
-    func stop() {}
-}

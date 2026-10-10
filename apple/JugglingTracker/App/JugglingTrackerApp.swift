@@ -52,7 +52,7 @@ final class AppServices {
         let voice = voice
         model.speak = { voice.speak($0) }
 
-        let apple = AppleWatchLinkStub(inbox: model.inbox) { [weak model] status in
+        let apple = AppleWatchLink(inbox: model.inbox, session: PhoneWatchSession.makeIfSupported()) { [weak model] status in
             Task { @MainActor in model?.onAppleWatchLinkStatus(status) }
         }
         appleWatchLink = apple
