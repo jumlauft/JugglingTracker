@@ -2,7 +2,7 @@ import JugglingCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Settings, plus the backup, the exports and the raw recordings.
+/// Settings, plus the backup and the raw recordings.
 struct SettingsScreen: View {
     @Environment(TrackerModel.self) private var model
 
@@ -38,10 +38,6 @@ struct SettingsScreen: View {
             }
 
             BackupSection()
-
-            Section("Data Management") {
-                HistoryExportButton()
-            }
 
             RecordingsSection()
         }
@@ -145,27 +141,6 @@ private struct BackupSection: View {
         model.toast = added == 0
             ? "Nothing new: every session in this file is already here"
             : "Restored \(added) session\(added == 1 ? "" : "s")"
-    }
-}
-
-// MARK: - History export
-
-private struct HistoryExportButton: View {
-    @Environment(TrackerModel.self) private var model
-    @State private var file: ExportFile?
-
-    var body: some View {
-        Button("Export History to CSV") {
-            file = ExportFile(data: Data(model.sessionsCSV.utf8))
-        }
-        .fileExporter(
-            isPresented: Binding(get: { file != nil }, set: { if !$0 { file = nil } }),
-            document: file,
-            contentType: .commaSeparatedText,
-            defaultFilename: "juggling_history_\(ExportNames.stamp()).csv"
-        ) { result in
-            if case .failure = result { model.toast = "Export failed" }
-        }
     }
 }
 

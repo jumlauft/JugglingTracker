@@ -1,7 +1,7 @@
 import Foundation
 
-/// The session history as CSV: what "Export History to CSV" and the weekly
-/// backup write, and what "Restore from Backup" reads back. The format is the
+/// The session history as CSV: what the weekly backup and "Back Up Now"
+/// write, and what "Restore from Backup" reads back. The format is the
 /// Android app's (`data/SessionCsv.kt`) exactly, so a backup made on either
 /// phone restores on the other.
 ///
