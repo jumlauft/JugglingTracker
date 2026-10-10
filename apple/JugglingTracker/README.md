@@ -42,12 +42,25 @@ between the two phones unchanged. The iPhone's accelerometer is converted to
 Android's units and axis signs (m/s², +1 g up when lying face up) before it
 reaches the detector or a recording.
 
+## Garmin watch
+
+As on Android, the app has to be running (it may be in the background) to
+receive from the Garmin watch. Unlike Android, the iOS SDK does not find the
+watch by itself: tap the watch card, then "Choose Watch in Garmin Connect".
+Garmin Connect opens, you pick the watch, and it sends the choice back through
+the app's `jugglingtracker-ciq://` URL scheme. The app keeps the choice, so
+this is needed once per watch. Messages go to `WatchInbox` and are acked to the
+watch app they came from, exactly as on Android.
+
 ## Not done yet
 
-- **Watch links.** The Garmin link (Connect IQ Mobile SDK for iOS) and the
-  Apple Watch link (WatchConnectivity) are stubs: the watch card shows the
-  setup checklist. Both will hand their messages to `WatchInbox`, which already
-  stores sessions and recorded runs and decides the acks exactly as on Android.
+- **Apple Watch link.** WatchConnectivity is still a stub: with Apple Watch
+  picked in Settings, the watch card shows the setup checklist.
+- **Garmin link on a real watch.** `Logic/GarminLink.swift` talks to the
+  Garmin app through Garmin's Connect IQ Mobile SDK
+  (`Logic/ConnectIQSDKClient.swift`, a Swift package in `project.yml`) and is
+  unit tested against a fake SDK, but it has not yet run with a real iPhone
+  and Garmin watch.
 - **Firebase.** The app includes Firebase Analytics and Crashlytics behind the
   same "Share app activity and crash reports" switch as Android, but they stay
   off until the app is registered in the Firebase console: add an iOS app with

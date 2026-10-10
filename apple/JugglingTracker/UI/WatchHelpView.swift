@@ -13,6 +13,8 @@ struct WatchHelp: Identifiable {
 /// The checklist for connecting the watch, or how to start a session on it.
 struct WatchHelpView: View {
     let help: WatchHelp
+    /// Opens Garmin Connect to choose the watch this app talks to.
+    var chooseGarminWatch: () -> Void = {}
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
@@ -29,12 +31,18 @@ struct WatchHelpView: View {
                         Text("1. Bluetooth is turned ON.")
                         Text("2. This app may use Bluetooth.")
                         Text("3. The \"Garmin Connect\" app is installed and your watch is paired within it.")
-                        Text("4. The \"Juggling Tracker\" watch app is installed via the \"Connect IQ Store\".")
-                        Text("5. The Juggling activity is open on your watch.")
-                        Text("6. Your watch is within Bluetooth range of your phone.")
-                        Button("Open App Store") { openURL(Self.garminConnectURL) }
-                            .buttonStyle(.borderedProminent)
-                            .padding(.top, 8)
+                        Text("4. Your watch is chosen for this app in Garmin Connect (button below). Choose it again after pairing a new watch.")
+                        Text("5. The \"Juggling Tracker\" watch app is installed via the \"Connect IQ Store\".")
+                        Text("6. The Juggling activity is open on your watch.")
+                        Text("7. Your watch is within Bluetooth range of your phone.")
+                        Button("Choose Watch in Garmin Connect") {
+                            dismiss()
+                            chooseGarminWatch()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .padding(.top, 8)
+                        Button("Get Garmin Connect") { openURL(Self.garminConnectURL) }
+                            .buttonStyle(.bordered)
                     case (.garmin, .session):
                         Text("""
                         Your setup is looking good. Download the "Juggling Tracker" app from the Connect IQ Store to your Garmin watch, then on your watch:

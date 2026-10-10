@@ -6,8 +6,8 @@ import JugglingCore
 /// Android app's `logic/WatchInbox.kt`, with the same rules.
 ///
 /// It lives as long as the app, not a screen, so the watch links (Garmin
-/// through Connect IQ, Apple Watch through WatchConnectivity, both still to
-/// come) hand their messages here and the screens follow along through
+/// through Connect IQ in `GarminLink`, Apple Watch through WatchConnectivity,
+/// still to come) hand their messages here and the screens follow along through
 /// `onEvent`. Use from the main thread.
 ///
 /// The ack goes back only once the data is stored. A watch that gets no ack

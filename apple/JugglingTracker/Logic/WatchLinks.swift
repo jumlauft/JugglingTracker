@@ -41,25 +41,6 @@ protocol WatchLink: AnyObject {
     func stop()
 }
 
-/// The Garmin link, until the Connect IQ Mobile SDK for iOS is wired in (a
-/// later stream). It reports that the watch cannot be reached, so the card
-/// shows the setup checklist rather than a link that does not exist yet.
-final class GarminLinkStub: WatchLink {
-    static let message = "The Garmin link is not part of this build yet"
-
-    private let onStatus: (GarminConnectionStatus, String) -> Void
-
-    init(inbox: WatchInbox, onStatus: @escaping (GarminConnectionStatus, String) -> Void) {
-        self.onStatus = onStatus
-    }
-
-    func start() {
-        onStatus(.sdkError, Self.message)
-    }
-
-    func stop() {}
-}
-
 /// The Apple Watch link, until WatchConnectivity is wired in (a later stream).
 final class AppleWatchLinkStub: WatchLink {
     private let onStatus: (AppleWatchConnectionStatus) -> Void
