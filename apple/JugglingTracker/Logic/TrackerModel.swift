@@ -188,8 +188,6 @@ final class TrackerModel {
         sessionStore?.delete(session)
     }
 
-    var sessionsCSV: String { SessionCSV.write(sessions) }
-
     /// Adds a backup's sessions, skipping those already here. Returns how many were added.
     func restore(_ backup: [SessionSummary]) -> Int {
         if let sessionStore {

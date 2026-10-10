@@ -170,7 +170,7 @@ final class TrackerModelTests: XCTestCase {
 
     func testRestoreAddsABackupsNewSessions() throws {
         model.inbox.receive(["type": "session", "balls": 3, "timestamp": 1_790_000_000, "runs": [10]], from: .garmin)
-        let backup = try SessionCSV.parse(model.sessionsCSV).sessions + [
+        let backup = try SessionCSV.parse(SessionCSV.write(model.sessions)).sessions + [
             SessionSummary.summarize(timestamp: 1_700_000_000_000, ballCount: 4, runs: [3]),
         ]
         XCTAssertEqual(model.restore(backup), 1)
