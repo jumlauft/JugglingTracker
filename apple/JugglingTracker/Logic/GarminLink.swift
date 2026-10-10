@@ -6,6 +6,10 @@ struct GarminDevice: Codable, Equatable {
     var id: UUID
     var modelName: String
     var friendlyName: String
+    /// Garmin's catalog number for the model, as Garmin Connect sent it. Kept
+    /// so a watch rebuilt at the next launch matches the one Garmin Connect
+    /// sent. Nil for watches kept before it was saved.
+    var partNumber: String? = nil
 
     var displayName: String { friendlyName.isEmpty ? modelName : friendlyName }
 }
@@ -106,6 +110,9 @@ final class GarminLink: WatchLink, ConnectIQClientDelegate {
         UUID(uuidString: "fa298da6-29c7-46d2-9d76-e07f62d16539")!,
         UUID(uuidString: "88fa4344-0c76-40a9-83e7-e7fc21328822")!,
     ]
+
+    /// The watch app's id in the Connect IQ Store (apps.garmin.com/apps/<id>).
+    static let storeAppId = UUID(uuidString: "0096c65a-510f-440a-948c-d61267d10998")!
 
     static let devicesKey = "garminDevices"
 

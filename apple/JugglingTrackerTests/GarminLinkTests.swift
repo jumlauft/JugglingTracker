@@ -52,7 +52,9 @@ private final class FakeConnectIQClient: ConnectIQClient {
 final class GarminLinkTests: XCTestCase {
     private let storeApp = GarminLink.watchAppIds[0]
     private let betaApp = GarminLink.watchAppIds[1]
-    private let forerunner = GarminDevice(id: UUID(), modelName: "Forerunner 245", friendlyName: "Jonas's Forerunner")
+    private let forerunner = GarminDevice(
+        id: UUID(), modelName: "Forerunner 245", friendlyName: "Jonas's Forerunner", partNumber: "006-B3076-00"
+    )
     private let instinct = GarminDevice(id: UUID(), modelName: "Instinct 2", friendlyName: "")
 
     private var client: FakeConnectIQClient!
@@ -123,7 +125,9 @@ final class GarminLinkTests: XCTestCase {
 
         let relaunched = makeLink()
         relaunched.start()
+        // With its part number, so the SDK gets the watch as Garmin Connect sent it.
         XCTAssertEqual(relaunched.devices, [forerunner])
+        XCTAssertEqual(relaunched.devices.first?.partNumber, "006-B3076-00")
         XCTAssertEqual(relaunched.status, .ready)
     }
 
@@ -366,6 +370,14 @@ final class GarminLinkTests: XCTestCase {
         link.connectIQ(received: ["type": "rec_end", "id": number(7)] as NSDictionary, fromApp: storeApp, on: forerunner)
         XCTAssertTrue(client.sent.isEmpty)
         XCTAssertTrue(recordings.listRecordings().isEmpty)
+    }
+
+    func testWatchesKeptBeforePartNumbersStillLoad() throws {
+        let old = #"[{"id":"\#(forerunner.id.uuidString)","modelName":"Forerunner 245","friendlyName":"F"}]"#
+        defaults.set(Data(old.utf8), forKey: GarminLink.devicesKey)
+        link.start()
+        XCTAssertEqual(link.devices.map(\.id), [forerunner.id])
+        XCTAssertNil(link.devices.first?.partNumber)
     }
 
     // MARK: - Message conversion
