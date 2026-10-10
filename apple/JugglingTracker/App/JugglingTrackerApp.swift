@@ -10,6 +10,8 @@ struct JugglingTrackerApp: App {
             RootView()
                 .environment(app.model)
                 .environment(app)
+                // Garmin Connect hands back the watches the user chose.
+                .onOpenURL { url in app.garminLink.handleOpenURL(url) }
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
@@ -33,24 +35,26 @@ final class AppServices {
     let model: TrackerModel
     @ObservationIgnored let accelerometer = PhoneAccelerometer()
     @ObservationIgnored private let voice = Voice()
-    @ObservationIgnored private var garminLink: WatchLink?
+    @ObservationIgnored let garminLink: GarminLink
     @ObservationIgnored private var appleWatchLink: WatchLink?
 
     init() {
         let settings = AppSettings()
         Telemetry.shared.start(enabled: settings.isAnalyticsEnabled)
         let sessions = SessionStore.standard { Telemetry.shared.record($0) }
-        model = TrackerModel(settings: settings, sessionStore: sessions, recordingStore: .standard())
+        let model = TrackerModel(settings: settings, sessionStore: sessions, recordingStore: .standard())
+        let garmin = GarminLink(client: ConnectIQSDKClient(), inbox: model.inbox) { [weak model] status, message in
+            Task { @MainActor in model?.onGarminLinkStatus(status, message: message) }
+        }
+        self.model = model
+        garminLink = garmin
+
         let voice = voice
         model.speak = { voice.speak($0) }
 
-        let garmin = GarminLinkStub(inbox: model.inbox) { [weak model] status, message in
-            Task { @MainActor in model?.onGarminLinkStatus(status, message: message) }
-        }
         let apple = AppleWatchLink(inbox: model.inbox, session: PhoneWatchSession.makeIfSupported()) { [weak model] status in
             Task { @MainActor in model?.onAppleWatchLinkStatus(status) }
         }
-        garminLink = garmin
         appleWatchLink = apple
         garmin.start()
         apple.start()

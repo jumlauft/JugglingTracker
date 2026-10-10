@@ -54,6 +54,7 @@ struct WatchCardState: Equatable {
 /// shows, sized for the longest text it can show.
 struct WatchHeader: View {
     @Environment(TrackerModel.self) private var model
+    @Environment(AppServices.self) private var services
     let onPhoneTap: () -> Void
     @State private var help: WatchHelp?
 
@@ -120,7 +121,7 @@ struct WatchHeader: View {
         .fixedSize(horizontal: false, vertical: true)
         .animation(.default, value: card)
         .sheet(item: $help) { help in
-            WatchHelpView(help: help)
+            WatchHelpView(help: help) { services.garminLink.chooseWatch() }
                 .presentationDetents([.medium, .large])
         }
     }
