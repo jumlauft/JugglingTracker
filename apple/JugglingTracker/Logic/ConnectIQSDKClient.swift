@@ -22,7 +22,7 @@ final class ConnectIQSDKClient: NSObject, ConnectIQClient {
     }
 
     func showDeviceSelection() {
-        sdk.showConnectIQDeviceSelection()
+        sdk.showDeviceSelection()
     }
 
     func parseDeviceSelection(_ url: URL) -> [GarminDevice]? {
@@ -76,7 +76,7 @@ final class ConnectIQSDKClient: NSObject, ConnectIQClient {
     private func iqApp(_ appId: UUID, on device: GarminDevice) -> IQApp {
         let key = "\(device.id.uuidString)/\(appId.uuidString)"
         if let known = iqApps[key] { return known }
-        let made: IQApp = IQApp(uuid: appId, storeUuid: nil, device: iqDevice(device))
+        let made: IQApp = IQApp(uuid: appId, store: nil, device: iqDevice(device))
         iqApps[key] = made
         return made
     }
