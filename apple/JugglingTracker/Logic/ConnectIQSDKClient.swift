@@ -68,7 +68,12 @@ final class ConnectIQSDKClient: NSObject, ConnectIQClient {
 
     private func iqDevice(_ device: GarminDevice) -> IQDevice {
         if let known = iqDevices[device.id] { return known }
-        let made: IQDevice = IQDevice(id: device.id, modelName: device.modelName, friendlyName: device.friendlyName)
+        let made: IQDevice
+        if let partNumber = device.partNumber {
+            made = IQDevice(id: device.id, modelName: device.modelName, friendlyName: device.friendlyName, partNumber: partNumber)
+        } else {
+            made = IQDevice(id: device.id, modelName: device.modelName, friendlyName: device.friendlyName)
+        }
         iqDevices[device.id] = made
         return made
     }
@@ -76,13 +81,17 @@ final class ConnectIQSDKClient: NSObject, ConnectIQClient {
     private func iqApp(_ appId: UUID, on device: GarminDevice) -> IQApp {
         let key = "\(device.id.uuidString)/\(appId.uuidString)"
         if let known = iqApps[key] { return known }
-        let made: IQApp = IQApp(uuid: appId, store: nil, device: iqDevice(device))
+        // Garmin's own example never leaves the store id empty.
+        let made: IQApp = IQApp(uuid: appId, store: GarminLink.storeAppId, device: iqDevice(device))
         iqApps[key] = made
         return made
     }
 
     private static func garminDevice(_ device: IQDevice) -> GarminDevice {
-        GarminDevice(id: device.uuid, modelName: device.modelName ?? "", friendlyName: device.friendlyName ?? "")
+        GarminDevice(
+            id: device.uuid, modelName: device.modelName ?? "", friendlyName: device.friendlyName ?? "",
+            partNumber: device.partNumber
+        )
     }
 
     private static func status(_ status: IQDeviceStatus) -> GarminDeviceStatus {
