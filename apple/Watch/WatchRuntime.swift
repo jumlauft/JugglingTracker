@@ -26,7 +26,7 @@ final class WatchRuntime: ObservableObject {
 
     init() {
         let scheduler = MainQueueScheduler()
-        let link = PendingPhoneLink()
+        let link = ConnectivityPhoneLink(connectivity: WatchSessionConnectivity())
         self.scheduler = scheduler
         self.link = link
         let clock = UptimeClock()

@@ -31,7 +31,7 @@ simulator.
 | --- | --- | --- |
 | `App/` | App entry, the services wired together | `JugglingTrackerApplication`, `MainActivity` |
 | `Data/` | Session history (JSON Lines), raw recordings (CSV), settings, weekly backup | `data/`, `backup/` |
-| `Logic/` | `TrackerModel` (phone sessions, raw recording, watch card), `WatchInbox`, accelerometer, voice, Firebase | `logic/`, `sensor/` |
+| `Logic/` | `TrackerModel` (phone sessions, raw recording, watch card), `WatchInbox`, the watch links, accelerometer, voice, Firebase | `logic/`, `sensor/` |
 | `UI/` | SwiftUI screens | `ui/` |
 
 Counting, Regularity, the watch messages and the history CSV come from the
@@ -44,10 +44,11 @@ reaches the detector or a recording.
 
 ## Not done yet
 
-- **Watch links.** The Garmin link (Connect IQ Mobile SDK for iOS) and the
-  Apple Watch link (WatchConnectivity) are stubs: the watch card shows the
-  setup checklist. Both will hand their messages to `WatchInbox`, which already
-  stores sessions and recorded runs and decides the acks exactly as on Android.
+- **Garmin link.** The Garmin link (Connect IQ Mobile SDK for iOS) is a stub:
+  the watch card shows the setup checklist. It will hand its messages to
+  `WatchInbox`, which already stores sessions and recorded runs and decides
+  the acks exactly as on Android. The Apple Watch link (`AppleWatchLink`, over
+  WatchConnectivity) does this already.
 - **Firebase.** The app includes Firebase Analytics and Crashlytics behind the
   same "Share app activity and crash reports" switch as Android, but they stay
   off until the app is registered in the Firebase console: add an iOS app with
