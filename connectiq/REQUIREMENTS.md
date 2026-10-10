@@ -65,7 +65,9 @@ The detector is a single pipeline over the accelerometer stream. It is ported
 to Python (`../simulation/eval_new_watch.py`) and line for line to Kotlin
 (`../shared/.../JugglingDetector.kt`), which the phone app and the Wear OS app
 in `../wearos` both build in; **all of them must stay in sync.** The Wear OS app implements this whole
-specification; `../wearos/README.md` maps each requirement to its tests there.
+specification; `../wearos/README.md` maps each requirement to its tests there. The Apple Watch app in
+`../apple/Watch` implements it too, with the Swift port in `../apple/JugglingCore`;
+`../apple/Watch/README.md` maps the requirements to its tests.
 
 **DET-1.** The accelerometer delivers samples in **milli-g including gravity**
 at **25 Hz**. The detector converts to m/s² (× 9.80665 / 1000) on entry, so all

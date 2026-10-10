@@ -1,0 +1,137 @@
+name: Apple
+
+# Checks for the iPhone and Apple Watch apps in apple/. They are a side
+# development stream, so this never runs on its own on a push or a pull
+# request. Start it one of two ways:
+#
+# - Add the label `run-apple-ci` to a pull request. This works on any branch,
+#   which matters while the Apple work lives only on unmerged branches:
+#   GitHub offers the button below only for workflows already on main.
+#   Remove and re-add the label to run it again on a newer commit.
+# - Actions tab > Apple > Run workflow, once this file is on main.
+#
+# The main CI (ci.yml) does not look at apple/.
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled]
+
+concurrency:
+  group: apple-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: JugglingCore tests
+    # Any other label added to a pull request also fires the labeled event;
+    # only this one runs the checks.
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'run-apple-ci'
+    runs-on: macos-latest
+    steps:
+      - name: Check out
+        # Full checkout: the tests replay the recordings in connectiq/data and
+        # read the pinned counts from simulation/test_detection.py.
+        uses: actions/checkout@v7
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Swift package tests
+        working-directory: apple/JugglingCore
+        run: swift test
+
+  watch:
+    name: Apple Watch app
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'run-apple-ci'
+    runs-on: macos-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Watch logic tests
+        # Juggle mode, Record mode and the start-up screens, with fake timers
+        # and a fake phone link.
+        working-directory: apple/WatchLogic
+        run: swift test
+
+      - name: Generate the Xcode project
+        working-directory: apple
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build for the watch simulator
+        # No signing: there is no paid Apple developer account, and the
+        # simulator does not need one.
+        working-directory: apple
+        run: |
+          xcodebuild build \
+            -project JugglingTracker.xcodeproj \
+            -scheme JugglingTrackerWatch \
+            -destination 'generic/platform=watchOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO
+
+  iphone:
+    name: iPhone app
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'run-apple-ci'
+    runs-on: macos-latest
+    steps:
+      - name: Check out
+        # Full checkout: the app's tests replay recordings from connectiq/data.
+        uses: actions/checkout@v7
+
+      - name: Generate the Xcode project
+        working-directory: apple
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Pick an iPhone simulator
+        id: simulator
+        run: |
+          # The newest iOS runtime's first iPhone; runner images change their
+          # device list, so no model is hard-coded.
+          udid=$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          runtimes = sorted((r for r in devices if "iOS" in r), key=lambda r: [int(p) for p in r.rsplit("iOS-", 1)[1].split("-")])
+          for runtime in reversed(runtimes):
+              phones = [d for d in devices[runtime] if d["name"].startswith("iPhone")]
+              if phones:
+                  print(phones[0]["udid"])
+                  break
+          ')
+          echo "Using simulator $udid"
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+
+      - name: Build and test
+        working-directory: apple
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project JugglingTracker.xcodeproj \
+            -scheme JugglingTracker \
+            -destination "id=${{ steps.simulator.outputs.udid }}" \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee xcodebuild.log | grep -E "error:|warning: .*JugglingTracker/|Test Case .* (passed|failed)|\*\* (BUILD|TEST)" || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" xcodebuild.log
+
+      - name: Keep the build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iphone-xcodebuild-log
+          path: apple/xcodebuild.log
