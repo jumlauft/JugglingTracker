@@ -1,4 +1,5 @@
 import SwiftUI
+import WatchKit
 import WatchLogic
 
 /// The Garmin palette the watch app draws with.
@@ -15,8 +16,8 @@ enum WatchColors {
 /// | Garmin | Apple Watch |
 /// |---|---|
 /// | UP / DOWN | turn the Digital Crown, or tap ▲ / ▼ |
-/// | START / STOP | the green button on screen (Start, End, Stop, Confirm) |
-/// | BACK | the button in the top corner |
+/// | START / STOP | the green button on screen (Start, Stop, Confirm); End on the Juggle controls page |
+/// | BACK | the button in the top corner; Discard run on the Juggle controls page |
 struct RootView: View {
     @ObservedObject var runtime: WatchRuntime
 
@@ -50,7 +51,7 @@ struct RootView: View {
             } else if runtime.sensorFailed {
                 SensorErrorScreen(button: "End", onStart: nav.onStart)
             } else {
-                TrackerScreen(state: session.state, onStartStop: nav.onStart)
+                TrackerScreen(state: session.state, onEnd: nav.onStart, onDiscard: nav.onBack)
             }
         case let .recording(session):
             if let menu = session.state.menu {
@@ -65,8 +66,9 @@ struct RootView: View {
     }
 
     /// The first screen has none: pressing the Digital Crown leaves the app.
-    /// On the Juggle screen BACK offers to discard a run (JUG-3), so it shows
-    /// as a bin; over a menu it backs out of the menu (JUG-6, REC-10).
+    /// The Juggle screen has none either: a stray touch there would open a
+    /// menu and pause counting, so discarding a run (JUG-3) lives on its
+    /// controls page. Over a menu it backs out of the menu (JUG-6, REC-10).
     private var backButton: (symbol: String, label: String)? {
         switch runtime.screen {
         case .modeSelect:
@@ -74,8 +76,8 @@ struct RootView: View {
         case .ballSelect:
             return ("chevron.backward", "Back")
         case let .tracker(session):
-            if session.state.sending { return nil }
-            return session.state.menu == nil ? ("trash", "Discard run") : ("chevron.backward", "Back")
+            if session.state.sending || session.state.menu == nil { return nil }
+            return ("chevron.backward", "Back")
         case let .recording(session):
             let state = session.state
             if state.menu == nil && state.phase == .syncing { return nil } // REC-9
@@ -224,43 +226,158 @@ struct BallSelectScreen: View {
 
 // MARK: Juggle
 
-/// `MainView.mc`: run state, live count and session stats (JUG-1).
+/// `MainView.mc`: run state, live count and session stats (JUG-1), on three
+/// pages the way the Workout app lays out a workout:
+///
+/// - controls (swipe right): End, Discard run and Lock,
+/// - the count, which the screen opens on,
+/// - the session stats (swipe left).
+///
+/// Nothing on the count page reacts to a touch. A sleeve, a ball or the heel
+/// of the hand brushing the screen mid-juggle would otherwise open a menu,
+/// and detection pauses while a menu is up, cutting the run short unnoticed.
 struct TrackerScreen: View {
     let state: TrackerUiState
-    let onStartStop: () -> Void
+    let onEnd: () -> Void
+    let onDiscard: () -> Void
+
+    enum Page: Hashable { case controls, count, stats }
+
+    /// How long the controls page stays up untouched before the count comes
+    /// back, so a swipe made by accident does not leave the buttons showing.
+    static let controlsTimeout: Duration = .seconds(6)
+
+    @State private var page: Page = .count
+    @Environment(\.isLuminanceReduced) private var isLuminanceReduced
 
     var body: some View {
         if state.sending {
             WatchText(Format.syncing(state.syncDots), WatchColors.yellow, 18)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            CenteredColumn(button: "End", onStart: onStartStop) {
-                WatchText(
-                    state.runActive ? "RUN ACTIVE" : "WAITING",
-                    state.runActive ? WatchColors.green : WatchColors.yellow,
-                    11
-                )
-                WatchText(String(state.currentCount), WatchColors.green, 40, weight: .bold)
-                WatchText("Catches per hand", WatchColors.lightGray, 12)
-                statRow("Prev: \(Format.countOrDash(state.previousCount))", "Runs: \(state.runs)")
-                statRow("Avg: \(Format.averageOrDash(state.average))", "Max: \(Format.countOrDash(state.max))")
-                WatchText("Time: \(Format.elapsed(state.elapsedSeconds))", WatchColors.lightGray, 11)
-                WatchText("Regularity: \(Format.percentOrDash(state.shapeConsistency))", WatchColors.lightGray, 11)
-                if let error = state.errorMessage {
-                    WatchText(error, WatchColors.red, 11)
-                }
+            TabView(selection: $page) {
+                TrackerControlsPage(canDiscard: canDiscard, onEnd: onEnd, onDiscard: onDiscard)
+                    .tag(Page.controls)
+                TrackerCountPage(state: state)
+                    .tag(Page.count)
+                TrackerStatsPage(state: state)
+                    .tag(Page.stats)
+            }
+            .tabViewStyle(.page)
+            // With the wrist down only the count matters.
+            .onChange(of: isLuminanceReduced) { _, reduced in
+                if reduced { page = .count }
+            }
+            .task(id: page) {
+                guard page == .controls else { return }
+                try? await Task.sleep(for: Self.controlsTimeout)
+                if !Task.isCancelled && page == .controls { page = .count }
             }
         }
     }
 
-    private func statRow(_ left: String, _ right: String) -> some View {
-        HStack {
-            Spacer()
-            WatchText(left, WatchColors.lightGray, 11)
-            Spacer()
-            WatchText(right, WatchColors.lightGray, 11)
-            Spacer()
+    /// The same test `TrackerSession.onBack` makes: a run in progress or a
+    /// finished one to take back.
+    private var canDiscard: Bool { state.runActive || state.runs > 0 }
+}
+
+/// The count, as large as the screen allows, readable at a glance mid-juggle.
+private struct TrackerCountPage: View {
+    let state: TrackerUiState
+
+    var body: some View {
+        VStack(spacing: 0) {
+            WatchText(
+                state.runActive ? "RUN ACTIVE" : "WAITING",
+                state.runActive ? WatchColors.green : WatchColors.yellow,
+                13, weight: .semibold
+            )
+            Text(String(state.currentCount))
+                .font(.system(size: 96, weight: .bold, design: .rounded))
+                // Digits of equal width, so the number does not shift as it counts.
+                .monospacedDigit()
+                .foregroundStyle(WatchColors.green)
+                .lineLimit(1)
+                .minimumScaleFactor(0.4)
+                .frame(maxHeight: .infinity)
+            WatchText("Catches per hand", WatchColors.lightGray, 13)
+            if let error = state.errorMessage {
+                WatchText(error, WatchColors.red, 12)
+            }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// The session stats, one per line, large enough to read at rest.
+private struct TrackerStatsPage: View {
+    let state: TrackerUiState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            row("Prev", Format.countOrDash(state.previousCount))
+            row("Runs", String(state.runs))
+            row("Avg", Format.averageOrDash(state.average))
+            row("Max", Format.countOrDash(state.max))
+            row("Time", Format.elapsed(state.elapsedSeconds))
+            row("Regularity", Format.percentOrDash(state.shapeConsistency))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 4)
+    }
+
+    private func row(_ label: String, _ value: String) -> some View {
+        HStack {
+            Text(label).foregroundStyle(WatchColors.lightGray)
+            Spacer(minLength: 4)
+            Text(value).monospacedDigit().foregroundStyle(WatchColors.white)
+        }
+        .font(.system(size: 16, weight: .medium))
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// End (START/STOP, JUG-2), Discard run (BACK, JUG-3) and Lock, out of reach
+/// of a stray touch on the count page.
+private struct TrackerControlsPage: View {
+    let canDiscard: Bool
+    let onEnd: () -> Void
+    let onDiscard: () -> Void
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Button(action: onEnd) {
+                Label("End", systemImage: "xmark")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity)
+            }
+            .tint(WatchColors.green)
+            .buttonStyle(.borderedProminent)
+
+            Button(action: onDiscard) {
+                Label("Discard run", systemImage: "trash")
+                    .frame(maxWidth: .infinity)
+            }
+            .tint(WatchColors.red)
+            .buttonStyle(.bordered)
+            .disabled(!canDiscard)
+
+            // Water Lock ignores every touch until the Digital Crown is
+            // turned. watchOS only allows it while the workout session runs,
+            // which needs Health permission (see WorkoutKeeper).
+            Button {
+                WKInterfaceDevice.current().enableWaterLock()
+            } label: {
+                Label("Lock screen", systemImage: "drop.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
