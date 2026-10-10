@@ -43,8 +43,17 @@ Pick the JugglingTrackerWatch scheme and an Apple Watch simulator.
 | Garmin | Apple Watch |
 |---|---|
 | UP / DOWN | turn the Digital Crown, or tap the arrows |
-| START / STOP | the green button on screen (Start, End, Stop, Confirm) |
-| BACK | the button in the top-left corner (a bin on the Juggle screen, where it offers to discard a run) |
+| START / STOP | the green button on screen (Start, Stop, Confirm); End on the Juggle screen's controls page |
+| BACK | the button in the top-left corner; Discard run on the Juggle screen's controls page |
+
+The Juggle screen has three pages, as a workout in the Workout app does: the
+count in the middle, where it opens; the controls (End, Discard run, Lock
+screen) a swipe to the right; the session stats a swipe to the left. Nothing on
+the count page reacts to a touch, because a stray one mid-juggle would open a
+menu, and counting pauses while a menu is up. The controls page goes back to the
+count after a few seconds untouched, and so does every page when the wrist goes
+down. Lock screen turns on Water Lock, which ignores the screen until the
+Digital Crown is turned; watchOS allows it only while the workout session runs.
 
 The first screen has no back button: pressing the Digital Crown leaves the
 app, as on any watch app. Where the Garmin app quits (after a sync, or on
