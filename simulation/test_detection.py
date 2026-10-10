@@ -6,8 +6,8 @@ datasets with the current JugglingDetector.mc parameters, asserting that
 detection performance does not regress.
 
 The expected detection counts come from the delayed burst-clustering algorithm
-with alternating watch-hand burst counting: total absolute error = 239 and
-positive overcount error = 93 across 127 recordings (3206 actual watch-hand catches).
+with alternating watch-hand burst counting: total absolute error = 245 and
+positive overcount error = 99 across 129 recordings (3246 actual watch-hand catches).
 """
 import math
 import os
@@ -171,11 +171,15 @@ EXPECTED_RUNS = [
     ("20261006_184057", 7, 11, 10),
     ("20261006_184141", 7, 6, 6),
     ("20261006_184234", 7, 30, 22),
+    # Stefan the Juggling Noob: two 3-ball runs, both typed as 20. The watch
+    # counted 22 and 24 at capture, the same as the simulation here.
+    ("20261010_155338", 3, 20, 22),
+    ("20261010_155424", 3, 20, 24),
 ]
 
 # Maximum allowed total absolute error across all runs.
-MAX_TOTAL_ERROR = 239
-MAX_TOTAL_OVERCOUNT = 93
+MAX_TOTAL_ERROR = 245
+MAX_TOTAL_OVERCOUNT = 99
 
 
 def _get_data_dir():
