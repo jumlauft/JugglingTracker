@@ -120,7 +120,7 @@ extension ConnectIQSDKClient: IQDeviceEventDelegate, IQAppMessageDelegate, IQUIO
     }
 
     @objc(receivedMessage:fromApp:)
-    func receivedMessage(_ message: Any?, fromApp app: IQApp?) {
+    func receivedMessage(_ message: Any?, from app: IQApp?) {
         guard let message, let app, let device = app.device else { return }
         let appId: UUID = app.uuid
         let from = Self.garminDevice(device)
