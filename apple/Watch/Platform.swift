@@ -43,15 +43,3 @@ final class AppleWatchEffects: WatchEffects {
         DispatchQueue.main.async(execute: onExit)
     }
 }
-
-/// The link to the iPhone app, not built yet: WatchConnectivity comes in its
-/// own change. Until then every message reports that it did not leave the
-/// watch, so ending a session shows "Sync failed" with Retry, Quit without
-/// sync and Continue, exactly as a Garmin out of reach of its phone does.
-final class PendingPhoneLink: PhoneLink {
-    func send(_ payload: [String: Any], onResult: @escaping (Bool) -> Void) {
-        DispatchQueue.main.async { onResult(false) }
-    }
-
-    func setMessageListener(_ listener: (([String: Any]) -> Void)?) {}
-}

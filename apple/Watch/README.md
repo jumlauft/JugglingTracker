@@ -20,13 +20,15 @@ it) and no releases. watchOS 10 or later.
   - `SampleThrottle.swift` - thins the sensor stream to 25 Hz on a 40 ms grid.
   - `Format.swift` - display strings, identical to what the Garmin draws.
   - `Platform.swift` - the timer, clock, phone link and vibration interfaces.
+  - `ConnectivityPhoneLink.swift` - the phone link over WatchConnectivity.
 - `Watch/` (this folder) - the app target:
   - `WatchRuntime.swift` - wires it together.
   - `MotionSource.swift` - CoreMotion accelerometer, 50 Hz thinned to 25 Hz,
     in milli-g including gravity, handed over in one-second batches.
   - `WorkoutKeeper.swift` - the workout session that keeps counting with the
     wrist down.
-  - `Platform.swift` - main-queue timers, haptics and the phone link stub.
+  - `Platform.swift` - main-queue timers and haptics.
+  - `PhoneConnectivity.swift` - `WCSession`, forwarded to the phone link.
   - `Screens.swift` - SwiftUI screens.
 
 The Xcode project is generated from `../project.yml`:
@@ -60,11 +62,14 @@ buttons are hidden and the count keeps updating.
 
 ## Talking to the phone
 
-Not built yet: the WatchConnectivity link to the iPhone app is its own change.
-Until then a sync always fails, so ending a session offers Retry sync, Quit
-without sync and Continue, as a Garmin out of reach of its phone does. The
-messages are ready: `session`, `rec_start`, `rec_chunk` (1000 samples, as on
-Wear OS) and `rec_end`, with the phone's `ack` closing the session.
+Sessions and recorded runs go to the iPhone app over WatchConnectivity, as
+the messages every watch sends: `session`, `rec_start`, `rec_chunk` (1000
+samples, as on Wear OS) and `rec_end`. Each one is a `sendMessage`, which wakes
+the iPhone app in the background if it is not open. The phone answers every
+message, with its `ack` once it has stored a session or a whole run and an
+empty reply otherwise; only the ack closes the session. With no iPhone in
+reach a send fails, so ending a session offers Retry sync, Quit without sync
+and Continue, as a Garmin out of reach of its phone does.
 
 ## Tests
 

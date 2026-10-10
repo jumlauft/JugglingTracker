@@ -47,7 +47,7 @@ final class AppServices {
         let garmin = GarminLinkStub(inbox: model.inbox) { [weak model] status, message in
             Task { @MainActor in model?.onGarminLinkStatus(status, message: message) }
         }
-        let apple = AppleWatchLinkStub(inbox: model.inbox) { [weak model] status in
+        let apple = AppleWatchLink(inbox: model.inbox, session: PhoneWatchSession.makeIfSupported()) { [weak model] status in
             Task { @MainActor in model?.onAppleWatchLinkStatus(status) }
         }
         garminLink = garmin
