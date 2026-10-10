@@ -146,12 +146,20 @@ private struct CenteredColumn<Content: View>: View {
 
 /// UP and DOWN either side of the value they change, also driven by the
 /// Digital Crown: each detent is one press.
+///
+/// The crown turns over a short ring of detents that wraps around, and only
+/// the step between two readings counts. A range wide enough never to reach
+/// its ends instead (it was ±1,000,000) costs memory per detent: the screen
+/// alone took 123 MB instead of 16 MB, and turning the crown pushed the app
+/// past watchOS's 300 MB limit, which killed it.
 private struct ArrowStepper<Value: View>: View {
     let onDown: () -> Void
     let onUp: () -> Void
     let value: Value
     @State private var crown = 0.0
     @State private var lastDetent = 0
+
+    private static var ring: Int { 100 }
 
     init(onDown: @escaping () -> Void, onUp: @escaping () -> Void, @ViewBuilder value: () -> Value) {
         self.onDown = onDown
@@ -167,13 +175,17 @@ private struct ArrowStepper<Value: View>: View {
         }
         .focusable()
         .digitalCrownRotation(
-            $crown, from: -1_000_000, through: 1_000_000, by: 1,
+            $crown, from: 0, through: Double(Self.ring - 1), by: 1,
             sensitivity: .low, isContinuous: true, isHapticFeedbackEnabled: true
         )
         .onChange(of: crown) { _, newValue in
             let detent = Int(newValue.rounded())
-            while lastDetent < detent { lastDetent += 1; onUp() }
-            while lastDetent > detent { lastDetent -= 1; onDown() }
+            // The shorter way round the ring: from 99 to 0 is one step up.
+            var step = (detent - lastDetent) % Self.ring
+            if step > Self.ring / 2 { step -= Self.ring }
+            if step < -Self.ring / 2 { step += Self.ring }
+            lastDetent = detent
+            for _ in 0..<abs(step) { step > 0 ? onUp() : onDown() }
         }
     }
 
