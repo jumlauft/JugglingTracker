@@ -50,9 +50,8 @@ The Juggle screen has three pages, as a workout in the Workout app does: the
 count in the middle, where it opens; the controls (End, Discard run, Lock
 screen) a swipe to the right; the session stats a swipe to the left. Nothing on
 the count page reacts to a touch, because a stray one mid-juggle would open a
-menu, and counting pauses while a menu is up. The controls page goes back to the
-count after a few seconds untouched, and so does every page when the wrist goes
-down. Lock screen turns on Water Lock, which ignores the screen until the
+menu, and counting pauses while a menu is up. The screen stays on whichever page
+was chosen until a new run starts, which brings the count back. Lock screen turns on Water Lock, which ignores the screen until the
 Digital Crown is turned; watchOS allows it only while the workout session runs.
 
 The first screen has no back button: pressing the Digital Crown leaves the
