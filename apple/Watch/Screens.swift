@@ -243,12 +243,7 @@ struct TrackerScreen: View {
 
     enum Page: Hashable { case controls, count, stats }
 
-    /// How long the controls page stays up untouched before the count comes
-    /// back, so a swipe made by accident does not leave the buttons showing.
-    static let controlsTimeout: Duration = .seconds(6)
-
     @State private var page: Page = .count
-    @Environment(\.isLuminanceReduced) private var isLuminanceReduced
 
     var body: some View {
         if state.sending {
@@ -264,14 +259,10 @@ struct TrackerScreen: View {
                     .tag(Page.stats)
             }
             .tabViewStyle(.page)
-            // With the wrist down only the count matters.
-            .onChange(of: isLuminanceReduced) { _, reduced in
-                if reduced { page = .count }
-            }
-            .task(id: page) {
-                guard page == .controls else { return }
-                try? await Task.sleep(for: Self.controlsTimeout)
-                if !Task.isCancelled && page == .controls { page = .count }
+            // The page stays where it was put between runs, so the stats can
+            // be read in peace; a new run brings the count back.
+            .onChange(of: state.runActive) { _, active in
+                if active { page = .count }
             }
         }
     }
