@@ -2,6 +2,7 @@ package com.juggling.tracker.ui
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -97,17 +98,17 @@ fun TrackerScreen(
                 selectedTabBallCount = availableBallCounts.first()
             }
 
-            ScrollableTabRow(
-                selectedTabIndex = availableBallCounts.indexOf(selectedTabBallCount),
-                edgePadding = 0.dp,
-                containerColor = Color.Transparent,
-                divider = {},
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 availableBallCounts.forEach { count ->
-                    Tab(
+                    BallChip(
+                        label = stringResource(R.string.format_balls_tab, count),
                         selected = selectedTabBallCount == count,
                         onClick = { selectedTabBallCount = count },
-                        text = { Text(stringResource(R.string.format_balls_tab, count)) }
                     )
                 }
             }

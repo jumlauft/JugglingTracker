@@ -40,10 +40,10 @@ fun RawRecordingFlow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             (3..9).forEach { b ->
-                                FilterChip(
+                                BallChip(
+                                    label = b.toString(),
                                     selected = balls == b,
                                     onClick = { balls = b },
-                                    label = { Text(b.toString()) }
                                 )
                             }
                         }
