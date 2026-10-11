@@ -2,7 +2,9 @@
 
 ## Architecture
 
-Juggling tracker with two watch apps and a phone app: a Garmin watch app and a Wear OS watch app detect catches made by the hand wearing the watch and transmit finished sessions to an Android companion app for storage and visualization. The phone app can also count from its own accelerometer. Counts are watch-hand catches, not both-hands totals. The two watch apps keep the same features and behaviour.
+Juggling tracker with three watch apps and two phone apps: a Garmin watch app, a Wear OS watch app and an Apple Watch app detect catches made by the hand wearing the watch and transmit finished sessions to a companion phone app (Android, or iPhone in `apple/`) for storage and visualization. The phone apps can also count from their own accelerometer. Counts are watch-hand catches, not both-hands totals.
+
+**Keep the implementations in sync.** The three watch apps keep the same user-facing functionality and workflow, and the Android and iPhone apps the same user-facing functionality and design. Port every change to the other implementations in its group and tell the user which app got what. The full rules, and the allowed hardware-specific differences, are in `CLAUDE.md` at the repo root.
 
 - `connectiq/` — Monkey C watch app. Its behaviour is specified in `connectiq/REQUIREMENTS.md`.
   - `JugglingTrackerApp.mc` — app entry point.
@@ -25,6 +27,7 @@ Juggling tracker with two watch apps and a phone app: a Garmin watch app and a W
   - `data/SettingsManager.kt` — Settings (watch type, voice, analytics, export details).
   - `model/` — Data classes (`JugglingRun`, `SessionSummary`).
   - `ui/` — Compose screens and components.
+- `apple/` — the iPhone app (`JugglingTracker/`) and the Apple Watch app (`Watch/`, behaviour in `WatchLogic/`), sharing the Swift detector in `JugglingCore/`. See `apple/Watch/README.md` and `apple/JugglingTracker/README.md`.
 - `connectiq/data/` — Labeled accelerometer CSVs used for detection tuning and regression tests. One run per file, named `YYYYMMDD_HHMMSS.csv` after its run id.
 - `simulation/` — Python detector simulation, tuning/plotting scripts, and pytest regression tests.
 

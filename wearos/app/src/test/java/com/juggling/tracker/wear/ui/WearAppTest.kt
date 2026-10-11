@@ -2,11 +2,15 @@ package com.juggling.tracker.wear.ui
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeRight
 import com.juggling.tracker.wear.logic.AppNavigator
 import com.juggling.tracker.wear.logic.FakeEffects
 import com.juggling.tracker.wear.logic.FakePhoneLink
@@ -51,6 +55,18 @@ class WearAppTest {
         compose.waitForIdle()
     }
 
+    /** Swipes the Juggle screen over to its controls page. */
+    private fun openControls() {
+        compose.onNodeWithTag(Tags.PAGER).performTouchInput { swipeRight() }
+        compose.waitForIdle()
+    }
+
+    /** START/STOP: End, on the controls page. */
+    private fun endSession() {
+        openControls()
+        click(Tags.END)
+    }
+
     private fun tracker() = (navigator.screen.value as Screen.Tracker).session
 
     private fun openTracker(balls: Int = 3) {
@@ -89,7 +105,7 @@ class WearAppTest {
         openTracker()
         compose.onNodeWithTag(Tags.RUN_STATE).assertTextEquals("WAITING")
         compose.onNodeWithTag(Tags.COUNT).assertTextEquals("0")
-        compose.onNodeWithTag(Tags.PREV).assertTextEquals("Prev: -")
+        compose.onNodeWithTag(Tags.PREV).assertTextEquals("-")
         juggle(4)
         compose.onNodeWithTag(Tags.RUN_STATE).assertTextEquals("RUN ACTIVE")
         compose.onNodeWithTag(Tags.COUNT).assertTextEquals("4")
@@ -128,10 +144,37 @@ class WearAppTest {
     }
 
     @Test
+    fun `discard run on the controls page offers to discard`() {
+        show()
+        openTracker()
+        openControls()
+        // Nothing recorded yet: nothing to discard.
+        compose.onNodeWithTag(Tags.DISCARD).assertIsNotEnabled()
+        juggle(4)
+        openControls()
+        compose.onNodeWithTag(Tags.DISCARD).assertIsEnabled()
+        click(Tags.DISCARD)
+        compose.onNodeWithText("Discard this run?").assertIsDisplayed()
+        click(Tags.menuItem(TrackerSession.ITEM_DISCARD_YES))
+        compose.onNodeWithTag(Tags.COUNT).assertTextEquals("0")
+        assertEquals(0, effects.exits)
+    }
+
+    @Test
+    fun `a new run brings the count page back`() {
+        show()
+        openTracker()
+        openControls()
+        compose.onNodeWithTag(Tags.END).assertIsDisplayed()
+        juggle(4)
+        compose.onNodeWithTag(Tags.COUNT).assertIsDisplayed()
+    }
+
+    @Test
     fun `end opens the session end menu and continue returns`() {
         show()
         openTracker()
-        click(Tags.START)
+        endSession()
         compose.onNodeWithText("End session?").assertIsDisplayed()
         compose.onNodeWithText("Sync and quit").assertIsDisplayed()
         compose.onNodeWithText("Quit without sync").assertIsDisplayed()
@@ -144,7 +187,7 @@ class WearAppTest {
         show()
         openTracker()
         juggle(3)
-        click(Tags.START)
+        endSession()
         click(Tags.menuItem(TrackerSession.ITEM_SYNC_QUIT))
         compose.onNodeWithTag(Tags.SYNC).assertTextEquals("Sync to phone.")
         assertEquals("session", link.sent.single()["type"])
@@ -158,7 +201,7 @@ class WearAppTest {
         show()
         openTracker()
         juggle(3)
-        click(Tags.START)
+        endSession()
         click(Tags.menuItem(TrackerSession.ITEM_SYNC_QUIT))
         compose.runOnUiThread { link.complete(false) }
         compose.onNodeWithText("Retry sync").assertIsDisplayed()

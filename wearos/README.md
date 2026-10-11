@@ -50,13 +50,24 @@ A Garmin has four buttons; a Wear OS watch has a touchscreen and a crown.
 | Garmin | Wear OS |
 |---|---|
 | UP / DOWN | rotate the crown or bezel, or tap ▲ / ▼ |
-| START / STOP | the green button on screen (Start, End, Stop, Confirm), or a stem button |
-| BACK | swipe right from the left edge, or the back key |
+| START / STOP | the green button on screen (Start, Stop, Confirm), or a stem button; End on the Juggle screen's controls page |
+| BACK | swipe right from the left edge, or the back key; Discard run on the Juggle screen's controls page |
 
 The system's own swipe-to-dismiss is turned off in the theme, because it
 would close the app and lose the session. The app recognises the swipe itself
-and treats it as BACK, so on the tracking screens a swipe opens the discard
-prompt exactly as BACK does on the Garmin (JUG-3, JUG-4).
+and treats it as BACK (the record screens, the menus, ball and mode
+selection). The back key always means BACK, so on the Juggle screen it opens
+the discard prompt exactly as BACK does on the Garmin (JUG-3, JUG-4).
+
+The Juggle screen has three pages, laid out as on the Apple Watch: the count
+in the middle, where it opens; the controls (End, Discard run) a swipe to the
+right; the session stats a swipe to the left. On this screen a swipe turns
+the pages rather than meaning BACK. Nothing on the count page reacts to a
+touch, because a stray one mid-juggle would open a menu, and counting pauses
+while a menu is up. The screen stays on whichever page was chosen until a new
+run starts, which brings the count back. The Garmin, driven by buttons, shows
+all of it on one screen; the Apple Watch's Lock screen (Water Lock) has no
+Wear OS API and is left out.
 
 ## Talking to the phone
 

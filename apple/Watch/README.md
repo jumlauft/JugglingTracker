@@ -42,11 +42,12 @@ Pick the JugglingTrackerWatch scheme and an Apple Watch simulator.
 
 | Garmin | Apple Watch |
 |---|---|
-| UP / DOWN | turn the Digital Crown, or tap the arrows |
+| UP / DOWN | turn the Digital Crown, or tap the arrows; the ball count stops at 3 and 9 rather than wrapping round as on the Garmin |
 | START / STOP | the green button on screen (Start, Stop, Confirm); End on the Juggle screen's controls page |
 | BACK | the button in the top-left corner; Discard run on the Juggle screen's controls page |
 
-The Juggle screen has three pages, as a workout in the Workout app does: the
+The Juggle screen has three pages, as a workout in the Workout app does (the
+Wear OS app has the same pages): the
 count in the middle, where it opens; the controls (End, Discard run, Lock
 screen) a swipe to the right; the session stats a swipe to the left. Nothing on
 the count page reacts to a touch, because a stray one mid-juggle would open a

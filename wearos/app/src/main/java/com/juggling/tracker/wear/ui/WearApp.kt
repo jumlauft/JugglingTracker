@@ -35,7 +35,9 @@ import kotlinx.coroutines.delay
  * [AppNavigator]:
  * - UP / DOWN: the rotary crown or bezel, or the on-screen arrows;
  * - START: the on-screen button, or a hardware stem button;
- * - BACK: a swipe from the left edge, or the back key.
+ * - BACK: a swipe from the left edge, or the back key. On the Juggle
+ *   screen the swipe turns its pages instead, and Discard run on the
+ *   controls page stands in for it.
  *
  * [sensorFailed] is true when the accelerometer is missing or would not
  * start; the tracking screens then show [SensorErrorScreen] (SENS-4).
@@ -66,13 +68,20 @@ fun WearApp(
     // BACK must reach the session, never close the app by default.
     BackHandler { navigator.onBack() }
 
+    // The Juggle screen's pages take every horizontal swipe, so the edge
+    // swipe there belongs to them; Discard run sits on the controls page.
+    val trackerPaged = (screen as? Screen.Tracker)?.let { tracker ->
+        val state by tracker.session.state.collectAsState()
+        state.menu == null && !state.sending && !sensorFailed
+    } ?: false
+
     CompositionLocalProvider(LocalAmbient provides isAmbient) {
         MaterialTheme {
             Box(
                 modifier = modifier
                     .fillMaxSize()
                     .background(Color.Black)
-                    .edgeSwipeToBack { navigator.onBack() }
+                    .edgeSwipeToBack(enabled = !trackerPaged) { navigator.onBack() }
                     .onRotaryScrollEvent { event ->
                         val acc = rotaryAccumulated[0] + event.verticalScrollPixels
                         rotaryAccumulated[0] = when {
@@ -127,7 +136,7 @@ fun WearApp(
                         } else if (sensorFailed && !state.sending) {
                             SensorErrorScreen("End", onStart)
                         } else {
-                            TrackerScreen(state, onStartStop = navigator::onStart)
+                            TrackerScreen(state, onEnd = navigator::onStart, onDiscard = navigator::onBack)
                         }
                     }
                     is Screen.Recording -> {
@@ -186,6 +195,10 @@ private fun Modifier.edgeSwipeToBack(onBack: () -> Unit): Modifier = pointerInpu
         },
     )
 }
+
+/** [edgeSwipeToBack] only while [enabled]. */
+private fun Modifier.edgeSwipeToBack(enabled: Boolean, onBack: () -> Unit): Modifier =
+    if (enabled) edgeSwipeToBack(onBack) else this
 
 private const val EDGE_FRACTION = 0.35f
 private const val SWIPE_FRACTION = 0.25f

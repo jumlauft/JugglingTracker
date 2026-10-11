@@ -54,16 +54,20 @@ final class AppNavigatorTests: XCTestCase {
         XCTAssertEqual(nav.screen, .ballSelect(mode: .record, ballCount: 3))
     }
 
-    func testAPP3BallSelectionStartsAtThreeAndWrapsBothWays() {
+    /// On Apple Watch the count stops at 3 and 9 instead of wrapping, as the
+    /// Digital Crown does; the Garmin and Wear OS apps wrap.
+    func testAPP3BallSelectionStartsAtThreeAndStopsAtBothEnds() {
         let nav = navigator()
         nav.onStart()
         XCTAssertEqual(ballCount(nav), 3)
         nav.onDown()
-        XCTAssertEqual(ballCount(nav), 9)
-        nav.onUp()
         XCTAssertEqual(ballCount(nav), 3)
-        for _ in 0..<6 { nav.onUp() }
+        nav.onUp()
+        XCTAssertEqual(ballCount(nav), 4)
+        for _ in 0..<10 { nav.onUp() }
         XCTAssertEqual(ballCount(nav), 9)
+        nav.onDown()
+        XCTAssertEqual(ballCount(nav), 8)
     }
 
     func testAPP4StartOpensTheTrackerForTheChosenModeWithTheChosenBalls() {
