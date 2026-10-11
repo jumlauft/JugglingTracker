@@ -6,7 +6,6 @@ import SwiftUI
 struct TrackerScreen: View {
     @Environment(TrackerModel.self) private var model
     @Binding var path: [Screen]
-    @State private var selectedBalls: Int?
     @State private var sessionToDelete: SessionSummary?
     @State private var sessionForDetails: SessionSummary?
 
@@ -38,14 +37,10 @@ struct TrackerScreen: View {
         }
     }
 
-    private var ballCounts: [Int] {
-        Array(Set(model.sessions.map(\.ballCount))).sorted()
-    }
-
     @ViewBuilder
     private var history: some View {
-        let counts = ballCounts
-        let balls = selectedBalls.flatMap { counts.contains($0) ? $0 : nil } ?? counts[0]
+        let counts = model.historyBallCounts
+        let balls = model.shownHistoryBallCount
         let filtered = model.sessions.filter { $0.ballCount == balls }
 
         Text("Session History")
@@ -55,7 +50,7 @@ struct TrackerScreen: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(counts, id: \.self) { count in
-                    Button("\(count) Balls") { selectedBalls = count }
+                    Button("\(count) Balls") { model.selectHistoryBallCount(count) }
                         .buttonStyle(BallChipStyle(isSelected: count == balls))
                         .accessibilityAddTraits(count == balls ? .isSelected : [])
                 }

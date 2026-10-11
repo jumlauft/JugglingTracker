@@ -289,6 +289,75 @@ class JugglingViewModelTest {
         assertTrue(viewModel.completedSessions.isEmpty())
     }
 
+    // ── History ball count ──────────────────────────────────────────────
+
+    private fun watchSession(balls: Int, timestamp: Long) = mapOf(
+        "type" to "session", "balls" to balls, "timestamp" to timestamp, "runs" to listOf(10),
+    )
+
+    @Test
+    fun `history shows the smallest ball count until something is chosen`() = runTest {
+        assertNull(viewModel.shownHistoryBallCount)
+        viewModel.restoreSessions(listOf(
+            summarizeSession(2_000_000L, 7, listOf(10)),
+            summarizeSession(1_000_000L, 5, listOf(10)),
+        ))
+        assertEquals(listOf(5, 7), viewModel.historyBallCounts)
+        assertEquals(5, viewModel.shownHistoryBallCount)
+    }
+
+    @Test
+    fun `a session from the watch switches the history to its ball count`() = runTest {
+        viewModel.importSessionFromWatch(watchSession(5, 1000L))
+        viewModel.selectHistoryBallCount(5)
+
+        viewModel.importSessionFromWatch(watchSession(7, 2000L))
+        advanceUntilIdle()
+
+        assertEquals(7, viewModel.shownHistoryBallCount)
+    }
+
+    @Test
+    fun `several sessions in one sync leave the history on the last one`() = runTest {
+        viewModel.importSessionFromWatch(watchSession(7, 1000L), WatchInbox.Source.WEAR_OS)
+        viewModel.importSessionFromWatch(watchSession(4, 2000L), WatchInbox.Source.WEAR_OS)
+        viewModel.importSessionFromWatch(watchSession(5, 3000L), WatchInbox.Source.WEAR_OS)
+        advanceUntilIdle()
+
+        assertEquals(5, viewModel.shownHistoryBallCount)
+    }
+
+    @Test
+    fun `a payload that is not stored leaves the history where it was`() = runTest {
+        viewModel.importSessionFromWatch(watchSession(5, 1000L))
+        viewModel.importSessionFromWatch(mapOf("type" to "session", "timestamp" to 2000L, "runs" to listOf(10)))
+        viewModel.importSessionFromWatch(mapOf("type" to "session", "balls" to 7, "timestamp" to 3000L, "runs" to emptyList<Int>()))
+        advanceUntilIdle()
+
+        assertEquals(listOf(5), viewModel.historyBallCounts)
+        assertEquals(5, viewModel.shownHistoryBallCount)
+    }
+
+    @Test
+    fun `a recorded run or a restored backup does not switch the history`() = runTest {
+        viewModel.importSessionFromWatch(watchSession(3, 1000L))
+        viewModel.restoreSessions(listOf(summarizeSession(5_000_000L, 7, listOf(10))))
+        viewModel.startRecordingTransfer(mapOf("id" to 9L, "balls" to 7, "catches" to 20, "samples" to 0, "chunks" to 0))
+        assertTrue(viewModel.finishRecordingTransfer(mapOf("id" to 9L)))
+        advanceUntilIdle()
+
+        assertEquals(3, viewModel.shownHistoryBallCount)
+    }
+
+    @Test
+    fun `choosing a chip after a sync wins over the synced ball count`() = runTest {
+        viewModel.importSessionFromWatch(watchSession(5, 1000L))
+        viewModel.importSessionFromWatch(watchSession(7, 2000L))
+        viewModel.selectHistoryBallCount(5)
+
+        assertEquals(5, viewModel.shownHistoryBallCount)
+    }
+
     // ── Delete ──────────────────────────────────────────────────────────
 
     @Test
