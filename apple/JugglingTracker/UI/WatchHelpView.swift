@@ -29,7 +29,7 @@ struct WatchHelpView: View {
                     case (.garmin, .link):
                         intro("To sync with your watch, please ensure:")
                         Text("1. Bluetooth is turned ON.")
-                        Text("2. This app may use Bluetooth.")
+                        Text("2. This app has Bluetooth permissions.")
                         Text("3. The \"Garmin Connect\" app is installed and your watch is paired within it.")
                         Text("4. Your watch is chosen for this app in Garmin Connect (button below). Choose it again after pairing a new watch.")
                         Text("5. The \"Juggling Tracker\" watch app is installed via the \"Connect IQ Store\".")

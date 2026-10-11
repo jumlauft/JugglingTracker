@@ -36,26 +36,6 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
     val context = LocalContext.current
     // File writes for the exports run on Dispatchers.IO from here.
     val scope = rememberCoroutineScope()
-    val sessionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv")
-    ) { uri ->
-        uri?.let {
-            val csv = viewModel.getSessionsCsv()
-            scope.launch {
-                try {
-                    withContext(Dispatchers.IO) {
-                        context.contentResolver.openOutputStream(it)?.use { outputStream ->
-                            outputStream.write(csv.toByteArray())
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e("JugglingTrackerApp", "CSV export failed", e)
-                    Toast.makeText(context, context.getString(R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
-
     val recordingLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/zip")
     ) { uri ->
@@ -221,21 +201,6 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
 
         // Backup
         BackupSection(viewModel)
-
-        HorizontalDivider()
-
-        // Data Management
-        Text(text = stringResource(R.string.section_data_management), style = MaterialTheme.typography.titleLarge)
-        
-        Button(
-            onClick = {
-                val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
-                sessionLauncher.launch("juggling_history_$ts.csv")
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(stringResource(R.string.action_export_csv))
-        }
 
         HorizontalDivider()
 

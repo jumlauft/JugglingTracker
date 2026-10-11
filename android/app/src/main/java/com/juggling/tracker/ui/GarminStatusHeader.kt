@@ -173,8 +173,7 @@ private fun garminCardState(
     } else {
         stringResource(R.string.garmin_missing)
     }
-    val detail = if (status == GarminConnectionStatus.RECEIVING) statusText else null
-    return WatchCardState(backgroundColor, textColor, title, detail, onClick)
+    return WatchCardState(backgroundColor, textColor, title, null, onClick)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

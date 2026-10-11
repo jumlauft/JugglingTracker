@@ -203,7 +203,9 @@ private struct RecordingsSection: View {
             Button("Delete", role: .destructive) { model.clearRecordings() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This deletes \(model.recordingCount) recording\(model.recordingCount == 1 ? "" : "s") from this phone. They cannot be recovered unless you exported them.")
+            Text(model.recordingCount == 1
+                ? "This deletes the 1 recording stored on this phone. Export or email it first to keep a copy."
+                : "This deletes all \(model.recordingCount) recordings stored on this phone. Export or email them first to keep a copy.")
         }
         .fileExporter(
             isPresented: Binding(get: { zipFile != nil }, set: { if !$0 { zipFile = nil } }),
@@ -277,6 +279,8 @@ private struct RecordingsTable: View {
     }()
 
     var body: some View {
+        Text("Stored recordings")
+            .font(.headline)
         Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 4) {
             GridRow {
                 Text("When")

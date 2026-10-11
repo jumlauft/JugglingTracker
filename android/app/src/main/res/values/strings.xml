@@ -12,7 +12,6 @@
     <string name="action_start">Start</string>
     <string name="action_close">Close</string>
     <string name="action_start_phone_session">Start Session with Phone</string>
-    <string name="action_export_csv">Export History to CSV</string>
     <string name="action_export_recordings">Export All Recordings</string>
     <string name="action_email_recordings">Email Recordings to Developer</string>
     <string name="action_clear_recordings">Delete All Recordings</string>
@@ -51,7 +50,6 @@
     <string name="dialog_session_details_title">Session Details</string>
 
     <string name="section_session_history">Session History</string>
-    <string name="section_data_management">Data Management</string>
     <string name="section_privacy">Privacy</string>
     <string name="section_voice">Voice Announcements</string>
     <string name="section_ball_count">Ball Count</string>

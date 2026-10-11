@@ -112,10 +112,10 @@ fun PhoneSessionScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 (3..9).forEach { count ->
-                    FilterChip(
+                    BallChip(
+                        label = "$count",
                         selected = state.selectedBallCount == count,
                         onClick = { viewModel.selectPhoneBallCount(count) },
-                        label = { Text("$count") },
                     )
                 }
             }
