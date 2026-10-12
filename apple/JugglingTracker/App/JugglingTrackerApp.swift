@@ -39,10 +39,11 @@ final class AppServices {
     @ObservationIgnored private var appleWatchLink: WatchLink?
 
     init() {
-        let settings = AppSettings()
-        Telemetry.shared.start(enabled: settings.isAnalyticsEnabled)
-        let sessions = SessionStore.standard { Telemetry.shared.record($0) }
-        let model = TrackerModel(settings: settings, sessionStore: sessions, recordingStore: .standard())
+        let screenshots = ScreenshotMode.isOn
+        let settings = screenshots ? ScreenshotMode.settings() : AppSettings()
+        if !screenshots { Telemetry.shared.start(enabled: settings.isAnalyticsEnabled) }
+        let sessions = screenshots ? ScreenshotMode.sessionStore() : SessionStore.standard { Telemetry.shared.record($0) }
+        let model = TrackerModel(settings: settings, sessionStore: sessions, recordingStore: screenshots ? nil : .standard())
         let garmin = GarminLink(client: ConnectIQSDKClient(), inbox: model.inbox) { [weak model] status, message in
             Task { @MainActor in model?.onGarminLinkStatus(status, message: message) }
         }
@@ -56,6 +57,12 @@ final class AppServices {
             Task { @MainActor in model?.onAppleWatchLinkStatus(status) }
         }
         appleWatchLink = apple
+        if screenshots {
+            model.onGarminLinkStatus(.ready, message: "Connected to Forerunner 265")
+            model.onAppleWatchLinkStatus(.ready)
+            if let balls = ScreenshotMode.ballCount { model.selectHistoryBallCount(balls) }
+            return
+        }
         garmin.start()
         apple.start()
     }

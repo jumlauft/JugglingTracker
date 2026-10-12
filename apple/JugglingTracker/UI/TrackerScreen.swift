@@ -22,6 +22,11 @@ struct TrackerScreen: View {
             }
             .padding(16)
         }
+        .onAppear {
+            if ScreenshotMode.showsDetails, let balls = model.shownHistoryBallCount {
+                sessionForDetails = model.sessions.first { $0.ballCount == balls }
+            }
+        }
         .sheet(item: $sessionForDetails) { session in
             SessionDetailsView(session: session)
         }

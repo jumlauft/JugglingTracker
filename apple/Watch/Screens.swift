@@ -260,7 +260,14 @@ struct TrackerScreen: View {
 
     enum Page: Hashable { case controls, count, stats }
 
-    @State private var page: Page = .count
+    @State private var page: Page
+
+    init(state: TrackerUiState, onEnd: @escaping () -> Void, onDiscard: @escaping () -> Void, initialPage: Page = .count) {
+        self.state = state
+        self.onEnd = onEnd
+        self.onDiscard = onDiscard
+        _page = State(initialValue: initialPage)
+    }
 
     var body: some View {
         if state.sending {

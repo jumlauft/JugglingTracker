@@ -1,0 +1,145 @@
+name: Apple screenshots
+
+# Takes the App Store screenshots of the iPhone and Apple Watch apps in the
+# simulators, with the made-up history of the apps' screenshot mode
+# (apple/JugglingTracker/App/ScreenshotMode.swift and
+# apple/Watch/JugglingTrackerWatchApp.swift). Start it one of two ways:
+#
+# - Add the label `apple-screenshots` to a pull request. The screenshots are
+#   committed to apple/store_assets/ on that pull request's branch.
+# - Actions tab > Apple screenshots > Run workflow, once this file is on main.
+#   The screenshots are kept as the run's artifact only.
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled]
+
+concurrency:
+  group: apple-screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screenshots:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'apple-screenshots'
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          # The branch itself, not the merge commit, so the screenshots can be
+          # committed back to it.
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+
+      - name: Generate the Xcode project
+        working-directory: apple
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Pick the simulators
+        run: |
+          # The App Store's largest sizes: an iPhone Pro Max (1320 x 2868) and
+          # the biggest Apple Watch, from the newest runtimes on the runner.
+          xcrun simctl list devices available --json > devices.json
+          pick() {
+            python3 - "$1" "$2" <<'PY'
+          import json, sys
+          platform, preferred = sys.argv[1], sys.argv[2].split(",")
+          devices = json.load(open("devices.json"))["devices"]
+          runtimes = sorted(
+              (r for r in devices if f"{platform}-" in r),
+              key=lambda r: [int(p) for p in r.rsplit(f"{platform}-", 1)[1].split("-")],
+          )
+          for runtime in reversed(runtimes):
+              for word in preferred:
+                  for d in devices[runtime]:
+                      if word in d["name"]:
+                          print(d["udid"], d["name"], sep="\t")
+                          sys.exit(0)
+          sys.exit(f"no {platform} simulator found")
+          PY
+          }
+          IFS=$'\t' read -r PHONE PHONE_NAME < <(pick iOS "Pro Max,Plus,iPhone")
+          IFS=$'\t' read -r WATCH WATCH_NAME < <(pick watchOS "Ultra,46mm,45mm,Apple Watch")
+          echo "iPhone: $PHONE_NAME ($PHONE)"
+          echo "Watch: $WATCH_NAME ($WATCH)"
+          echo "PHONE=$PHONE" >> "$GITHUB_ENV"
+          echo "WATCH=$WATCH" >> "$GITHUB_ENV"
+
+      - name: Build both apps for the simulators
+        working-directory: apple
+        run: |
+          set -o pipefail
+          for target in "JugglingTracker:$PHONE" "JugglingTrackerWatch:$WATCH"; do
+            xcodebuild build \
+              -project JugglingTracker.xcodeproj \
+              -scheme "${target%%:*}" \
+              -destination "id=${target#*:}" \
+              -derivedDataPath build \
+              -skipPackagePluginValidation \
+              -skipMacroValidation \
+              CODE_SIGNING_ALLOWED=NO \
+              | grep -E "error:|\*\* BUILD" || true
+          done
+          test -d build/Build/Products/Debug-iphonesimulator/JugglingTracker.app
+          test -d build/Build/Products/Debug-watchsimulator/JugglingTrackerWatch.app
+
+      - name: Take the screenshots
+        run: |
+          out=apple/store_assets
+          mkdir -p "$out/iphone" "$out/watch"
+          products=apple/build/Build/Products
+
+          xcrun simctl boot "$PHONE" || true
+          xcrun simctl boot "$WATCH" || true
+          xcrun simctl bootstatus "$PHONE" -b
+          xcrun simctl bootstatus "$WATCH" -b
+          xcrun simctl ui "$PHONE" appearance light
+          xcrun simctl status_bar "$PHONE" override --time 9:41 --batteryState charged --batteryLevel 100 \
+            --cellularMode active --cellularBars 4 --wifiBars 3 || true
+          xcrun simctl status_bar "$WATCH" override --time 9:41 || true
+          xcrun simctl install "$PHONE" "$products/Debug-iphonesimulator/JugglingTracker.app"
+          xcrun simctl install "$WATCH" "$products/Debug-watchsimulator/JugglingTrackerWatch.app"
+
+          shoot() { # device bundle-id file seconds args...
+            local device=$1 bundle=$2 file=$3 wait=$4; shift 4
+            xcrun simctl terminate "$device" "$bundle" 2>/dev/null || true
+            xcrun simctl launch "$device" "$bundle" "$@"
+            sleep "$wait"
+            xcrun simctl io "$device" screenshot "$file"
+            echo "$file: $(sips -g pixelWidth -g pixelHeight "$file" | tail -2 | awk '{print $2}' | paste -sd x -)"
+          }
+
+          app=com.juggling.tracker
+          shoot "$PHONE" $app "$out/iphone/1-history-3-balls.png" 12 -screenshots -screenshotBalls 3
+          shoot "$PHONE" $app "$out/iphone/2-history-4-balls.png" 8 -screenshots -screenshotBalls 4
+          shoot "$PHONE" $app "$out/iphone/3-history-5-balls.png" 8 -screenshots -screenshotBalls 5
+          shoot "$PHONE" $app "$out/iphone/4-session-details.png" 8 -screenshots -screenshotBalls 3 -screenshotDetails
+          shoot "$PHONE" $app "$out/iphone/5-apple-watch-card.png" 8 -screenshots -screenshotBalls 4 -screenshotWatch apple
+
+          watch=com.juggling.tracker.watchkitapp
+          shoot "$WATCH" $watch "$out/watch/1-count.png" 15 -screenshot count
+          shoot "$WATCH" $watch "$out/watch/2-stats.png" 8 -screenshot stats
+          shoot "$WATCH" $watch "$out/watch/3-balls.png" 8 -screenshot balls
+          shoot "$WATCH" $watch "$out/watch/4-mode.png" 8 -screenshot mode
+
+      - name: Keep the screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-screenshots
+          path: apple/store_assets
+
+      - name: Commit the screenshots to the pull request
+        if: github.event_name == 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apple/store_assets
+          if git diff --cached --quiet; then
+            echo "Screenshots unchanged."
+          else
+            git commit -m "Update the App Store screenshots"
+            git push
+          fi

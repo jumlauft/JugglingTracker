@@ -86,11 +86,13 @@ Required sizes (App Store Connect scales the rest down):
 | iPhone 6.9" (iPhone 16 Pro Max) | 1320 x 2868 | 3 to 10 |
 | Apple Watch (Series 10 46 mm) | 416 x 496 | 1 to 10 |
 
-Suggested shots, matching the Play listing: the tracker screen with a watch
-connected, a session's details with its runs, the history chart, and on the
-watch the ball selection, a live count and the session summary. Take them in
-the iOS and watchOS simulators (`xcrun simctl io booted screenshot shot.png`)
-with real sessions imported, or on a real iPhone and Apple Watch.
+The screenshots are in `store_assets/iphone` and `store_assets/watch`. They
+are taken in the simulators by `.github/workflows/apple-screenshots.yml`
+(add the `apple-screenshots` label to a pull request, or run it from the
+Actions tab), with a made-up history of 3, 4 and 5 balls so the trend graph
+shows progress for each. The iPhone shots are the history for each ball count,
+a session's details and the Apple Watch card; the watch shots are the live
+count, the session stats, the ball selection and the mode selection.
 
 ## App Privacy answers
 
