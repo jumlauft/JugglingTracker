@@ -6,6 +6,8 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeRight
 import androidx.lifecycle.Lifecycle
 import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -57,7 +59,9 @@ class MainActivityEmulatorTest {
     fun quitWithoutSyncClosesTheApp() {
         click(Tags.START)
         click(Tags.START)
-        click(Tags.START)
+        compose.onNodeWithTag(Tags.PAGER).performTouchInput { swipeRight() }
+        compose.waitForIdle()
+        click(Tags.END)
         compose.onNodeWithText("End session?").assertExists()
         // Hold on to the scenario: once the activity is destroyed the rule
         // can no longer hand it out.
