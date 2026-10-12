@@ -112,15 +112,20 @@ jobs:
             echo "$file: $(sips -g pixelWidth -g pixelHeight "$file" | tail -2 | awk '{print $2}' | paste -sd x -)"
           }
 
+          # A first launch after install can take long enough to leave the
+          # screen blank, so start each app once before the real shots.
           app=com.juggling.tracker
-          shoot "$PHONE" $app "$out/iphone/1-history-3-balls.png" 12 -screenshots -screenshotBalls 3
+          watch=com.juggling.tracker.watchkitapp
+          shoot "$PHONE" $app "$RUNNER_TEMP/warm-up-iphone.png" 25 -screenshots
+          shoot "$WATCH" $watch "$RUNNER_TEMP/warm-up-watch.png" 25 -screenshot mode
+
+          shoot "$PHONE" $app "$out/iphone/1-history-3-balls.png" 8 -screenshots -screenshotBalls 3
           shoot "$PHONE" $app "$out/iphone/2-history-4-balls.png" 8 -screenshots -screenshotBalls 4
           shoot "$PHONE" $app "$out/iphone/3-history-5-balls.png" 8 -screenshots -screenshotBalls 5
           shoot "$PHONE" $app "$out/iphone/4-session-details.png" 8 -screenshots -screenshotBalls 3 -screenshotDetails
           shoot "$PHONE" $app "$out/iphone/5-apple-watch-card.png" 8 -screenshots -screenshotBalls 4 -screenshotWatch apple
 
-          watch=com.juggling.tracker.watchkitapp
-          shoot "$WATCH" $watch "$out/watch/1-count.png" 15 -screenshot count
+          shoot "$WATCH" $watch "$out/watch/1-count.png" 8 -screenshot count
           shoot "$WATCH" $watch "$out/watch/2-stats.png" 8 -screenshot stats
           shoot "$WATCH" $watch "$out/watch/3-balls.png" 8 -screenshot balls
           shoot "$WATCH" $watch "$out/watch/4-mode.png" 8 -screenshot mode
