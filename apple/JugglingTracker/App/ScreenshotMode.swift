@@ -73,8 +73,10 @@ enum ScreenshotMode {
                     max(1, Int((mean * random.next(in: 0.35...1.65)).rounded()))
                 }
                 let durations = runs.map { Int64($0) * plan.catchMs + Int64(random.next(in: -150...150)) }
-                let daysAgo = plan.firstDaysAgo * (1 - progress) + random.next(in: 0...0.4)
-                let timestamp = now.addingTimeInterval(-daysAgo * 86_400)
+                // An evening practice, from yesterday back to the first day.
+                let daysAgo = max(1, Int((plan.firstDaysAgo * (1 - progress)).rounded()))
+                let day = Calendar.current.startOfDay(for: now).addingTimeInterval(-Double(daysAgo) * 86_400)
+                let timestamp = day.addingTimeInterval(random.next(in: 17.5...20.5) * 3_600)
                 result.append(SessionSummary.summarize(
                     timestamp: Int64(timestamp.timeIntervalSince1970 * 1000),
                     ballCount: plan.balls,
