@@ -9,12 +9,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
@@ -28,6 +33,8 @@ import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.CompactButton
 import androidx.wear.compose.material.CompactChip
+import androidx.wear.compose.material.HorizontalPageIndicator
+import androidx.wear.compose.material.PageIndicatorState
 import androidx.wear.compose.material.ListHeader
 import androidx.wear.compose.material.Text
 import com.juggling.tracker.wear.logic.Format
@@ -67,6 +74,9 @@ object Tags {
     const val REC_STATUS = "rec_status"
     const val LABEL = "label_count"
     const val SENSOR_ERROR = "sensor_error"
+    const val PAGER = "tracker_pages"
+    const val END = "end_button"
+    const val DISCARD = "discard_button"
 
     fun menuItem(id: String) = "menu_item_$id"
 }
@@ -204,51 +214,174 @@ fun BallSelectScreen(ballCount: Int, onUp: () -> Unit, onDown: () -> Unit, onSta
 
 // ── Juggle ────────────────────────────────────────────────────────────
 
-/** `MainView.mc`: run state, live count and session stats (JUG-1). */
+/** The Juggle screen's pages, in swipe order. It opens on the count. */
+private const val PAGE_CONTROLS = 0
+private const val PAGE_COUNT = 1
+private const val PAGE_STATS = 2
+private const val PAGE_COUNT_TOTAL = 3
+
+/**
+ * `MainView.mc`: run state, live count and session stats (JUG-1), on three
+ * pages the way the Apple Watch app lays them out:
+ *
+ * - controls (swipe right): End and Discard run,
+ * - the count, which the screen opens on,
+ * - the session stats (swipe left).
+ *
+ * Nothing on the count page reacts to a touch. A sleeve, a ball or the heel
+ * of the hand brushing the screen mid-juggle would otherwise open a menu, and
+ * detection pauses while a menu is up, cutting the run short unnoticed. The
+ * Garmin, driven by buttons, keeps all of it on one screen.
+ */
 @Composable
-fun TrackerScreen(state: TrackerUiState, onStartStop: () -> Unit) {
+fun TrackerScreen(state: TrackerUiState, onEnd: () -> Unit, onDiscard: () -> Unit) {
     if (state.sending) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             WatchText(Format.syncing(state.syncDots), WatchColors.Yellow, 18.sp, Modifier.testTag(Tags.SYNC))
         }
         return
     }
-    CenteredColumn(button = { StartButton("End", onStartStop) }) {
+    val pager = rememberPagerState(initialPage = PAGE_COUNT) { PAGE_COUNT_TOTAL }
+    // The page stays where it was put between runs, so the stats can be read
+    // in peace; a new run brings the count back.
+    LaunchedEffect(state.runActive) {
+        if (state.runActive) pager.animateScrollToPage(PAGE_COUNT)
+    }
+    Box(Modifier.fillMaxSize()) {
+        HorizontalPager(
+            state = pager,
+            // All three pages stay composed, so the stats are up to date the
+            // moment they are swiped to.
+            beyondViewportPageCount = PAGE_COUNT_TOTAL - 1,
+            modifier = Modifier.fillMaxSize().testTag(Tags.PAGER),
+        ) { page ->
+            when (page) {
+                PAGE_CONTROLS -> TrackerControlsPage(
+                    // The same test TrackerSession.onBack makes: a run in
+                    // progress or a finished one to take back.
+                    canDiscard = state.runActive || state.runs > 0,
+                    onEnd = onEnd,
+                    onDiscard = onDiscard,
+                )
+                PAGE_COUNT -> TrackerCountPage(state)
+                else -> TrackerStatsPage(state)
+            }
+        }
+        HorizontalPageIndicator(
+            pageIndicatorState = remember(pager) {
+                object : PageIndicatorState {
+                    override val pageOffset: Float get() = pager.currentPageOffsetFraction
+                    override val selectedPage: Int get() = pager.currentPage
+                    override val pageCount: Int get() = PAGE_COUNT_TOTAL
+                }
+            },
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp).hiddenInAmbient(),
+        )
+    }
+}
+
+/** Digits of equal width, so a number does not shift as it changes. */
+private val TabularDigits = TextStyle(fontFeatureSettings = "tnum")
+
+/** The count, as large as the screen allows, readable at a glance mid-juggle. */
+@Composable
+private fun TrackerCountPage(state: TrackerUiState) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         WatchText(
             if (state.runActive) "RUN ACTIVE" else "WAITING",
             if (state.runActive) WatchColors.Green else WatchColors.Yellow,
-            11.sp,
+            13.sp,
             Modifier.testTag(Tags.RUN_STATE),
+            FontWeight.SemiBold,
         )
-        WatchText(
-            state.currentCount.toString(),
-            WatchColors.Green,
-            46.sp,
-            Modifier.testTag(Tags.COUNT),
-            FontWeight.Bold,
+        val count = state.currentCount.toString()
+        Text(
+            text = count,
+            color = WatchColors.Green,
+            // As large as fits across the smallest round watch.
+            fontSize = when (count.length) {
+                1, 2 -> 80.sp
+                3 -> 60.sp
+                else -> 44.sp
+            },
+            fontWeight = FontWeight.Bold,
+            style = TabularDigits,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.testTag(Tags.COUNT),
         )
-        WatchText("Catches per hand", WatchColors.LightGray, 12.sp)
-        StatRow(
-            "Prev: ${Format.countOrDash(state.previousCount)}" to Tags.PREV,
-            "Runs: ${state.runs}" to Tags.RUNS,
-        )
-        StatRow(
-            "Avg: ${Format.averageOrDash(state.average)}" to Tags.AVG,
-            "Max: ${Format.countOrDash(state.max)}" to Tags.MAX,
-        )
-        WatchText("Time: ${Format.elapsed(state.elapsedSeconds)}", WatchColors.LightGray, 11.sp, Modifier.testTag(Tags.TIME))
-        WatchText("Regularity: ${Format.percentOrDash(state.shapeConsistency)}", WatchColors.LightGray, 11.sp, Modifier.testTag(Tags.REGULARITY))
+        WatchText("Catches per hand", WatchColors.LightGray, 13.sp)
         state.errorMessage?.let {
-            WatchText(it, WatchColors.Red, 11.sp, Modifier.testTag(Tags.ERROR))
+            WatchText(it, WatchColors.Red, 12.sp, Modifier.testTag(Tags.ERROR))
         }
     }
 }
 
+/** The session stats, one per line, large enough to read at rest. */
 @Composable
-private fun StatRow(left: Pair<String, String>, right: Pair<String, String>) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-        WatchText(left.first, WatchColors.LightGray, 11.sp, Modifier.testTag(left.second))
-        WatchText(right.first, WatchColors.LightGray, 11.sp, Modifier.testTag(right.second))
+private fun TrackerStatsPage(state: TrackerUiState) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 30.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
+    ) {
+        StatRow("Prev", Format.countOrDash(state.previousCount), Tags.PREV)
+        StatRow("Runs", state.runs.toString(), Tags.RUNS)
+        StatRow("Avg", Format.averageOrDash(state.average), Tags.AVG)
+        StatRow("Max", Format.countOrDash(state.max), Tags.MAX)
+        StatRow("Time", Format.elapsed(state.elapsedSeconds), Tags.TIME)
+        StatRow("Regularity", Format.percentOrDash(state.shapeConsistency), Tags.REGULARITY)
+    }
+}
+
+/** A stat's name on the left and its value, tagged with [tag], on the right. */
+@Composable
+private fun StatRow(label: String, value: String, tag: String) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        WatchText(label, WatchColors.LightGray, 14.sp)
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = value,
+            color = WatchColors.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            style = TabularDigits,
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.testTag(tag),
+        )
+    }
+}
+
+/**
+ * End (START/STOP, JUG-2) and Discard run (BACK, JUG-3), out of reach of a
+ * stray touch on the count page. The Apple Watch's third control, Lock
+ * screen, has no Wear OS counterpart an app can turn on.
+ */
+@Composable
+private fun TrackerControlsPage(canDiscard: Boolean, onEnd: () -> Unit, onDiscard: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Chip(
+            onClick = onEnd,
+            label = { Text("End", fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false) },
+            colors = ChipDefaults.primaryChipColors(backgroundColor = WatchColors.Green, contentColor = Color.Black),
+            modifier = Modifier.fillMaxWidth().testTag(Tags.END).hiddenInAmbient(),
+        )
+        Chip(
+            onClick = onDiscard,
+            enabled = canDiscard,
+            label = { Text("Discard run", maxLines = 1, softWrap = false) },
+            colors = ChipDefaults.secondaryChipColors(contentColor = WatchColors.Red),
+            modifier = Modifier.fillMaxWidth().testTag(Tags.DISCARD).hiddenInAmbient(),
+        )
     }
 }
 

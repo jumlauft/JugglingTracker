@@ -177,6 +177,59 @@ final class TrackerModelTests: XCTestCase {
         XCTAssertEqual(model.sessions.map(\.timestamp), [1_790_000_000_000, 1_700_000_000_000])
     }
 
+    // MARK: History ball count
+
+    private func receiveSession(balls: Int, timestamp: Int, from source: WatchInbox.Source = .garmin) {
+        model.inbox.receive(["type": "session", "balls": balls, "timestamp": timestamp, "runs": [10]], from: source)
+    }
+
+    func testHistoryShowsTheSmallestBallCountUntilSomethingIsChosen() {
+        XCTAssertNil(model.shownHistoryBallCount)
+        _ = model.restore([
+            SessionSummary.summarize(timestamp: 2_000_000, ballCount: 7, runs: [10]),
+            SessionSummary.summarize(timestamp: 1_000_000, ballCount: 5, runs: [10]),
+        ])
+        XCTAssertEqual(model.historyBallCounts, [5, 7])
+        XCTAssertEqual(model.shownHistoryBallCount, 5)
+    }
+
+    func testASessionFromTheWatchSwitchesTheHistoryToItsBallCount() {
+        receiveSession(balls: 5, timestamp: 1000)
+        model.selectHistoryBallCount(5)
+        receiveSession(balls: 7, timestamp: 2000)
+        XCTAssertEqual(model.shownHistoryBallCount, 7)
+    }
+
+    func testSeveralSessionsInOneSyncLeaveTheHistoryOnTheLastOne() {
+        receiveSession(balls: 7, timestamp: 1000, from: .appleWatch)
+        receiveSession(balls: 4, timestamp: 2000, from: .appleWatch)
+        receiveSession(balls: 5, timestamp: 3000, from: .appleWatch)
+        XCTAssertEqual(model.shownHistoryBallCount, 5)
+    }
+
+    func testAPayloadThatIsNotStoredLeavesTheHistoryWhereItWas() {
+        receiveSession(balls: 5, timestamp: 1000)
+        model.inbox.receive(["type": "session", "timestamp": 2000, "runs": [10]], from: .garmin)
+        model.inbox.receive(["type": "session", "balls": 7, "timestamp": 3000, "runs": [Int]()], from: .garmin)
+        XCTAssertEqual(model.historyBallCounts, [5])
+        XCTAssertEqual(model.shownHistoryBallCount, 5)
+    }
+
+    func testARecordedRunOrARestoredBackupDoesNotSwitchTheHistory() {
+        receiveSession(balls: 3, timestamp: 1000)
+        _ = model.restore([SessionSummary.summarize(timestamp: 5_000_000, ballCount: 7, runs: [10])])
+        model.inbox.receive(["type": "rec_start", "id": 9, "balls": 7, "catches": 20, "samples": 0, "chunks": 0], from: .garmin)
+        model.inbox.receive(["type": "rec_end", "id": 9], from: .garmin)
+        XCTAssertEqual(model.shownHistoryBallCount, 3)
+    }
+
+    func testChoosingAChipAfterASyncWinsOverTheSyncedBallCount() {
+        receiveSession(balls: 5, timestamp: 1000)
+        receiveSession(balls: 7, timestamp: 2000)
+        model.selectHistoryBallCount(5)
+        XCTAssertEqual(model.shownHistoryBallCount, 5)
+    }
+
     func testAppleWatchStatusClassification() {
         XCTAssertEqual(AppleWatchConnectionStatus.classify(paired: nil, appInstalled: false), .unavailable)
         XCTAssertEqual(AppleWatchConnectionStatus.classify(paired: false, appInstalled: false), .noWatch)

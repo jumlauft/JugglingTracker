@@ -246,6 +246,34 @@ class JugglingViewModel(
 
     val completedSessions = mutableStateListOf<SessionSummary>()
 
+    /**
+     * The ball count whose history the home screen shows: the chip the user
+     * tapped last, or the ball count of the session a watch sent last,
+     * whichever came later. Null until either happens. Kept here rather than
+     * in the screen so a sync that lands while another screen is open is
+     * still shown on the way back.
+     */
+    var historyBallCount by mutableStateOf<Int?>(null)
+        private set
+
+    /** The ball counts the history has sessions for, smallest first. */
+    val historyBallCounts: List<Int>
+        get() = completedSessions.map { it.ballCount }.distinct().sorted()
+
+    /**
+     * The chip that is selected: [historyBallCount] while the history has
+     * sessions for it, otherwise the smallest ball count. Null with no history.
+     */
+    val shownHistoryBallCount: Int?
+        get() {
+            val counts = historyBallCounts
+            return historyBallCount?.takeIf { it in counts } ?: counts.firstOrNull()
+        }
+
+    fun selectHistoryBallCount(ballCount: Int) {
+        historyBallCount = ballCount
+    }
+
     // What the watches deliver reaches this screen through the inbox, which
     // may have stored it while no screen was open at all.
     private val inboxListener: (WatchInbox.Event) -> Unit = { event ->
@@ -253,6 +281,9 @@ class JugglingViewModel(
             is WatchInbox.Event.Receiving -> showReceiving(event.source, event.more)
             is WatchInbox.Event.SessionStored -> {
                 showStoredSession(event.session)
+                // Flip the history to what just arrived. Several sessions in
+                // one sync each pass through here, so the last one wins.
+                historyBallCount = event.session.ballCount
                 viewModelScope.launch {
                     _events.emit(JugglingEvent.SyncCompleted(event.session.runCount, event.session.ballCount))
                 }

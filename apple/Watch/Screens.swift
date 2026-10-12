@@ -48,7 +48,9 @@ struct RootView: View {
         case let .tracker(session):
             if let menu = session.state.menu {
                 MenuScreen(menu: menu, onSelect: session.onMenuSelect)
-            } else if runtime.sensorFailed {
+            } else if runtime.sensorFailed && !session.state.sending {
+                // The sync status still shows while a session is sent, as on
+                // the Garmin and Wear OS.
                 SensorErrorScreen(button: "End", onStart: nav.onStart)
             } else {
                 TrackerScreen(state: session.state, onEnd: nav.onStart, onDiscard: nav.onBack)
@@ -56,8 +58,11 @@ struct RootView: View {
         case let .recording(session):
             if let menu = session.state.menu {
                 MenuScreen(menu: menu, onSelect: session.onMenuSelect)
-            } else if runtime.sensorFailed {
-                // SENS-4: START does nothing while idle; there is nothing to record.
+            } else if runtime.sensorFailed && (session.state.phase == .idle || session.state.phase == .recording) {
+                // SENS-4: the error replaces only the screens that need samples;
+                // a run already stopped can still be labelled and synced, as on
+                // the Garmin and Wear OS. START does nothing while idle: there
+                // is nothing to record.
                 SensorErrorScreen(button: session.state.phase == .idle ? nil : "Stop", onStart: nav.onStart)
             } else {
                 RecordingScreen(state: session.state, onStart: nav.onStart, onUp: nav.onUp, onDown: nav.onDown)

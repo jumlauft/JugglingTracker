@@ -42,7 +42,9 @@ START confirms and moves to ball selection.
 
 **APP-3.** Ball selection covers **3 to 9**, opens on 3, and wraps in both
 directions: incrementing from 9 gives 3, decrementing from 3 gives 9. UP
-increments, DOWN decrements.
+increments, DOWN decrements. The Wear OS and Apple Watch apps stop at 3 and 9
+instead of wrapping, since they scroll with a crown or bezel (a
+hardware-specific difference, see `../CLAUDE.md`).
 *Verified by:* `app3_ballSelectionStartsAtThree`, `app3_incrementWalksUpAndWrapsAtNine`, `app3_decrementWrapsAtThree`
 
 **APP-4.** START on ball selection opens the tracker for the mode chosen
@@ -215,7 +217,9 @@ two regular runs 90 and 86 and the two messy runs 51 and 55.
 yellow), the live watch-hand count with **Catches per hand** below it, and
 then Prev, Runs, Avg, Max, elapsed session time and the session's shape
 consistency as **Regularity** (SHAPE-4). A failed transfer
-adds a red banner.
+adds a red banner. The touchscreen watches (Wear OS, Apple Watch) show the
+same on three pages, so a stray touch cannot open a menu mid-run: End and
+Discard run (START/STOP and BACK), the count, and the stats.
 *Verified by:* `test_main_view_displays_run_state`, `test_main_view_displays_and_transfers_session_duration`, `test_watch_shows_and_transfers_shape_consistency`
 
 **JUG-2.** **START/STOP** opens the session-end menu: *Sync and quit*, *Quit

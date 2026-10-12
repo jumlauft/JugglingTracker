@@ -51,17 +51,20 @@ class AppNavigatorTest {
         assertEquals(Screen.BallSelect(TrackingMode.RECORD, 3), nav.screen.value)
     }
 
+    /** Unlike the Garmin, the count stops at 3 and 9 instead of wrapping. */
     @Test
-    fun `APP-3 ball selection starts at three and wraps both ways`() {
+    fun `APP-3 ball selection starts at three and stops at both ends`() {
         val nav = navigator()
         nav.onStart()
         assertEquals(3, (nav.screen.value as Screen.BallSelect).ballCount)
         nav.onDown()
-        assertEquals(9, (nav.screen.value as Screen.BallSelect).ballCount)
-        nav.onUp()
         assertEquals(3, (nav.screen.value as Screen.BallSelect).ballCount)
-        repeat(6) { nav.onUp() }
+        nav.onUp()
+        assertEquals(4, (nav.screen.value as Screen.BallSelect).ballCount)
+        repeat(10) { nav.onUp() }
         assertEquals(9, (nav.screen.value as Screen.BallSelect).ballCount)
+        nav.onDown()
+        assertEquals(8, (nav.screen.value as Screen.BallSelect).ballCount)
     }
 
     @Test

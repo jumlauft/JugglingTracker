@@ -2,6 +2,7 @@ package com.juggling.tracker.wear
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -44,6 +45,12 @@ class WearAppEmulatorTest {
     )
 
     private fun click(tag: String) = compose.onNodeWithTag(tag).performClick()
+
+    /** Swipes the Juggle screen over to its controls page. */
+    private fun openControls() {
+        compose.onNodeWithTag(Tags.PAGER).performTouchInput { swipeRight() }
+        compose.waitForIdle()
+    }
 
     private fun swipeBack() {
         compose.onRoot().performTouchInput { swipeRight(startX = left + 4f, endX = right - 4f) }
@@ -88,7 +95,9 @@ class WearAppEmulatorTest {
         compose.waitForIdle()
         Emulator.screenshot("04_tracker_after_recording")
 
-        click(Tags.START)
+        openControls()
+        Emulator.screenshot("04b_tracker_controls")
+        click(Tags.END)
         compose.onNodeWithText("End session?").assertIsDisplayed()
         Emulator.screenshot("05_session_end_menu")
         click("menu_item_${TrackerSession.ITEM_SYNC_QUIT}")
@@ -105,20 +114,22 @@ class WearAppEmulatorTest {
     }
 
     @Test
-    fun swipingBackOffersToDiscardInsteadOfClosing() {
+    fun discardRunOnTheControlsPageOffersToDiscard() {
         compose.setContent { WearApp(navigator) }
         click(Tags.START)
         click(Tags.START)
-        swipeBack()
-        // Nothing recorded yet: the swipe is swallowed.
-        compose.onNodeWithTag(Tags.COUNT).assertIsDisplayed()
+        // The pages take the swipe: it opens the controls instead of a prompt.
+        openControls()
+        compose.onNodeWithTag(Tags.END).assertIsDisplayed()
+        compose.onNodeWithTag(Tags.DISCARD).assertIsNotEnabled()
         assertEquals(0, effects.exits)
 
         val session = (navigator.screen.value as Screen.Tracker).session
         val samples = Emulator.recording("20260922_144802").take(400)
         compose.runOnUiThread { samples.chunked(25).forEach(session::onSamples) }
         compose.waitForIdle()
-        swipeBack()
+        openControls()
+        click(Tags.DISCARD)
         compose.onNodeWithTag("menu_title").assertIsDisplayed()
         Emulator.screenshot("07_discard_prompt")
         swipeBack()
