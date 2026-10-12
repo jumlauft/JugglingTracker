@@ -44,3 +44,32 @@ The Juggling Tracker Android app is designed with your privacy in mind.
 4. **Third-Party Services**: The App uses Google Firebase Analytics and Firebase Crashlytics to understand how the app is used and to fix crashes. These receive usage events (for example that a session was imported or a phone session started, with its ball count, number of runs and total catches), crash reports, and device information such as the device model, Android version and an app instance identifier. This is on by default and can be turned off under Settings > Privacy > "Share app activity and crash reports". Google's privacy policy: [https://policies.google.com/privacy](https://policies.google.com/privacy)
 5. **Bluetooth and Location**: The App uses Bluetooth permissions to communicate with Garmin watches. On Android 11 and older, Android requires the Location permission for Bluetooth; the App does not read or store your location.
 6. **No Cloud Storage**: Apart from the Firebase services above, the App does not upload your data to any external servers. Your juggling history stays on your phone unless you export it.
+
+
+**Privacy Policy for Juggling Tracker (iPhone App)**
+
+Last Updated: October 12, 2026
+
+The iPhone app works the same way as the Android app.
+
+1. **Data Collection**: The App uses your iPhone's motion sensor to detect juggling catches when you start a phone session. This motion data is processed in real-time on the device.
+2. **Personal Information**: The App does not ask for your email, location, or health metrics like heart rate. If you enter a juggler name for Record mode recordings, it is stored on your iPhone and written into the recording files.
+3. **Data Storage and Transmission**: 
+    - Juggling session results (catch counts and durations) and Record mode recordings are stored locally on your iPhone.
+    - They leave your iPhone only when you back them up, share or email them yourself, to the destination you choose.
+4. **Third-Party Services**: The App uses Google Firebase Analytics and Firebase Crashlytics to understand how the app is used and to fix crashes. These receive usage events (for example that a session was imported or a phone session started, with its ball count, number of runs and total catches), crash reports, and device information such as the device model, iOS version and an app instance identifier. This is on by default and can be turned off under Settings > Privacy > "Share app activity and crash reports". Google's privacy policy: [https://policies.google.com/privacy](https://policies.google.com/privacy)
+5. **Bluetooth**: The App uses Bluetooth to receive sessions from Garmin watches through the Garmin Connect app.
+6. **No Cloud Storage**: Apart from the Firebase services above, the App does not upload your data to any external servers. Your juggling history stays on your iPhone unless you back it up or share it.
+
+
+**Privacy Policy for Juggling Tracker (Apple Watch App)**
+
+Last Updated: October 12, 2026
+
+The Apple Watch app works the same way as the Garmin watch app.
+
+1. **Data Collection**: The App uses your watch's motion sensor to detect juggling catches. This motion data is processed in real-time on the device. In Record mode, the raw motion samples of a run are kept on the watch until they are sent to your iPhone, together with the catch count you confirm.
+2. **Health**: The App runs a workout session while you juggle only so the motion sensor keeps running with your wrist down. It reads nothing from and saves nothing to the Health app.
+3. **Data Storage and Transmission**: Session results and Record mode runs are sent to the Juggling Tracker app on your paired iPhone over Apple's watch connection.
+4. **Third-Party Services**: The watch app does not use any third-party analytics or advertising services.
+5. **No Cloud Storage**: The watch app sends data only to the Juggling Tracker app on your paired iPhone.

@@ -1,0 +1,144 @@
+name: Release iPhone app to TestFlight
+
+# Archives the iPhone app (with the Apple Watch app inside) and uploads it to
+# App Store Connect, where it shows up in TestFlight. Submitting to App Store
+# review is done by hand in App Store Connect.
+#
+# The iPhone and Apple Watch apps are a side development stream, so this only
+# runs when started by hand: Actions tab > Release iPhone app to TestFlight >
+# Run workflow. It needs a paid Apple Developer Program membership and the
+# repository secrets listed in apple/RELEASE.md.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version shown in the App Store, for example 1.0'
+        required: true
+        default: '1.0'
+
+concurrency:
+  group: release-apple
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: macos-latest
+    env:
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.APP_STORE_CONNECT_KEY_P8 }}
+      GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+    steps:
+      - name: Check the signing secrets
+        run: |
+          missing=0
+          for name in APPLE_TEAM_ID ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
+            if [ -z "${!name}" ]; then echo "::error::Secret for $name is not set (see apple/RELEASE.md)"; missing=1; fi
+          done
+          exit "$missing"
+
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          # Full history so the build number can be derived from the commit count.
+          fetch-depth: 0
+
+      - name: Derive version and build number
+        run: |
+          echo "MARKETING_VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
+
+      - name: Add the Firebase config
+        # Optional: without it the app runs with crash reporting off.
+        if: env.GOOGLE_SERVICE_INFO_PLIST != ''
+        run: echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > apple/JugglingTracker/Resources/GoogleService-Info.plist
+
+      - name: Generate the Xcode project
+        working-directory: apple
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Write the App Store Connect API key
+        run: |
+          echo "$ASC_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+
+      - name: Archive
+        # Automatic signing through the API key: Xcode creates the
+        # certificates and profiles in the team's account as needed.
+        working-directory: apple
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project JugglingTracker.xcodeproj \
+            -scheme JugglingTracker \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/JugglingTracker.xcarchive" \
+            -derivedDataPath build \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_IDENTITY="Apple Development" \
+            MARKETING_VERSION="$MARKETING_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            | tee archive.log | grep -E "error:|\*\* ARCHIVE" || true
+          grep -q "\*\* ARCHIVE SUCCEEDED \*\*" archive.log
+
+      - name: Check the archive
+        run: .github/scripts/check-apple-archive.sh "$RUNNER_TEMP/JugglingTracker.xcarchive"
+
+      - name: Upload to App Store Connect
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$APPLE_TEAM_ID</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/JugglingTracker.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          echo "Uploaded version $MARKETING_VERSION ($BUILD_NUMBER). It appears in TestFlight once Apple has processed it."
+
+      - name: Upload crash symbols to Crashlytics
+        if: env.GOOGLE_SERVICE_INFO_PLIST != ''
+        continue-on-error: true
+        run: |
+          apple/build/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/upload-symbols \
+            -gsp apple/JugglingTracker/Resources/GoogleService-Info.plist \
+            -p ios "$RUNNER_TEMP/JugglingTracker.xcarchive/dSYMs"
+
+      - name: Keep the archive log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-archive-log
+          path: apple/archive.log
+
+      - name: Remove the API key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8"
