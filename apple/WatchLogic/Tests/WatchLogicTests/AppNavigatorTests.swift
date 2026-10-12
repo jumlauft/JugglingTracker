@@ -55,7 +55,7 @@ final class AppNavigatorTests: XCTestCase {
     }
 
     /// On Apple Watch the count stops at 3 and 9 instead of wrapping, as the
-    /// Digital Crown does; the Garmin and Wear OS apps wrap.
+    /// Digital Crown does, and as on Wear OS; the Garmin wraps.
     func testAPP3BallSelectionStartsAtThreeAndStopsAtBothEnds() {
         let nav = navigator()
         nav.onStart()

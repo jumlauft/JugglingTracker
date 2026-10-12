@@ -94,9 +94,9 @@ class WearAppTest {
         click(Tags.START)
         compose.onNodeWithTag(Tags.BALLS).assertTextEquals("3")
         click(Tags.DOWN)
-        compose.onNodeWithTag(Tags.BALLS).assertTextEquals("9")
-        click(Tags.UP)
         compose.onNodeWithTag(Tags.BALLS).assertTextEquals("3")
+        click(Tags.UP)
+        compose.onNodeWithTag(Tags.BALLS).assertTextEquals("4")
     }
 
     @Test

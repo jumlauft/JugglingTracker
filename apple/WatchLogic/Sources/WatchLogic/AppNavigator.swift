@@ -144,8 +144,8 @@ public final class AppNavigator {
             : .ballSelect(mode: .juggle, ballCount: Screen.minBalls)
     }
 
-    /// APP-3: UP walks 3..9 and stops at 9. Unlike the Garmin and Wear OS
-    /// apps it does not wrap round to 3: on Apple Watch the Digital Crown
+    /// APP-3: UP walks 3..9 and stops at 9. Unlike the Garmin app (and like
+    /// the Wear OS app) it does not wrap round to 3: on Apple Watch the Digital Crown
     /// scrolls to an end and stops there, so the count does too
     /// (a hardware-specific difference, see CLAUDE.md).
     private func increment(_ balls: Int) -> Int { min(balls + 1, Screen.maxBalls) }

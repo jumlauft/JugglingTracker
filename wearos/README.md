@@ -49,7 +49,7 @@ A Garmin has four buttons; a Wear OS watch has a touchscreen and a crown.
 
 | Garmin | Wear OS |
 |---|---|
-| UP / DOWN | rotate the crown or bezel, or tap ▲ / ▼ |
+| UP / DOWN | rotate the crown or bezel, or tap ▲ / ▼; the ball count stops at 3 and 9 rather than wrapping round as on the Garmin |
 | START / STOP | the green button on screen (Start, Stop, Confirm), or a stem button; End on the Juggle screen's controls page |
 | BACK | swipe right from the left edge, or the back key; Discard run on the Juggle screen's controls page |
 

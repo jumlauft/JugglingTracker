@@ -34,9 +34,9 @@ built several times over, and the copies must not drift apart.
     rotary input, on-screen arrows and buttons and the edge swipe; Apple Watch
     uses the Digital Crown, on-screen arrows and buttons and a back button in
     the corner.
-  - Scrolling: the ball count wraps around (9 → 3 and 3 → 9) on Garmin and
-    Wear OS; on Apple Watch it stops at 3 and 9, since the Digital Crown has
-    no wrap-around on watchOS.
+  - Scrolling: the ball count wraps around (9 → 3 and 3 → 9) on the Garmin,
+    which steps with buttons; on Wear OS and Apple Watch, which scroll with a
+    crown or bezel, it stops at 3 and 9 (Jonas, 2026-10-12).
   - Juggle screen: the touch watches (Wear OS, Apple Watch) split it into
     pages (controls, count, stats) so a stray touch mid-juggle cannot open a
     menu; the Garmin, driven by buttons, shows it on one screen. Apple Watch

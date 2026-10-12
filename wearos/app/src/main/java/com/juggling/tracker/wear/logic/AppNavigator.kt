@@ -115,9 +115,13 @@ class AppNavigator(
         }
     }
 
-    /** APP-3: UP walks 3..9 and wraps from 9 to 3. */
-    private fun increment(balls: Int) = if (balls < Screen.MAX_BALLS) balls + 1 else Screen.MIN_BALLS
+    /**
+     * APP-3: UP walks 3..9 and stops at 9. Unlike the Garmin it does not wrap
+     * round to 3: the crown or bezel scrolls to an end and stops there, as on
+     * the Apple Watch (a hardware-specific difference, see CLAUDE.md).
+     */
+    private fun increment(balls: Int) = minOf(balls + 1, Screen.MAX_BALLS)
 
-    /** DOWN walks 9..3 and wraps from 3 to 9. */
-    private fun decrement(balls: Int) = if (balls > Screen.MIN_BALLS) balls - 1 else Screen.MAX_BALLS
+    /** DOWN walks 9..3 and stops at 3. */
+    private fun decrement(balls: Int) = maxOf(balls - 1, Screen.MIN_BALLS)
 }

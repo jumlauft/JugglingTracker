@@ -42,7 +42,7 @@ Pick the JugglingTrackerWatch scheme and an Apple Watch simulator.
 
 | Garmin | Apple Watch |
 |---|---|
-| UP / DOWN | turn the Digital Crown, or tap the arrows; the ball count stops at 3 and 9 rather than wrapping round as on the Garmin |
+| UP / DOWN | turn the Digital Crown, or tap the arrows; the ball count stops at 3 and 9 rather than wrapping round as on the Garmin (Wear OS stops too) |
 | START / STOP | the green button on screen (Start, Stop, Confirm); End on the Juggle screen's controls page |
 | BACK | the button in the top-left corner; Discard run on the Juggle screen's controls page |
 
