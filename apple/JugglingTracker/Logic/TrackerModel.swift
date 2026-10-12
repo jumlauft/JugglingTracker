@@ -68,6 +68,12 @@ final class TrackerModel {
     // MARK: Screens
 
     private(set) var sessions: [SessionSummary] = []
+    /// The ball count whose history the home screen shows: the chip the user
+    /// tapped last, or the ball count of the session a watch sent last,
+    /// whichever came later. Nil until either happens. Kept here rather than
+    /// in the screen so a sync that lands while another screen is open is
+    /// still shown on the way back.
+    private(set) var historyBallCount: Int?
     private(set) var recordings: [RecordingStore.Summary] = []
     private(set) var recordingCount = 0
     private(set) var phoneSession = PhoneSessionState()
@@ -134,6 +140,9 @@ final class TrackerModel {
             showReceiving(source, more: more)
         case let .sessionStored(session):
             showStored(session)
+            // Flip the history to what just arrived. Several sessions in one
+            // sync each pass through here, so the last one wins.
+            historyBallCount = session.ballCount
             let text = "Received \(session.runCount) runs for \(session.ballCount) balls"
             toast = text
             speak(text)
@@ -181,6 +190,23 @@ final class TrackerModel {
         } else {
             sessions.insert(session, at: 0)
         }
+    }
+
+    /// The ball counts the history has sessions for, smallest first.
+    var historyBallCounts: [Int] {
+        Array(Set(sessions.map(\.ballCount))).sorted()
+    }
+
+    /// The chip that is selected: `historyBallCount` while the history has
+    /// sessions for it, otherwise the smallest ball count. Nil with no history.
+    var shownHistoryBallCount: Int? {
+        let counts = historyBallCounts
+        if let historyBallCount, counts.contains(historyBallCount) { return historyBallCount }
+        return counts.first
+    }
+
+    func selectHistoryBallCount(_ ballCount: Int) {
+        historyBallCount = ballCount
     }
 
     func delete(_ session: SessionSummary) {

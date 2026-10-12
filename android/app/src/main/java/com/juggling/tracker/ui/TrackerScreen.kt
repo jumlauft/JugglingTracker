@@ -85,18 +85,7 @@ fun TrackerScreen(
                 modifier = Modifier.align(Alignment.Start)
             )
 
-            val availableBallCounts = viewModel.completedSessions
-                .asSequence()
-                .map { it.ballCount }
-                .distinct()
-                .sorted()
-                .toList()
-            
-            var selectedTabBallCount by remember { mutableIntStateOf(availableBallCounts.first()) }
-            
-            if (selectedTabBallCount !in availableBallCounts) {
-                selectedTabBallCount = availableBallCounts.first()
-            }
+            val selectedTabBallCount = viewModel.shownHistoryBallCount
 
             Row(
                 modifier = Modifier
@@ -104,11 +93,11 @@ fun TrackerScreen(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                availableBallCounts.forEach { count ->
+                viewModel.historyBallCounts.forEach { count ->
                     BallChip(
                         label = stringResource(R.string.format_balls_tab, count),
                         selected = selectedTabBallCount == count,
-                        onClick = { selectedTabBallCount = count },
+                        onClick = { viewModel.selectHistoryBallCount(count) },
                     )
                 }
             }
