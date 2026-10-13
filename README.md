@@ -37,7 +37,7 @@ All five apps are main development streams, and `CLAUDE.md` says how they are ke
   - `ui/` - Compose screens, session cards, charts, tracker/settings UI.
   - `model/` - session/run data classes.
 - `connectiq/data/` - labeled accelerometer recordings used to tune and verify detection, one run per file named `YYYYMMDD_HHMMSS.csv`.
-- `simulation/` - Python analysis, plotting, tuning, and regression tests.
+- `simulation/` - Python analysis, plotting, tuning, and regression tests; old experiments nothing uses any more are in `simulation/archive/`.
 
 ## How It Works
 

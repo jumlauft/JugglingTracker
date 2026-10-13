@@ -1,5 +1,9 @@
 package com.juggling.tracker.logic
 
+import android.content.Context
+import android.net.Uri
+import android.util.Log
+import com.juggling.tracker.backup.SessionBackup
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -165,12 +169,13 @@ class JugglingViewModel(
     fun toggleAnalytics(enabled: Boolean) {
         settings?.updateAnalyticsEnabled(enabled)
         analytics?.setAnalyticsCollectionEnabled(enabled)
-        // Note: Crashlytics collection is usually set via MainActivity as it requires 
-        // a restart or is easier to manage there, but we can set it here too if possible.
+        // JugglingTrackerApplication applies the saved choice at start-up;
+        // this applies a change at once.
         try {
             com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(enabled)
-        } catch (e: Exception) {
-            // Ignored in tests
+        } catch (e: IllegalStateException) {
+            // Firebase is not initialised (unit tests).
+            Log.w(TAG, "Cannot change Crashlytics collection", e)
         }
     }
 
@@ -394,6 +399,32 @@ class JugglingViewModel(
     }
 
     fun getSessionsCsv(): String = SessionCsv.write(completedSessions)
+
+    // ── Backup (see SessionBackup) ──────────────────────────────────────
+
+    val isBackupEnabled get() = settings?.isBackupEnabled ?: false
+    val backupUri get() = settings?.backupUri
+    val backupFileName get() = settings?.backupFileName
+    val lastBackupMillis get() = settings?.lastBackupMillis ?: 0L
+    val lastBackupFailed get() = settings?.lastBackupFailed ?: false
+
+    /** Use [uri] as the backup file; false when the app may not write there. */
+    fun connectBackupFile(context: Context, uri: Uri): Boolean {
+        val settings = settings ?: return false
+        return SessionBackup.connect(context, uri, settings)
+    }
+
+    fun setBackupEnabled(context: Context, enabled: Boolean) {
+        val settings = settings ?: return
+        SessionBackup.setEnabled(context, settings, enabled)
+    }
+
+    /** Writes the backup file now, off the main thread. */
+    suspend fun backUpNow(context: Context): SessionBackup.Result {
+        val repository = repository ?: return SessionBackup.Result.FAILED
+        val settings = settings ?: return SessionBackup.Result.FAILED
+        return withContext(ioDispatcher) { SessionBackup.backUp(context, repository, settings) }
+    }
 
     /**
      * Add a backup's sessions to the history, skipping those already here.
@@ -673,6 +704,14 @@ class JugglingViewModel(
         resetPhoneSession("Phone session cancelled")
     }
 
+    /**
+     * Whether a phone session or raw recording still wants accelerometer
+     * samples. False once a frozen sensor ended the session, so the screen
+     * can let go of the sensor.
+     */
+    val isUsingPhoneSensor: Boolean
+        get() = phoneSessionState.isRecording || rawRecordingState.step == RawRecordingStep.RECORDING
+
     fun markPhoneSensorUnavailable(message: String) {
         resetPhoneSession(message)
         phoneSessionState = phoneSessionState.copy(sensorError = message)
@@ -723,6 +762,8 @@ class JugglingViewModel(
     }
 
     companion object {
+        private const val TAG = "JugglingViewModel"
+
         /** How long the watch card shows "receiving" after a transfer's last message. */
         const val RECEIVING_DISPLAY_MS = 1500L
 

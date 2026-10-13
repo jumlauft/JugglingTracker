@@ -125,9 +125,15 @@ final class AppServices {
 
     private func startSensor() -> Bool {
         let model = model
+        let accelerometer = accelerometer
         // PhoneAccelerometer delivers its batches on the main thread.
         let started = accelerometer.start { samples in
-            MainActor.assumeIsolated { model.processPhoneSamples(samples) }
+            MainActor.assumeIsolated {
+                model.processPhoneSamples(samples)
+                // A frozen sensor ends the session from inside the model; stop
+                // listening then rather than at full rate until it is left.
+                if !model.isUsingPhoneSensor { accelerometer.stop() }
+            }
         }
         if !started {
             model.markPhoneSensorUnavailable("Phone accelerometer unavailable")

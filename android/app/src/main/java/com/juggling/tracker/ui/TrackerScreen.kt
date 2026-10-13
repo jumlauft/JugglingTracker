@@ -23,7 +23,6 @@ import com.juggling.tracker.model.SessionSummary
 @Composable
 fun TrackerScreen(
     viewModel: JugglingViewModel,
-    isWatchAppRunning: Boolean,
     onPhoneRecordClick: () -> Unit,
     onGarminLinkClick: () -> Unit,
     onGarminSessionClick: () -> Unit,

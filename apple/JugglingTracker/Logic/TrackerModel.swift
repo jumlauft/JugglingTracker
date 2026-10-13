@@ -448,6 +448,13 @@ final class TrackerModel {
         resetPhoneSession("Phone session cancelled")
     }
 
+    /// Whether a phone session or raw recording still wants accelerometer
+    /// samples. False once a frozen sensor ended the session, so the app can
+    /// let go of the sensor.
+    var isUsingPhoneSensor: Bool {
+        phoneSession.isRecording || rawRecording.step == .recording
+    }
+
     func markPhoneSensorUnavailable(_ message: String) {
         resetPhoneSession(message)
         phoneSession.sensorError = message

@@ -46,7 +46,6 @@ class KeepScreenOnTest {
             JugglingTrackerTheme {
                 JugglingTrackerApp(
                     viewModel = viewModel,
-                    isWatchAppRunning = false,
                     onStartPhoneSession = { true },
                     onStopPhoneSession = { true },
                     onCancelPhoneSession = {},

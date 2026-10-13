@@ -551,7 +551,7 @@ class RecordingView extends WatchUi.View {
         _detector = new JugglingDetector(_ballCount);
         _samples.clear();
         _state = STATE_IDLE;
-        _runsCompleted += 1;
+        // A skipped run never reached the phone, so "Runs" does not count it.
         _errorMsg = null;
         WatchUi.requestUpdate();
     }

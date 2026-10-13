@@ -11,7 +11,7 @@ applyTo: "android/**/*.kt"
 ## State Management
 - Use `mutableStateOf` and `mutableStateListOf` for observable state in ViewModels.
 - Create ViewModels via `ViewModelProvider.Factory` — never inject the repository directly into constructors without the factory pattern.
-- Connection state lives in `JugglingViewModel` (`garminStatus`, `statusMessage`, `wearStatus`). `MainActivity` copies the Garmin status from `GarminLink` and follows the Wear OS capability for the card. Only `isWatchAppRunning`, the Garmin heartbeat, lives in `GarminLink`. All other state belongs in `JugglingViewModel`.
+- Connection state lives in `JugglingViewModel` (`garminStatus`, `statusMessage`, `wearStatus`). `MainActivity` copies the Garmin status from `GarminLink` and follows the Wear OS capability for the card. All other state belongs in `JugglingViewModel`; screens reach settings and repositories only through it.
 - Receiving is process-scoped, never tied to a screen. `JugglingTrackerApplication` holds one `SessionRepository`, `RecordingRepository`, `WatchInbox` and `GarminLink`; screens follow `WatchInbox` through its listener. Never build a second repository: each caches what it stores, so two would miss each other's writes.
 
 ## Persistence
