@@ -49,7 +49,7 @@ that directory.
 - `shared/src/test/` holds the plain JVM tests for the detector, shape consistency and the watch-phone protocol, which both apps use. `DetectorCorpusTest` replays every recording in `connectiq/data` and requires the counts `simulation/test_detection.py` pins, read out of that file; `PhoneInputCorpusTest` replays recordings through the phone's m/s² entry point. Run them with `./gradlew :shared:test` from `android/` or `wearos/`.
 - `wearos/app/src/test/.../logic/` holds plain JVM tests for the Juggle and Record sessions and navigation, driven by fake clocks, schedulers and links.
 - `wearos/app/src/test/.../ui/` holds the Robolectric Compose tests (`WearAppTest`, `TextFitTest`).
-- `wearos/app/src/androidTest/` runs on a Wear OS emulator in CI (API 30, large round) and saves the screenshots CI uploads.
+- `wearos/app/src/androidTest/` runs on a Wear OS emulator (API 30, large round) in `wearos.yml`, which runs only when started by hand from the Actions tab, and saves the screenshots it uploads.
 - Name tests after the requirement they cover in `connectiq/REQUIREMENTS.md` where there is one; `wearos/README.md` maps each requirement to its test.
 
 ```sh
@@ -61,6 +61,9 @@ cd wearos
 ## Garmin Watch Tests
 - `connectiq/test/*.mc` are `(:test)` functions compiled with the real sources through `test.jungle` and run in the Connect IQ simulator by `./connectiq/run_tests.sh` (macOS, needs the SDK and `developer_key.der`). They are not in CI.
 - Every test must back a requirement in `connectiq/REQUIREMENTS.md`, and every requirement must name its tests; `test_detection.py` fails otherwise.
+
+## Apple Tests
+- `apple/JugglingCore/Tests` replays the same corpus as `shared/` and reads the pinned counts out of `simulation/test_detection.py`; `apple/WatchLogic/Tests` mirrors the Wear OS `logic/` tests; `apple/JugglingTrackerTests` covers the iPhone app. Run the packages with `swift test`, the app tests in Xcode, or all of them on GitHub with the `run-apple-ci` label.
 
 ## Running Detection Tests
 ```sh

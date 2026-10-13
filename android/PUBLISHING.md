@@ -35,7 +35,7 @@ This document outlines the steps and assets needed to publish **Juggling Tracker
     * CSV export of your sessions
 
     Accuracy
-    The count is often off by a catch or two per run, so use it for trends rather than to prove a new record. On our test set of 121 runs and about 3,000 catches from three jugglers, it is 92.7% accurate, with over- and undercounting roughly balanced.
+    The count is often off by a catch or two per run, so use it for trends rather than to prove a new record. On our test set of 129 runs and about 3,200 catches from five jugglers, it is 92.5% accurate, with slightly more undercounting than overcounting.
 
     Help improve it
     Record mode lets you label runs with the number you counted yourself and email the recordings to the developer. Every recording makes detection better for everyone.

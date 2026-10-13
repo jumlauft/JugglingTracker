@@ -34,12 +34,12 @@ applyTo: "connectiq/**/*.mc"
   - 4 balls: HP threshold 3.0, candidate refractory 80ms, raw gate 11.0 m/s², merge window 160ms
   - 5 balls: HP threshold 3.0, candidate refractory 40ms, raw gate 13.0 m/s², merge window 160ms
   - 6 balls: HP threshold 5.0, candidate refractory 40ms, raw gate 17.0 m/s², merge window 120ms
-  - 7+ balls: HP threshold 3.0, candidate refractory 160ms, raw gate 7.0 m/s², merge window 80ms
+  - 7+ balls: HP threshold 2.5, candidate refractory 160ms, raw gate 16.0 m/s², merge window 80ms
 - Hysteresis factor is 0.3. Raw magnitude gate: a candidate only counts if the pre-highpass magnitude also exceeds the per-ball-count floor.
 - True peak detection: threshold-crossing on the filtered signal with hysteresis (signal must drop below `threshold × 0.3` before re-arming). The strongest filtered peak in a burst represents the catch motion.
 - Auto-finish after 2s without a committed candidate burst. Do not refresh the finish timer from low-level filtered motion; otherwise the user has to hold the watch hand too still after a run.
 - 25-sample warmup before detection begins.
-- `simulation/eval_new_watch.py` must mirror `JugglingDetector.mc`; update both plus `simulation/test_detection.py`, and `shared/.../JugglingDetector.kt` (phone and Wear OS) whenever parameters or detection semantics change.
+- `simulation/eval_new_watch.py` must mirror `JugglingDetector.mc`; update both plus `simulation/test_detection.py`, `shared/.../JugglingDetector.kt` (Android phone and Wear OS) and `apple/JugglingCore/.../JugglingDetector.swift` (iPhone and Apple Watch) whenever parameters or detection semantics change.
 - Delayed burst clustering must only flush a pending candidate when the filtered signal is no longer above threshold. Flushing while `_above` is true can split one physical catch motion into multiple counts.
 
 ## Communication Protocol

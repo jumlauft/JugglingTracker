@@ -22,12 +22,13 @@ Juggling tracker with three watch apps and two phone apps: a Garmin watch app, a
   - `WatchMessageService.kt` — `WearableListenerService` for the Wear OS watch's messages; it receives with the app closed.
   - `logic/WatchInbox.kt` — Stores every watch message and decides the `ack`: only what was stored is acked.
   - `logic/JugglingViewModel.kt` — State management, session import, CSV export.
-  - `data/SessionRepository.kt` — Persistence layer (in-memory cache + SharedPreferences with manual JSON).
+  - `data/SessionRepository.kt` — Session history: in-memory cache plus `sessions.jsonl`, one JSON object per line, written on a background executor.
+  - `data/SessionCsv.kt` — History CSV for export, the weekly backup (`backup/SessionBackup.kt`) and restore.
   - `data/RecordingRepository.kt` — Raw recording CSV storage and zip export.
-  - `data/SettingsManager.kt` — Settings (watch type, voice, analytics, export details).
+  - `data/SettingsManager.kt` — Settings (watch type, voice, analytics, juggler, backup file).
   - `model/` — Data classes (`JugglingRun`, `SessionSummary`).
   - `ui/` — Compose screens and components.
-- `apple/` — the iPhone app (`JugglingTracker/`) and the Apple Watch app (`Watch/`, behaviour in `WatchLogic/`), sharing the Swift detector in `JugglingCore/`. See `apple/Watch/README.md` and `apple/JugglingTracker/README.md`.
+- `apple/` — the iPhone app (`JugglingTracker/`) and the Apple Watch app (`Watch/`, behaviour in `WatchLogic/`), sharing `JugglingCore/`: the Swift detector, Regularity score, watch protocol and history CSV, the counterpart of `shared/`. `WatchLogic` is a line-for-line port of the Wear OS `logic/` package. See `apple/Watch/README.md` and `apple/JugglingTracker/README.md`.
 - `connectiq/data/` — Labeled accelerometer CSVs used for detection tuning and regression tests. One run per file, named `YYYYMMDD_HHMMSS.csv` after its run id.
 - `simulation/` — Python detector simulation, tuning/plotting scripts, and pytest regression tests.
 
@@ -37,9 +38,11 @@ Garmin: watch accelerometer (25 Hz) → `JugglingDetector` (burst-clustered watc
 
 Wear OS: accelerometer thinned to 25 Hz → `JugglingDetector.kt` (shared) → `TrackerSession` → `DataLayerPhoneLink` (JSON over the Data Layer) → `WatchMessageService` → the same `WatchInbox`. The `ack` goes back over the Data Layer to the sending watch.
 
-Recording mode uses `RecordingView` (Wear OS: `RecordingSession`) to capture raw accelerometer samples. Start begins and ends each run; Back returns to ball selection while idle, offers to quit while recording, offers to discard while labeling, and is ignored while syncing. The user corrects the detected count to the true watch-hand count, then the run transfers as `rec_start` / `rec_chunk` × N / `rec_end` and the Android app writes it through `RecordingRepository` in the same CSV format as `connectiq/data/`.
+Apple Watch: CoreMotion thinned to 25 Hz → `JugglingDetector.swift` (`JugglingCore`) → `TrackerSession` (`WatchLogic`) → `ConnectivityPhoneLink` (WatchConnectivity) → the iPhone's `AppleWatchLink` → its `WatchInbox` → `SessionStore`. The `ack` comes back in the message's reply. A Garmin watch reaches the iPhone through the Connect IQ iOS SDK in `GarminLink.swift`.
 
-`ENABLE_RECORDING_MODE` in `JugglingTrackerApp.mc` (and `AppNavigator.ENABLE_RECORDING_MODE` on Wear OS) is `true` in released builds on purpose: Record mode is how the labeled corpus grows, and the Connect IQ store listing advertises it. `test_watch_startup_offers_recording_mode` and the Wear OS `AppNavigatorTest` pin the values, so turning either off has to be deliberate (APP-1).
+Recording mode uses `RecordingView` (Wear OS and Apple Watch: `RecordingSession`) to capture raw accelerometer samples. Start begins and ends each run; Back returns to ball selection while idle, offers to quit while recording, offers to discard while labeling, and is ignored while syncing. The user corrects the detected count to the true watch-hand count, then the run transfers as `rec_start` / `rec_chunk` × N / `rec_end` and the Android app writes it through `RecordingRepository` in the same CSV format as `connectiq/data/`.
+
+`ENABLE_RECORDING_MODE` in `JugglingTrackerApp.mc` (and `AppNavigator.ENABLE_RECORDING_MODE` on Wear OS, `AppNavigator.enableRecordingMode` on Apple Watch) is `true` in released builds on purpose: Record mode is how the labeled corpus grows, and the Connect IQ store listing advertises it. `test_watch_startup_offers_recording_mode` and the Wear OS `AppNavigatorTest` pin the values, so turning either off has to be deliberate (APP-1).
 
 ## Build and Test
 
@@ -72,6 +75,16 @@ cd connectiq && ./run_tests.sh   # unit tests in the simulator (macOS)
 
 Requires the Garmin Connect IQ SDK. The `connectiq/developer_key.der` is gitignored and must never be committed. The Garmin tests are not in CI.
 
+### iPhone and Apple Watch apps
+
+```sh
+cd apple && xcodegen generate && open JugglingTracker.xcodeproj   # Mac with Xcode
+cd apple/JugglingCore && swift test
+cd apple/WatchLogic && swift test
+```
+
+CI: the `run-apple-ci` label on a pull request runs `.github/workflows/apple.yml` on a macOS runner. It never runs on its own.
+
 ### Detection simulation
 
 ```sh
@@ -80,9 +93,9 @@ python -m pytest test_detection.py -v
 python eval_new_watch.py
 ```
 
-`simulation/eval_new_watch.py` mirrors `connectiq/source/JugglingDetector.mc`. Keep detector parameters synchronized across the watch code, the Wear OS and phone Kotlin ports, the Python simulation, regression tests, and ConnectIQ instruction file.
+`simulation/eval_new_watch.py` mirrors `connectiq/source/JugglingDetector.mc`. Keep detector parameters synchronized across the watch code, the Kotlin port in `shared/`, the Swift port in `apple/JugglingCore/`, the Python simulation, regression tests, and ConnectIQ instruction file.
 
-`test_detection.py` pins a per-run expected count for every recording in `connectiq/data/`, plus corpus totals (currently at most 203 absolute error and 83 overcount over 108 runs). Adding recordings means adding their entries; changing the detector means re-deriving the expectations and justifying the new totals.
+`test_detection.py` pins a per-run expected count for every recording in `connectiq/data/`, plus corpus totals (currently at most 245 absolute error and 99 overcount over 129 runs). Adding recordings means adding their entries; changing the detector means re-deriving the expectations and justifying the new totals.
 
 ## Conventions
 
@@ -91,6 +104,6 @@ python eval_new_watch.py
 - Sensor batches can contain `null` samples when a stream comes up short for the period. Guard every batch before doing arithmetic on it — an unguarded null throws inside the detector and kills the app with no on-screen trace.
 - Detection: threshold crossings are candidates, not direct counts. Nearby candidates are delayed and merged into one catch-motion burst; odd-numbered committed bursts increment the watch-hand catch count by 1 and alternating other-hand bursts are skipped.
 - Error handling: Always log exceptions. Android uses `Log.e(TAG, message, exception)` or `Log.w(TAG, message, exception)`. Watch uses `System.println()`. Never swallow exceptions silently.
-- Persistence: `SharedPreferences` with manual JSON serialization via `org.json.JSONArray`/`JSONObject` and `buildSessionJson()`. No ORM or serialization library.
+- Persistence: session history as JSON Lines (`sessions.jsonl`) built with `org.json.JSONObject` in `buildSessionJson()`, settings in `SharedPreferences`, recordings as one CSV per run. No ORM or serialization library. The iPhone app writes the same formats, so files move between the phones unchanged.
 - The watch is the sole controller of a watch session; the phone only listens and records. Phone IMU sessions are the exception: the phone app runs those itself.
 - A session's timestamp is its identity. The watch keeps one per session (SYNC-5), and a resend under the same timestamp replaces the stored copy.
