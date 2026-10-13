@@ -65,12 +65,12 @@ tests, `wearos.yml` for Wear OS, and `apple.yml` for the iPhone and Apple
 Watch. The Garmin tests run only on the Mac (see below).
 
 Releases:
-- Android: every `v*` tag publishes to Google Play (`release-android.yml`).
+- Android phone and Wear OS: every `v*` tag publishes both to Google Play
+  (`release-android.yml`), the watch app to the `wear:internal` track.
 - Garmin: built on the Mac and uploaded to the Connect IQ store by hand.
 - iPhone with the Apple Watch app inside: released to the App Store, but only
   when started by hand (`release-apple.yml`, see `apple/RELEASE.md`). A `v*`
   tag does not ship it.
-- Wear OS: no releases.
 
 ## Testing what you cannot run
 

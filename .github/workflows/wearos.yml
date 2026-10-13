@@ -4,7 +4,7 @@ name: Wear OS
 # after merge whenever something the Wear OS app builds from or replays has
 # changed, and from the Actions tab (Run workflow) on any branch. The main CI
 # (ci.yml) covers the Android phone app, the shared detector module and the
-# detection tests. The Wear OS app gets no releases.
+# detection tests. Wear OS releases go out with release-android.yml.
 on:
   push:
     branches: [main]

@@ -157,8 +157,7 @@ Acknowledgement from phone to watch:
 ## Build And Test
 
 Every app except the Garmin one is tested on every pull request that touches
-it; the Garmin tests need the Connect IQ simulator (below). The Wear OS app is
-no longer released.
+it; the Garmin tests need the Connect IQ simulator (below).
 
 `.github/workflows/ci.yml` runs on every pull request and on `main` after
 merge: the Android unit tests (Compose UI tests included), Android Lint (which
@@ -196,7 +195,8 @@ Actions tab.
 
 `.github/workflows/release-android.yml` is separate and fires only on `v*`
 tags. It publishes the **Android** phone app to the Play internal testing
-track; see `android/PUBLISHING.md`. The Wear OS app's last upload was v1.6. The Garmin app is not part of it, so do
+track and the **Wear OS** app to the Wear OS internal testing track of the same
+listing; see `android/PUBLISHING.md`. The Garmin app is not part of it, so do
 not tag a Garmin release `v*`.
 
 ### Android
