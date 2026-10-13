@@ -396,15 +396,30 @@ class SessionRepositoryTest {
     }
 
     @Test
-    fun `writes run on the writer, not the caller`() {
+    fun `a delete runs on the writer, not the caller`() {
+        repository.importSession(3, 1000L, listOf(10))
         val queued = mutableListOf<Runnable>()
         val repo = SessionRepository(prefs, file, Executor { queued.add(it) })
 
-        repo.importSession(3, 1000L, listOf(10))
+        repo.deleteSession(repo.getSessions().single())
 
-        assertEquals(1, repo.getSessions().size)
-        assertFalse(file.exists())
+        assertTrue(repo.getSessions().isEmpty())
+        assertEquals(1, newRepository().getSessions().size) // not written yet
         queued.forEach { it.run() }
-        assertEquals(1, newRepository().getSessions().size)
+        assertTrue(newRepository().getSessions().isEmpty())
+    }
+
+    @Test
+    fun `an import is on disk when it returns`() {
+        // Imports wait for their write: the watch is acked straight after.
+        val writer = java.util.concurrent.Executors.newSingleThreadExecutor()
+        try {
+            val repo = SessionRepository(prefs, file, writer)
+
+            assertNotNull(repo.importSession(3, 1000L, listOf(10)))
+            assertEquals(1, newRepository().getSessions().size)
+        } finally {
+            writer.shutdown()
+        }
     }
 }
