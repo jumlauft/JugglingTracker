@@ -59,10 +59,18 @@ built several times over, and the copies must not drift apart.
 This replaces the older rule that only the Garmin and Wear OS watch apps had
 to keep the same features: that rule now covers all three watch apps.
 
-Wear OS, the iPhone app and the Apple Watch app are side development streams:
-their CI runs only when started by hand (`wearos.yml` from the Actions tab;
-`apple.yml` through the `run-apple-ci` PR label), and they get no releases.
-Side streams still get every synced change.
+All five apps are main development streams. Their CI runs on every pull
+request that touches them: `ci.yml` for Android, `shared/` and the detection
+tests, `wearos.yml` for Wear OS, and `apple.yml` for the iPhone and Apple
+Watch. The Garmin tests run only on the Mac (see below).
+
+Releases:
+- Android phone and Wear OS: every `v*` tag publishes both to Google Play
+  (`release-android.yml`), the watch app to the `wear:internal` track.
+- Garmin: built on the Mac and uploaded to the Connect IQ store by hand.
+- iPhone with the Apple Watch app inside: released to the App Store, but only
+  when started by hand (`release-apple.yml`, see `apple/RELEASE.md`). A `v*`
+  tag does not ship it.
 
 ## Testing what you cannot run
 

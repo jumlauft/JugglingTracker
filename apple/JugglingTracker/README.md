@@ -2,8 +2,7 @@
 
 The iPhone counterpart of the Android app in `android/`: the same screens and
 features, working with a Garmin watch or an Apple Watch instead of a Garmin or
-Wear OS watch. It is a side development stream: no CI on every push, and releases
-only by hand (see `../RELEASE.md` and the project instructions).
+Wear OS watch. Releases are started by hand (see `../RELEASE.md`).
 
 ## Build
 
@@ -21,8 +20,8 @@ Pick an iPhone simulator and run, or run the tests with Cmd-U. Without a paid
 Apple developer account the app installs on your own iPhone from Xcode for
 seven days at a time.
 
-CI: add the label `run-apple-ci` to the pull request, and the "iPhone app" job
-in `.github/workflows/apple.yml` builds the app and runs its tests on a
+CI: on every pull request that touches `apple/`, the "iPhone app" job in
+`.github/workflows/apple.yml` builds the app and runs its tests on a
 simulator.
 
 ## Layout

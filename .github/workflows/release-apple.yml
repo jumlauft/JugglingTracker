@@ -4,7 +4,7 @@ name: Release iPhone app to TestFlight
 # App Store Connect, where it shows up in TestFlight. Submitting to App Store
 # review is done by hand in App Store Connect.
 #
-# The iPhone and Apple Watch apps are a side development stream, so this only
+# App Store releases are started on purpose, never by a tag, so this only
 # runs when started by hand: Actions tab > Release iPhone app to TestFlight >
 # Run workflow. It needs a paid Apple Developer Program membership and the
 # repository secrets listed in apple/RELEASE.md.

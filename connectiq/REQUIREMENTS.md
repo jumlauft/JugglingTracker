@@ -134,8 +134,8 @@ counted watch-hand catch**, not the wall time the screen was open.
 *Verified by:* `det10_runDurationSpansFirstToLastCatch`, `test_watch_transfers_run_durations`
 
 **DET-11.** Detection accuracy over the recorded corpus must not regress:
-total absolute error ≤ 203 and positive overcount error ≤ 83 across 108 runs
-(2554 real watch-hand catches), with every recording covered and each run's
+total absolute error ≤ 245 and positive overcount error ≤ 99 across 129 runs
+(3246 real watch-hand catches), with every recording covered and each run's
 count pinned individually.
 *Verified by:* `test_detection_count_per_run`, `test_total_absolute_error`, `test_total_overcount_error`, `test_every_recording_is_covered`
 

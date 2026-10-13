@@ -35,7 +35,7 @@ This document outlines the steps and assets needed to publish **Juggling Tracker
     * CSV export of your sessions
 
     Accuracy
-    The count is often off by a catch or two per run, so use it for trends rather than to prove a new record. On our test set of 121 runs and about 3,000 catches from three jugglers, it is 92.7% accurate, with over- and undercounting roughly balanced.
+    The count is often off by a catch or two per run, so use it for trends rather than to prove a new record. On our test set of 129 runs and about 3,200 catches from five jugglers, it is 92.5% accurate, with slightly more undercounting than overcounting.
 
     Help improve it
     Record mode lets you label runs with the number you counted yourself and email the recordings to the developer. Every recording makes detection better for everyone.
@@ -131,13 +131,11 @@ Add these under *Settings → Secrets and variables → Actions*:
 
 The Wear OS watch app in `wearos/` is published in the same Play listing as
 the phone app (same package, `com.juggling.tracker`, and the same upload key,
-which the Data Layer needs). It is a side development stream and is no longer
-released: v1.6 was its last upload, to the Wear OS internal testing track
-`wear:internal`, and the release workflow now publishes only the phone app.
-Its `versionCode` was the phone's plus 1,000,000, so the two never collide.
+which the Data Layer needs). The release workflow uploads it to the Wear OS
+internal testing track, `wear:internal`, in the same run. Its `versionCode` is
+the phone's plus 1,000,000, so the two never collide. Wear OS uploads paused
+after v1.6 and resumed in October 2026; the setup below was done for v1.6.
 
-The steps below are kept for reference should Wear OS releases resume
-(the upload steps would have to be added back to the release workflow).
 One-time setup in the Play Console, before the first tag that includes it:
 
 1. *Test and release → Advanced settings → Form factors*: add **Wear OS**.

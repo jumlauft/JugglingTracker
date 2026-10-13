@@ -5,8 +5,9 @@ same way as the Wear OS port in `../../wearos`. It has the same screens, the
 same catch detector, the same session and recording rules, and sends the same
 messages. `../../connectiq/REQUIREMENTS.md` is the specification.
 
-Side development stream: no CI on every push (the `run-apple-ci` label runs
-it) and no releases. watchOS 10 or later.
+CI runs on every pull request that touches `apple/`
+(`.github/workflows/apple.yml`). It ships inside the iPhone app. watchOS 10 or
+later.
 
 ## Layout
 

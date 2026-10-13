@@ -16,9 +16,9 @@ import com.juggling.tracker.shared.WatchProtocol
  * that advertises the Juggling Tracker capability; the phone's ack comes back
  * as a message on [WatchProtocol.PATH_PHONE_TO_WATCH].
  *
- * Like the Garmin transport, the phone app has to be running to receive: if
- * it is not, the send still succeeds but no ack arrives, and the session's
- * timeout offers a retry.
+ * The phone app does not have to be open: Google Play services starts its
+ * WatchMessageService for the message. If the phone stores nothing, no ack
+ * arrives and the session's timeout offers a retry.
  *
  * The phone's node is looked up once and reused, so a recording's chunks go
  * out without a capability query each. If a send to that node fails, the

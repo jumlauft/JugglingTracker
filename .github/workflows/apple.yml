@@ -1,20 +1,26 @@
 name: Apple
 
-# Checks for the iPhone and Apple Watch apps in apple/. They are a side
-# development stream, so this never runs on its own on a push or a pull
-# request. Start it one of two ways:
-#
-# - Add the label `run-apple-ci` to a pull request. This works on any branch,
-#   which matters while the Apple work lives only on unmerged branches:
-#   GitHub offers the button below only for workflows already on main.
-#   Remove and re-add the label to run it again on a newer commit.
-# - Actions tab > Apple > Run workflow, once this file is on main.
-#
+# Checks for the iPhone and Apple Watch apps in apple/. Runs on every pull
+# request and on main after merge whenever something the Apple apps build from
+# or replay has changed, and from the Actions tab (Run workflow) on any branch.
 # The main CI (ci.yml) does not look at apple/.
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apple/**'
+      - 'connectiq/data/**'
+      - 'simulation/test_detection.py'
+      - '.github/workflows/apple.yml'
+      - '.github/scripts/check-apple-archive.sh'
   pull_request:
-    types: [labeled]
+    paths:
+      - 'apple/**'
+      - 'connectiq/data/**'
+      - 'simulation/test_detection.py'
+      - '.github/workflows/apple.yml'
+      - '.github/scripts/check-apple-archive.sh'
+  workflow_dispatch:
 
 concurrency:
   group: apple-${{ github.ref }}
@@ -26,9 +32,6 @@ permissions:
 jobs:
   core:
     name: JugglingCore tests
-    # Any other label added to a pull request also fires the labeled event;
-    # only this one runs the checks.
-    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'run-apple-ci'
     runs-on: macos-latest
     steps:
       - name: Check out
@@ -47,7 +50,6 @@ jobs:
 
   watch:
     name: Apple Watch app
-    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'run-apple-ci'
     runs-on: macos-latest
     steps:
       - name: Check out
@@ -84,7 +86,6 @@ jobs:
 
   iphone:
     name: iPhone app
-    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'run-apple-ci'
     runs-on: macos-latest
     steps:
       - name: Check out
@@ -141,7 +142,6 @@ jobs:
     # Archives the iPhone app the way release-apple.yml does, but unsigned, and
     # checks the archive for what App Store Connect would reject. Catches a
     # missing icon or privacy manifest without a paid Apple developer account.
-    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'run-apple-ci'
     runs-on: macos-latest
     steps:
       - name: Check out
