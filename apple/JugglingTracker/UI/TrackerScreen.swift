@@ -22,6 +22,13 @@ struct TrackerScreen: View {
             }
             .padding(16)
         }
+        .task {
+            // A sheet asked for while the first screen is still appearing is
+            // dropped, so wait a moment.
+            guard ScreenshotMode.showsDetails, let balls = model.shownHistoryBallCount else { return }
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            sessionForDetails = model.sessions.first { $0.ballCount == balls }
+        }
         .sheet(item: $sessionForDetails) { session in
             SessionDetailsView(session: session)
         }

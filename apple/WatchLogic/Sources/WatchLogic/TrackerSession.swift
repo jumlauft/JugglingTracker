@@ -403,3 +403,11 @@ public final class TrackerSession {
         )
     }
 }
+
+extension TrackerUiState {
+    /// A fresh session's state, for building one by hand (the app's
+    /// screenshot mode).
+    public init(ballCount: Int) {
+        self.ballCount = ballCount
+    }
+}

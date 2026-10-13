@@ -20,6 +20,8 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Juggling Tracker runs a workout while you juggle so it keeps counting with your wrist down. It reads nothing from Health.</string>
 	<key>NSHealthUpdateUsageDescription</key>

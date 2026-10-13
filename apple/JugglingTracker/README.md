@@ -2,8 +2,8 @@
 
 The iPhone counterpart of the Android app in `android/`: the same screens and
 features, working with a Garmin watch or an Apple Watch instead of a Garmin or
-Wear OS watch. It is a side development stream: no CI on every push and no
-releases (see the project instructions).
+Wear OS watch. It is a side development stream: no CI on every push, and releases
+only by hand (see `../RELEASE.md` and the project instructions).
 
 ## Build
 

@@ -135,3 +135,39 @@ jobs:
         with:
           name: iphone-xcodebuild-log
           path: apple/xcodebuild.log
+
+  release-check:
+    name: App Store archive
+    # Archives the iPhone app the way release-apple.yml does, but unsigned, and
+    # checks the archive for what App Store Connect would reject. Catches a
+    # missing icon or privacy manifest without a paid Apple developer account.
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'run-apple-ci'
+    runs-on: macos-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Generate the Xcode project
+        working-directory: apple
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Archive without signing
+        working-directory: apple
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project JugglingTracker.xcodeproj \
+            -scheme JugglingTracker \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/JugglingTracker.xcarchive" \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee archive.log | grep -E "error:|\*\* ARCHIVE" || true
+          grep -q "\*\* ARCHIVE SUCCEEDED \*\*" archive.log
+
+      - name: Check the archive
+        run: .github/scripts/check-apple-archive.sh "$RUNNER_TEMP/JugglingTracker.xcarchive"
