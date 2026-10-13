@@ -29,7 +29,6 @@ enum class Screen {
 @Composable
 fun JugglingTrackerApp(
     viewModel: JugglingViewModel,
-    isWatchAppRunning: Boolean,
     onStartPhoneSession: (Int) -> Boolean,
     onStopPhoneSession: () -> Boolean,
     onCancelPhoneSession: () -> Unit,
@@ -224,7 +223,6 @@ fun JugglingTrackerApp(
             if (currentScreen == Screen.Tracker) {
                 TrackerScreen(
                     viewModel = viewModel,
-                    isWatchAppRunning = isWatchAppRunning,
                     onPhoneRecordClick = { currentScreen = Screen.PhoneSession },
                     onGarminLinkClick = { showGarminLinkInstructions = true },
                     onGarminSessionClick = { showGarminSessionInstructions = true },

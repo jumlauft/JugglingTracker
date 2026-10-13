@@ -94,6 +94,7 @@ final class TrackerModelTests: XCTestCase {
         model.processPhoneSamples(stuck)
         XCTAssertFalse(model.phoneSession.isRecording)
         XCTAssertEqual(model.phoneSession.sensorError, "Accelerometer is not responding. Restart the phone and try again.")
+        XCTAssertFalse(model.isUsingPhoneSensor) // the app lets go of the sensor
     }
 
     func testStoppingWithoutAnyRunSavesNothing() {

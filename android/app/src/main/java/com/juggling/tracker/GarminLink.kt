@@ -4,9 +4,6 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import com.garmin.android.connectiq.ConnectIQ
 import com.garmin.android.connectiq.IQApp
 import com.garmin.android.connectiq.IQDevice
@@ -34,7 +31,6 @@ class GarminLink(context: Context, private val inbox: WatchInbox) {
         private const val WATCH_APP_ID = "fa298da6-29c7-46d2-9d76-e07f62d16539"
         private const val WATCH_APP_ID_BETA = "88fa4344-0c76-40a9-83e7-e7fc21328822"
         private val WATCH_APP_IDS = listOf(WATCH_APP_ID, WATCH_APP_ID_BETA)
-        private const val HEARTBEAT_TIMEOUT_MS = 15000L
     }
 
     private val appContext = context.applicationContext
@@ -47,6 +43,9 @@ class GarminLink(context: Context, private val inbox: WatchInbox) {
     // The device whose status changes we already listen to, so a refresh
     // never stacks a second listener on it.
     private var deviceEventsFor: IQDevice? = null
+    // One IQApp per watch app id for the lifetime of the process, and the one
+    // registered now (the id the current watch carries).
+    private val iqApps = mutableMapOf<String, IQApp>()
     private var iqApp: IQApp? = null
 
     var status = GarminConnectionStatus.NOT_INITIALIZED
@@ -54,12 +53,6 @@ class GarminLink(context: Context, private val inbox: WatchInbox) {
     var message = ""
         private set
     private var statusListener: ((GarminConnectionStatus, String) -> Unit)? = null
-
-    /** True while the watch app has sent something in the last 15 s. */
-    var isWatchAppRunning by mutableStateOf(false)
-        private set
-
-    private val heartbeatRunnable = Runnable { isWatchAppRunning = false }
 
     /** Hears every status change, starting with the current one; null stops it. */
     fun setStatusListener(listener: ((GarminConnectionStatus, String) -> Unit)?) {
@@ -270,18 +263,23 @@ class GarminLink(context: Context, private val inbox: WatchInbox) {
 
     private fun registerForWatchApp(device: IQDevice, applicationId: String) {
         val sdk = connectIQ ?: return
-        // Reuse one IQApp instance for the lifetime of the process. The SDK
-        // matches an existing registration by instance, so unregistering with
-        // a freshly built IQApp leaves the old listener in place and every
-        // message is then delivered once per surviving registration.
-        val app = iqApp ?: IQApp(applicationId).also { iqApp = it }
+        // Reuse one IQApp instance per id for the lifetime of the process. The
+        // SDK matches an existing registration by instance, so unregistering
+        // with a freshly built IQApp leaves the old listener in place and
+        // every message is then delivered once per surviving registration.
+        // Kept per id, so a watch carrying the other build (store or beta)
+        // than the first one found still gets its own registration.
+        val app = iqApps.getOrPut(applicationId) { IQApp(applicationId) }
 
         try {
-            try {
-                sdk.unregisterForApplicationEvents(device, app)
-            } catch (e: Exception) {
-                Log.d(TAG, "No previous app listener to unregister")
+            for (previous in setOfNotNull(iqApp, app)) {
+                try {
+                    sdk.unregisterForApplicationEvents(device, previous)
+                } catch (e: Exception) {
+                    Log.d(TAG, "No previous app listener to unregister", e)
+                }
             }
+            iqApp = app
             sdk.registerForAppEvents(device, app) { _, _, received, messageStatus ->
                 Log.d(TAG, "app event: status=$messageStatus size=${received?.size ?: -1}")
                 if (messageStatus == ConnectIQ.IQMessageStatus.SUCCESS && !received.isNullOrEmpty()) {
@@ -296,10 +294,6 @@ class GarminLink(context: Context, private val inbox: WatchInbox) {
 
     private fun onWatchMessage(message: List<Any>) {
         val payload = (message.firstOrNull() as? Map<*, *>) ?: return
-
-        isWatchAppRunning = true
-        handler.removeCallbacks(heartbeatRunnable)
-        handler.postDelayed(heartbeatRunnable, HEARTBEAT_TIMEOUT_MS)
 
         val ack = inbox.receive(payload, WatchInbox.Source.GARMIN) ?: return
         sendAck(ack.timestamp)

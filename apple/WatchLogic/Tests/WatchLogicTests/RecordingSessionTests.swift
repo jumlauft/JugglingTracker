@@ -187,6 +187,7 @@ final class RecordingSessionTests: XCTestCase {
         XCTAssertEqual(state.menu?.title, "no reply from phone")
         session.onMenuSelect(RecordingSession.itemSyncSkip)
         XCTAssertEqual(state.phase, .idle)
+        XCTAssertEqual(state.runsCompleted, 0) // the skipped run never reached the phone
 
         epoch += 100
         recordRun(3)

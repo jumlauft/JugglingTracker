@@ -348,7 +348,9 @@ fun SessionRunsBarPlot(runs: List<Int>, modifier: Modifier = Modifier) {
         val height = size.height
         val count = runs.size
         val maxVal = (runs.maxOfOrNull { it } ?: 1).toFloat().coerceAtLeast(10f)
-        val spacing = 4.dp.toPx()
+        // The gap shrinks with many runs, so it never leaves the bars with no
+        // (or a negative) width: at most a quarter of each bar's slot.
+        val spacing = minOf(4.dp.toPx(), width / count / 4f)
         val barWidth = (width - (count - 1) * spacing) / count
 
         runs.forEachIndexed { index, value ->

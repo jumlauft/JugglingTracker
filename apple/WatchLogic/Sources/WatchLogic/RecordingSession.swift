@@ -453,7 +453,7 @@ public final class RecordingSession {
         cancelNextPartTimer()
         pendingPayload = nil
         resetRun()
-        runsCompleted += 1
+        // A skipped run never reached the phone, so "Runs" does not count it.
     }
 
     /// REC-7: the next part goes out from a timer rather than from inside the

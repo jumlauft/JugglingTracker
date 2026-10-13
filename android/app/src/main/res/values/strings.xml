@@ -80,8 +80,6 @@
     <string name="wear_unavailable">Wear OS is not available on this phone</string>
     <string name="label_record_with_wear">Record with Wear OS watch</string>
 
-    <string name="stat_catches">CATCHES</string>
-    <string name="stat_previous_hand">PREVIOUS HAND</string>
     <string name="stat_counting_hand">Catches in one hand</string>
     <string name="stat_previous_run">PREVIOUS RUN</string>
     <string name="stat_runs">Runs</string>

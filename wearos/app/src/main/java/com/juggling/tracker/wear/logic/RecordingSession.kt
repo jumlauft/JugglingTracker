@@ -434,7 +434,7 @@ class RecordingSession(
         cancelNextPartTimer()
         pendingPayload = null
         resetRun()
-        runsCompleted += 1
+        // A skipped run never reached the phone, so "Runs" does not count it.
     }
 
     /**

@@ -58,7 +58,12 @@ class MainActivity : ComponentActivity() {
 
     private val sensorManager: SensorManager by lazy { getSystemService(SensorManager::class.java) }
     private val phoneAccelerometer: PhoneAccelerometerSource by lazy {
-        PhoneAccelerometerSource(sensorManager, viewModel::processPhoneSamples)
+        PhoneAccelerometerSource(sensorManager) { samples ->
+            viewModel.processPhoneSamples(samples)
+            // A frozen sensor ends the session from inside the model; stop
+            // listening then rather than at full rate until the screen closes.
+            if (!viewModel.isUsingPhoneSensor) stopPhoneSensorListener()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,7 +89,6 @@ class MainActivity : ComponentActivity() {
                 ) {
                     JugglingTrackerApp(
                         viewModel = viewModel,
-                        isWatchAppRunning = garminLink.isWatchAppRunning,
                         onStartPhoneSession = ::startPhoneRecording,
                         onStopPhoneSession = ::stopPhoneRecordingAndSave,
                         onCancelPhoneSession = ::cancelPhoneRecording,

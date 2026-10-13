@@ -18,7 +18,6 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import com.juggling.tracker.JugglingTrackerApplication
 import com.juggling.tracker.R
 import com.juggling.tracker.backup.SessionBackup
 import com.juggling.tracker.data.SessionCsv
@@ -266,18 +265,13 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
 @Composable
 private fun BackupSection(viewModel: JugglingViewModel) {
     val context = LocalContext.current
-    val app = context.applicationContext as? JugglingTrackerApplication ?: return
-    val settings = app.settingsManager
     val scope = rememberCoroutineScope()
 
     fun toast(text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
 
     fun backUpNow() {
         scope.launch {
-            val result = withContext(Dispatchers.IO) {
-                SessionBackup.backUp(app, app.sessionRepository, settings)
-            }
-            when (result) {
+            when (viewModel.backUpNow(context.applicationContext)) {
                 SessionBackup.Result.SAVED -> toast(context.getString(R.string.toast_backup_saved))
                 SessionBackup.Result.NOTHING_TO_SAVE -> toast(context.getString(R.string.toast_backup_nothing))
                 SessionBackup.Result.NO_FILE, SessionBackup.Result.FAILED ->
@@ -291,8 +285,8 @@ private fun BackupSection(viewModel: JugglingViewModel) {
         androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv")
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        if (SessionBackup.connect(context, uri, settings)) {
-            SessionBackup.setEnabled(context, settings, true)
+        if (viewModel.connectBackupFile(context, uri)) {
+            viewModel.setBackupEnabled(context, true)
             backUpNow()
         } else {
             toast(context.getString(R.string.toast_backup_location_unusable))
@@ -325,7 +319,7 @@ private fun BackupSection(viewModel: JugglingViewModel) {
     // The file is kept when the backup is turned off, so turning it back on
     // reuses it, as long as the app may still write there.
     fun hasBackupFile(): Boolean {
-        val uri = settings.backupUri ?: return false
+        val uri = viewModel.backupUri ?: return false
         return context.contentResolver.persistedUriPermissions.any {
             it.uri.toString() == uri && it.isWritePermission
         }
@@ -336,11 +330,11 @@ private fun BackupSection(viewModel: JugglingViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         SettingToggle(
             label = stringResource(R.string.label_backup_enabled),
-            checked = settings.isBackupEnabled,
+            checked = viewModel.isBackupEnabled,
             onCheckedChange = { enabled ->
                 when {
-                    !enabled -> SessionBackup.setEnabled(context, settings, false)
-                    hasBackupFile() -> SessionBackup.setEnabled(context, settings, true)
+                    !enabled -> viewModel.setBackupEnabled(context, false)
+                    hasBackupFile() -> viewModel.setBackupEnabled(context, true)
                     else -> pickBackupFile.launch(SessionBackup.SUGGESTED_FILE_NAME)
                 }
             }
@@ -353,7 +347,7 @@ private fun BackupSection(viewModel: JugglingViewModel) {
         )
     }
 
-    if (settings.isBackupEnabled) {
+    if (viewModel.isBackupEnabled) {
         val lastBackupFormat = remember { java.text.SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()) }
         Column(
             modifier = Modifier.padding(horizontal = 8.dp),
@@ -362,19 +356,19 @@ private fun BackupSection(viewModel: JugglingViewModel) {
             Text(
                 text = stringResource(
                     R.string.backup_file,
-                    settings.backupFileName ?: stringResource(R.string.backup_file_unnamed),
+                    viewModel.backupFileName ?: stringResource(R.string.backup_file_unnamed),
                 ),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                text = if (settings.lastBackupMillis > 0L) {
-                    stringResource(R.string.backup_last, lastBackupFormat.format(Date(settings.lastBackupMillis)))
+                text = if (viewModel.lastBackupMillis > 0L) {
+                    stringResource(R.string.backup_last, lastBackupFormat.format(Date(viewModel.lastBackupMillis)))
                 } else {
                     stringResource(R.string.backup_never)
                 },
                 style = MaterialTheme.typography.bodyMedium,
             )
-            if (settings.lastBackupFailed) {
+            if (viewModel.lastBackupFailed) {
                 Text(
                     text = stringResource(R.string.backup_last_failed),
                     style = MaterialTheme.typography.bodyMedium,

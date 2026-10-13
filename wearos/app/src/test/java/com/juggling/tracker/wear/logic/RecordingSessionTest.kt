@@ -197,6 +197,7 @@ class RecordingSessionTest {
         assertEquals("no reply from phone", state.menu!!.title)
         session.onMenuSelect(RecordingSession.ITEM_SYNC_SKIP)
         assertEquals(RecordingPhase.IDLE, state.phase)
+        assertEquals(0, state.runsCompleted) // the skipped run never reached the phone
 
         epoch += 100
         recordRun(3)

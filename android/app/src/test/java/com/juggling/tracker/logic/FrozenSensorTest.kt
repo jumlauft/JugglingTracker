@@ -68,6 +68,7 @@ class FrozenSensorTest {
             state.sensorError!!.contains("Accelerometer", ignoreCase = true),
         )
         assertFalse("the dead session must not still claim to be recording", state.isRecording)
+        assertFalse("the screen should let go of the sensor", viewModel.isUsingPhoneSensor)
     }
 
     @Test
