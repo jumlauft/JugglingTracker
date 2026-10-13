@@ -83,7 +83,7 @@ cd apple/JugglingCore && swift test
 cd apple/WatchLogic && swift test
 ```
 
-CI: the `run-apple-ci` label on a pull request runs `.github/workflows/apple.yml` on a macOS runner. It never runs on its own.
+CI: `.github/workflows/apple.yml` runs on a macOS runner on every pull request that touches `apple/`, the recordings or the pinned counts, and on `main` after merge.
 
 ### Detection simulation
 

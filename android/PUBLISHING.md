@@ -131,8 +131,7 @@ Add these under *Settings → Secrets and variables → Actions*:
 
 The Wear OS watch app in `wearos/` is published in the same Play listing as
 the phone app (same package, `com.juggling.tracker`, and the same upload key,
-which the Data Layer needs). It is a side development stream and is no longer
-released: v1.6 was its last upload, to the Wear OS internal testing track
+which the Data Layer needs). It is no longer released: v1.6 was its last upload, to the Wear OS internal testing track
 `wear:internal`, and the release workflow now publishes only the phone app.
 Its `versionCode` was the phone's plus 1,000,000, so the two never collide.
 

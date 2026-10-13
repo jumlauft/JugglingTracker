@@ -5,8 +5,8 @@ name: Release Android to Play
 # the Play Console. See android/PUBLISHING.md for the one-time setup and the
 # list of repository secrets this workflow needs.
 #
-# The Wear OS watch app (wearos/) is a side development stream and is no
-# longer released; its last upload was v1.6.
+# The Wear OS watch app (wearos/) is no longer released; its last upload was
+# v1.6.
 on:
   push:
     tags:

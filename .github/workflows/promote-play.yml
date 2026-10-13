@@ -1,8 +1,8 @@
 name: Promote Play release
 
 # Copies the current internal-testing release to another Play track (by
-# default the closed testing track), for the phone app. The Wear OS app is a
-# side development stream and is no longer released. Run it by hand from the
+# default the closed testing track), for the phone app. The Wear OS app is no
+# longer released. Run it by hand from the
 # Actions tab. Google reviews closed and
 # production releases before testers see them. Uses the same
 # PLAY_SERVICE_ACCOUNT_JSON secret as release-android.yml.

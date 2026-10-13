@@ -4,7 +4,7 @@
 
 Juggling tracker focused on a single counting hand. Three watch apps, for Garmin Connect IQ watches (developed on a Forerunner 245), Wear OS and Apple Watch, count watch-hand catches from accelerometer data, keep the runs of the current session, and send finished sessions to a companion phone app for storage, charts, CSV export, and algorithm recording workflows. The Android app works with Garmin and Wear OS watches, the iPhone app with Garmin watches and the Apple Watch. Both phone apps can also record sessions directly from the phone accelerometer when the phone is held in the counting hand. Counts are not both-hands totals.
 
-The Android phone app and the Garmin watch app are the main development streams. Wear OS, the iPhone app and the Apple Watch app are side streams whose CI runs only when started by hand. `CLAUDE.md` says how the implementations are kept in sync.
+All five apps are main development streams, and `CLAUDE.md` says how they are kept in sync.
 
 ## Project Structure
 
@@ -19,7 +19,7 @@ The Android phone app and the Garmin watch app are the main development streams.
   - `source/SampleBuffer.mc` - fixed-size store for one recorded run's samples.
   - `manifest.xml`, `monkey.jungle`, `resources/` - Connect IQ configuration and assets.
 - `wearos/` - Wear OS watch app, a Kotlin/Compose port of the Garmin app with the same behaviour. It sends sessions and recordings to the Android app over the Wear OS Data Layer. See `wearos/README.md`.
-- `apple/` - iPhone and Apple Watch apps, a side development stream (no continuous testing). `apple/JugglingTracker/` is the iPhone app, `apple/Watch/` the Apple Watch app with its behaviour in the `apple/WatchLogic/` package; see their READMEs. `apple/JugglingCore/` is a Swift package with the same detector, Regularity score, watch message helpers and session history CSV format as `shared/` and the Android app; its tests replay the same corpus and pinned counts. Run them with `swift test` there, or on GitHub by adding the `run-apple-ci` label to a pull request (`.github/workflows/apple.yml`).
+- `apple/` - iPhone and Apple Watch apps. `apple/JugglingTracker/` is the iPhone app, `apple/Watch/` the Apple Watch app with its behaviour in the `apple/WatchLogic/` package; see their READMEs. `apple/JugglingCore/` is a Swift package with the same detector, Regularity score, watch message helpers and session history CSV format as `shared/` and the Android app; its tests replay the same corpus and pinned counts. Run them with `swift test` there, or on GitHub in `.github/workflows/apple.yml`.
 - `shared/` - plain-Kotlin module that both `android/` and `wearos/` build in as `:shared`: the catch detector (`JugglingDetector.kt`, a line-for-line port of `JugglingDetector.mc`), the Regularity score (`ShapeConsistency.kt`) and the Wear OS Data Layer paths and JSON codec (`WatchProtocol.kt`). Its tests, including the corpus replays, run with `./gradlew :shared:test` from either app.
 - `android/` - Android companion app in Kotlin and Jetpack Compose.
   - `MainActivity.kt` - permissions, the phone accelerometer listener, and the watch cards' status.
@@ -156,10 +156,9 @@ Acknowledgement from phone to watch:
 
 ## Build And Test
 
-The Android phone app and the Garmin watch app are the main development
-streams; only they get continuous testing. Wear OS, the iPhone app and the
-Apple Watch app are side streams: their checks run only when started by hand.
-The Wear OS app is no longer released.
+Every app except the Garmin one is tested on every pull request that touches
+it; the Garmin tests need the Connect IQ simulator (below). The Wear OS app is
+no longer released.
 
 `.github/workflows/ci.yml` runs on every pull request and on `main` after
 merge: the Android unit tests (Compose UI tests included), Android Lint (which
@@ -167,8 +166,9 @@ fails the build on lint errors), a compile of the instrumented test suite, the
 shared module tests, and the detection tests. Reports are uploaded as
 artifacts when a run fails.
 
-`.github/workflows/wearos.yml` holds the Wear OS checks and runs only from the
-Actions tab (Run workflow): the Wear OS unit and Robolectric tests, Wear OS
+`.github/workflows/wearos.yml` holds the Wear OS checks and runs on every pull
+request that touches `wearos/`, `shared/` or the recordings, on `main` after
+merge, and from the Actions tab: the Wear OS unit and Robolectric tests, Wear OS
 Lint, a minified Wear OS release bundle, and the Wear OS instrumented tests on
 an emulator (API 30, large round), with the emulator screenshots uploaded.
 
@@ -190,8 +190,9 @@ constants and by pinning `REQUIREMENTS.md` to the tests that verify it.
 
 `.github/workflows/apple.yml` holds the iPhone and Apple Watch checks (the
 `JugglingCore` and `WatchLogic` Swift package tests, and both apps built and
-tested on simulators). It runs when the `run-apple-ci` label is added to a pull
-request, or from the Actions tab. Remove and re-add the label to run it again.
+tested on simulators). It runs on every pull request that touches `apple/`,
+the recordings or the pinned counts, on `main` after merge, and from the
+Actions tab.
 
 `.github/workflows/release-android.yml` is separate and fires only on `v*`
 tags. It publishes the **Android** phone app to the Play internal testing

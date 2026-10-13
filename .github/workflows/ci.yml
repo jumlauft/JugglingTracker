@@ -3,9 +3,10 @@ name: CI
 # Runs on every pull request, and on main after merge. Feature branches are
 # covered by their pull request, so pushing to one does not start a second run.
 #
-# Only the main development streams run here: the Android phone app, the
-# shared detector module and the detection tests. The Wear OS app is a side
-# stream; its checks are in wearos.yml and run only when started by hand.
+# This covers the Android phone app, the shared detector module and the
+# detection tests. The Wear OS checks are in wearos.yml and the iPhone and
+# Apple Watch checks in apple.yml; both also run on pull requests, whenever
+# their files change.
 #
 # Until this existed, the only workflow triggered on v* tags, which meant the
 # Android unit tests ran for the first time during a release and the detection

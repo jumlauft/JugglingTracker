@@ -115,9 +115,9 @@ cd wearos
 ./gradlew connectedDebugAndroidTest # on a Wear OS emulator or watch
 ```
 
-The Wear OS app is a side development stream, so these do not run on every
-push or pull request. `.github/workflows/wearos.yml` runs them when started by
-hand from the Actions tab (the shared tests run in the main CI's Android job),
+`.github/workflows/wearos.yml` runs them on every pull request that touches
+`wearos/`, `shared/` or the recordings, and on `main` after merge (the shared
+tests also run in the main CI's Android job),
 the last on a Wear OS emulator (API 30, large round), and uploads screenshots
 of each step as the `wear-emulator-screenshots` artifact. Wear OS releases
 stopped after v1.6: release tags publish only the phone app.

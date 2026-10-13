@@ -1,11 +1,26 @@
 name: Wear OS
 
-# The Wear OS watch app is a side development stream: it is not tested on
-# every push or pull request and gets no further releases. Run this by hand
-# from the Actions tab (Run workflow, then pick the branch) when Wear OS code
-# changes or before relying on the Wear OS app. The main CI (ci.yml) covers
-# the Android phone app, the shared detector module and the detection tests.
+# Checks for the Wear OS watch app. Runs on every pull request and on main
+# after merge whenever something the Wear OS app builds from or replays has
+# changed, and from the Actions tab (Run workflow) on any branch. The main CI
+# (ci.yml) covers the Android phone app, the shared detector module and the
+# detection tests. The Wear OS app gets no releases.
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'wearos/**'
+      - 'shared/**'
+      - 'connectiq/data/**'
+      - 'simulation/test_detection.py'
+      - '.github/workflows/wearos.yml'
+  pull_request:
+    paths:
+      - 'wearos/**'
+      - 'shared/**'
+      - 'connectiq/data/**'
+      - 'simulation/test_detection.py'
+      - '.github/workflows/wearos.yml'
   workflow_dispatch:
 
 concurrency:
