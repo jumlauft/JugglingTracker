@@ -309,7 +309,7 @@ final class TrackerSessionTests: XCTestCase {
         select(TrackerSession.itemSyncRetry)
         XCTAssertEqual(link.sent.count, 2)
         XCTAssertEqual(link.sent[0] as NSDictionary, link.sent[1] as NSDictionary)
-        link.ack()
+        link.ack(1_700_000_000)
         XCTAssertEqual(effects.exits, 1)
     }
 
@@ -320,8 +320,21 @@ final class TrackerSessionTests: XCTestCase {
         select(TrackerSession.itemSyncQuit)
         scheduler.advance(TrackerSession.syncTimeoutMs)
         XCTAssertEqual(state.menu?.title, "Sync failed")
-        link.ack()
+        link.ack(1_700_000_000)
         XCTAssertNil(state.menu)
+        XCTAssertEqual(effects.exits, 1)
+    }
+
+    func testSYNC2AnAckForAnotherSessionDoesNotCloseTheSession() {
+        warmUp()
+        completedRun(3)
+        session.onStartStop()
+        select(TrackerSession.itemSyncQuit)
+        link.ack(1_600_000_000) // a late answer to an earlier session
+        link.ack() // and one without a timestamp
+        XCTAssertEqual(effects.exits, 0)
+        XCTAssertTrue(state.sending)
+        link.ack(1_700_000_000)
         XCTAssertEqual(effects.exits, 1)
     }
 

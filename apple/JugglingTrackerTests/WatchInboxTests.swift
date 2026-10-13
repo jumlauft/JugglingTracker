@@ -53,6 +53,17 @@ final class WatchInboxTests: XCTestCase {
         XCTAssertTrue(sessions.sessions.isEmpty)
     }
 
+    func testASessionThatCouldNotBeWrittenIsNotAcked() throws {
+        // The history file's folder is a plain file, so every write fails.
+        let blocker = makeTempDirectory(self).appendingPathComponent("blocked")
+        try Data().write(to: blocker)
+        let failing = SessionStore(fileURL: blocker.appendingPathComponent("sessions.jsonl"))
+        let inbox = WatchInbox(sessions: failing, recordings: recordings)
+
+        XCTAssertNil(inbox.receive(session(1_780_000_000, [10, 20]), from: .garmin))
+        XCTAssertTrue(failing.sessions.isEmpty)
+    }
+
     func testAResentSessionIsAckedAgainAndReplacesTheFirstCopy() {
         inbox.receive(session(1_780_000_000, [10]), from: .garmin)
         let ack = inbox.receive(session(1_780_000_000, [10, 25]), from: .garmin)

@@ -14,7 +14,9 @@ private struct RawRecordingFlow: ViewModifier {
             )
         ) {
             RawRecordingSheet()
-                .interactiveDismissDisabled(model.rawRecording.step == .recording)
+                // A swipe down must not stop a recording or throw the
+                // recorded run away; only Cancel discards it.
+                .interactiveDismissDisabled(model.rawRecording.step == .recording || model.rawRecording.step == .enterCatches)
                 .presentationDetents([.medium])
         }
     }

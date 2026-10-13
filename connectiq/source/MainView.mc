@@ -445,6 +445,12 @@ class MainView extends WatchUi.View {
         if (_pendingPayload == null) {
             return;
         }
+        // SYNC-2: only the ack for this session counts. The phone echoes the
+        // timestamp it stored; a late ack for a session sent earlier must
+        // not close the app before this one is stored.
+        if (data["timestamp"] != _sessionTimestamp) {
+            return;
+        }
         _sending = false;
         cancelSyncTimer();
         cancelStatusTimer();

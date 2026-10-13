@@ -312,7 +312,9 @@ never treats time 0 as "no candidate yet".
 
 **SYNC-2.** The app closes **only** on the phone's `ack`, so data is never
 assumed delivered. Failure or a 10 s timeout opens a retry menu instead. The
-phone sends the `ack` only once the session is stored.
+phone sends the `ack` only once the session is on disk, and echoes the
+session's `timestamp` in it; an `ack` carrying any other timestamp (a late
+answer to an earlier session) is ignored.
 *Verified by:* not automatically tested — needs a radio.
 
 **SYNC-3.** Syncing a session with no completed runs is skipped and the app

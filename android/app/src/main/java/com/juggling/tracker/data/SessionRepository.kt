@@ -13,6 +13,8 @@ import org.json.JSONObject
 import java.io.File
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
+import java.util.concurrent.FutureTask
+import java.util.concurrent.TimeUnit
 
 /**
  * The finished-session history.
@@ -22,8 +24,10 @@ import java.util.concurrent.Executors
  * re-serialises the whole history. Only a delete rewrites the file (to a temp
  * file, then renamed over it, so a crash mid-write leaves the old history).
  *
- * Disk writes run in order on [writer], off the caller's thread; the in-memory
- * list is updated at once, so [getSessions] never waits on the disk.
+ * Disk writes run in order on [writer]. [importSession] waits for its write,
+ * because a watch deletes its copy once it is acked and the ack must only go
+ * out for a session that is on disk. Restoring and deleting do not wait: the
+ * in-memory list is updated at once, so [getSessions] never waits on the disk.
  *
  * Older builds kept the whole history as one JSON array string under
  * `sessions_json` in [sharedPrefs]. The first load moves it into [file] and
@@ -39,6 +43,8 @@ class SessionRepository(
         private const val PREFS_NAME = "juggling_sessions"
         private const val FILE_NAME = "sessions.jsonl"
         private const val LEGACY_SESSIONS_KEY = "sessions_json"
+        // Long enough for any real write; a disk that takes longer counts as failed.
+        private const val IMPORT_WRITE_TIMEOUT_SECONDS = 5L
     }
 
     constructor(context: Context) : this(
@@ -63,7 +69,8 @@ class SessionRepository(
     // transfer under a timestamp already stored replaces that session. A
     // plain retransmission replaces it with the same data, and a session the
     // user carried on with after a lost ack comes back with more runs.
-    // Returns the stored summary, or null when there were no runs to store.
+    // Returns the stored summary once it is on disk, or null when there were
+    // no runs to store or the write failed; then the history is left as it was.
     @Synchronized
     fun importSession(
         ballCount: Int,
@@ -79,16 +86,28 @@ class SessionRepository(
             timestamp, ballCount, runs, durationSeconds, runDurationsMillis, shapeConsistency,
         )
         val existing = sessionsCache.indexOfFirst { it.timestamp == timestamp }
-        if (existing >= 0) {
+        val written = if (existing >= 0) {
             // Replacing a stored session rewrites the file; the common case,
             // a new session, only appends.
+            val previous = sessionsCache[existing]
             sessionsCache[existing] = session
-            saveSessionsToStorage()
+            awaitWrite(saveSessionsToStorage()).also { if (!it) sessionsCache[existing] = previous }
         } else {
             sessionsCache.add(0, session)
-            appendToStorage(session)
+            awaitWrite(appendToStorage(session)).also { if (!it) sessionsCache.remove(session) }
         }
-        return session
+        return if (written) session else null
+    }
+
+    /** Waits for a queued write; false when it failed or took too long. */
+    private fun awaitWrite(write: FutureTask<Boolean>): Boolean {
+        return try {
+            write.get(IMPORT_WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        } catch (e: Exception) {
+            Log.e(TAG, "Session write did not finish", e)
+            CrashlyticsUtils.recordException(e)
+            false
+        }
     }
 
     /**
@@ -113,30 +132,34 @@ class SessionRepository(
         }
     }
     
-    /** Queue one new session to be appended to [file]. Call with the lock held. */
-    private fun appendToStorage(session: SessionSummary) {
+    /**
+     * Queue one new session to be appended to [file]. Call with the lock held.
+     * The task's result says whether the line was written.
+     */
+    private fun appendToStorage(session: SessionSummary): FutureTask<Boolean> {
         val line = buildSessionJson(session) + "\n"
-        writer.execute {
-            try {
-                file.appendText(line)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to append session to storage", e)
-                CrashlyticsUtils.recordException(e)
-            }
-        }
+        return queueWrite("Failed to append session to storage") { file.appendText(line) }
     }
 
     /** Queue a rewrite of [file] with the whole history. Call with the lock held. */
-    private fun saveSessionsToStorage() {
+    private fun saveSessionsToStorage(): FutureTask<Boolean> {
         val lines = sessionsCache.asReversed().map { buildSessionJson(it) }
-        writer.execute {
+        return queueWrite("Failed to save sessions to storage") { writeAll(lines) }
+    }
+
+    private fun queueWrite(failure: String, write: () -> Unit): FutureTask<Boolean> {
+        val task = FutureTask {
             try {
-                writeAll(lines)
+                write()
+                true
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to save sessions to storage", e)
+                Log.e(TAG, failure, e)
                 CrashlyticsUtils.recordException(e)
+                false
             }
         }
+        writer.execute(task)
+        return task
     }
 
     private fun writeAll(lines: List<String>) {

@@ -95,7 +95,8 @@ final class WatchInbox {
     // MARK: - Sessions
 
     /// Stores one finished session (see `SessionSummary.fromWatchPayload` for
-    /// the payload). Returns it, or nil when the payload holds no session.
+    /// the payload). Returns it, or nil when the payload holds no session or
+    /// it could not be written; then no ack may go.
     @discardableResult
     func importSession(_ payload: [String: Any], from source: Source) -> SessionSummary? {
         guard let session = SessionSummary.fromWatchPayload(payload) else { return nil }
@@ -105,7 +106,7 @@ final class WatchInbox {
             "total_throws": session.totalThrows,
             "source": source.analyticsName,
         ])
-        sessions?.store(session)
+        if let sessions, !sessions.store(session) { return nil }
         publish(.sessionStored(session))
         return session
     }

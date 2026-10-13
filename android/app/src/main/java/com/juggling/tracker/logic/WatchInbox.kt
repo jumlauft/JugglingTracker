@@ -124,7 +124,8 @@ class WatchInbox(
      * runs: List<Number>, shapeConsistency: Number (optional, whole percent) }.
      * Runs are watch-hand catch counts; the phone only records what it receives.
      *
-     * Returns the stored session, or null when the payload holds no session.
+     * Returns the stored session, or null when the payload holds no session
+     * or it could not be written; then no ack may go.
      */
     fun importSession(payload: Map<String, Any>, source: Source): SessionSummary? {
         val balls = (payload["balls"] as? Number)?.toInt() ?: return null
@@ -145,8 +146,12 @@ class WatchInbox(
         val runDurationsMillis = normalizeRunDurations(runs.size, parseLongList(payload["runDurationsMillis"]))
         val shapeConsistency = parseShapeConsistency(payload["shapeConsistency"])
 
-        val session = repository?.importSession(balls, timestamp, runs, durationSeconds, runDurationsMillis, shapeConsistency)
-            ?: summarizeSession(timestamp, balls, runs, durationSeconds, runDurationsMillis, shapeConsistency)
+        val session = if (repository != null) {
+            repository.importSession(balls, timestamp, runs, durationSeconds, runDurationsMillis, shapeConsistency)
+                ?: return null
+        } else {
+            summarizeSession(timestamp, balls, runs, durationSeconds, runDurationsMillis, shapeConsistency)
+        }
         publish(Event.SessionStored(session))
         return session
     }

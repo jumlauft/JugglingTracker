@@ -9,8 +9,10 @@ import JugglingCore
 /// session appends one line; replacing, restoring or deleting rewrites the
 /// whole file atomically, so a crash mid-write leaves the old history.
 ///
-/// Disk writes run in order on a serial queue; the in-memory list is updated
-/// at once, so `sessions` never waits on the disk. Use from the main thread.
+/// Disk writes run in order on a serial queue. Storing a session waits for
+/// its write, because a watch deletes its copy once it is acked and the ack
+/// must only go out for a session that is on disk. Restoring and deleting do
+/// not wait: the in-memory list is updated at once. Use from the main thread.
 final class SessionStore {
     static let fileName = "sessions.jsonl"
 
@@ -35,7 +37,8 @@ final class SessionStore {
     /// Stores one finished session, replacing the one stored under its
     /// timestamp if there is one: a watch resends under the same timestamp
     /// when it retries, or after the user carried on juggling. Returns the
-    /// stored summary, or nil when there were no runs to store.
+    /// stored summary once it is on disk, or nil when there were no runs to
+    /// store or the write failed.
     @discardableResult
     func importSession(
         ballCount: Int,
@@ -50,21 +53,26 @@ final class SessionStore {
             timestamp: timestamp, ballCount: ballCount, runs: runs, durationSeconds: durationSeconds,
             runDurationsMillis: runDurationsMillis, shapeConsistency: shapeConsistency
         )
-        store(session)
-        return session
+        return store(session) ? session : nil
     }
 
     /// Stores a summary built elsewhere (a watch payload), with the same
-    /// replace-by-timestamp rule as `importSession`.
-    func store(_ session: SessionSummary) {
+    /// replace-by-timestamp rule as `importSession`, and waits for the write.
+    /// Returns false, leaving the history as it was, when the write failed.
+    @discardableResult
+    func store(_ session: SessionSummary) -> Bool {
+        let before = sessions
+        let written: Bool
         if let existing = sessions.firstIndex(where: { $0.timestamp == session.timestamp }) {
             sessions[existing] = session
-            rewrite()
+            written = rewrite(wait: true)
         } else {
             sessions.insert(session, at: 0)
             sessions.sort { $0.timestamp > $1.timestamp }
-            append(session)
+            written = append(session)
         }
+        if !written { sessions = before }
+        return written
     }
 
     /// Adds the sessions of a backup that are not stored yet (see
@@ -99,11 +107,12 @@ final class SessionStore {
         return data
     }
 
-    private func append(_ session: SessionSummary) {
-        guard let line = Self.line(session) else { return }
+    /// Appends one line and waits for it. Returns whether it was written.
+    private func append(_ session: SessionSummary) -> Bool {
+        guard let line = Self.line(session) else { return false }
         let url = fileURL
         let errors = errors
-        writer.async {
+        return writer.sync { () -> Bool in
             do {
                 if let handle = try? FileHandle(forWritingTo: url) {
                     defer { try? handle.close() }
@@ -115,29 +124,39 @@ final class SessionStore {
                     )
                     try line.write(to: url, options: .atomic)
                 }
+                return true
             } catch {
                 errors(error)
+                return false
             }
         }
     }
 
-    private func rewrite() {
+    /// Rewrites the whole file. With `wait`, waits for it and returns whether
+    /// it was written; otherwise queues it and returns true.
+    @discardableResult
+    private func rewrite(wait: Bool = false) -> Bool {
         var data = Data()
         for session in sessions.reversed() {
             if let line = Self.line(session) { data.append(line) }
         }
         let url = fileURL
         let errors = errors
-        writer.async {
+        let write = { () -> Bool in
             do {
                 try FileManager.default.createDirectory(
                     at: url.deletingLastPathComponent(), withIntermediateDirectories: true
                 )
                 try data.write(to: url, options: .atomic)
+                return true
             } catch {
                 errors(error)
+                return false
             }
         }
+        if wait { return writer.sync(execute: write) }
+        writer.async { _ = write() }
+        return true
     }
 
     private func load() {
