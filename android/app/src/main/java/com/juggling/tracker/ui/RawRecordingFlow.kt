@@ -93,7 +93,9 @@ fun RawRecordingFlow(
         com.juggling.tracker.logic.RawRecordingStep.ENTER_CATCHES -> {
             var catchesText by remember { mutableStateOf("") }
             AlertDialog(
-                onDismissRequest = onCancel,
+                // A tap outside or BACK must not throw the recorded run away;
+                // only Cancel discards it.
+                onDismissRequest = { },
                 title = { Text(stringResource(R.string.dialog_enter_catches_title)) },
                 text = {
                     Column {

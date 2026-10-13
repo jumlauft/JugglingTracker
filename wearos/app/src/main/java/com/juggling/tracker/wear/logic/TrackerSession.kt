@@ -318,6 +318,11 @@ class TrackerSession(
     private fun onPhoneMessage(data: Map<String, Any?>) {
         if (data["type"] != "ack") return
         if (pendingPayload == null) return
+        // Only the ack for this session counts: the phone echoes the timestamp
+        // it stored, and a late ack for a session sent earlier must not close
+        // the app before this one is stored.
+        val ackTimestamp = (data["timestamp"] as? Number)?.toLong()
+        if (ackTimestamp != sessionTimestamp) return
         sending = false
         cancelSyncTimer()
         cancelStatusTimer()

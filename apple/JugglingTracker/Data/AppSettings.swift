@@ -68,8 +68,14 @@ final class AppSettings {
     }
 
     var watchType: WatchType {
-        didSet { defaults.set(watchType.rawValue, forKey: Key.watchType) }
+        didSet {
+            defaults.set(watchType.rawValue, forKey: Key.watchType)
+            onWatchTypeChange?(watchType)
+        }
     }
+
+    /// Told about every new watch choice; the app starts the Garmin link with it.
+    @ObservationIgnored var onWatchTypeChange: ((WatchType) -> Void)?
 
     /// Who juggles, as last entered in Settings or when exporting; blank until then.
     private(set) var jugglerName: String

@@ -68,6 +68,40 @@ class WatchInboxTest {
     }
 
     @Test
+    fun `a session that could not be written is not acked`() {
+        // The history file's folder is a plain file, so every write fails.
+        val blocked = File(tempDir, "blocked").apply { writeText("") }
+        val failing = SessionRepository(
+            FakeSharedPreferences(),
+            File(blocked, "sessions.jsonl"),
+            java.util.concurrent.Executor { it.run() },
+        )
+        val inbox = WatchInbox(failing, recordings)
+
+        val ack = inbox.receive(session(1_780_000_000L, listOf(10, 20)), WatchInbox.Source.GARMIN)
+
+        assertNull(ack)
+        assertTrue(failing.getSessions().isEmpty())
+    }
+
+    @Test
+    fun `the ack waits for a write still queued on the writer thread`() {
+        val writer = java.util.concurrent.Executors.newSingleThreadExecutor()
+        try {
+            val file = File(tempDir, "queued.jsonl")
+            val queued = SessionRepository(FakeSharedPreferences(), file, writer)
+            val inbox = WatchInbox(queued, recordings)
+
+            val ack = inbox.receive(session(1_780_000_000L, listOf(10)), WatchInbox.Source.WEAR_OS)
+
+            assertEquals(WatchInbox.Ack(1_780_000_000L), ack)
+            assertEquals(1, file.readLines().count { it.isNotBlank() })
+        } finally {
+            writer.shutdown()
+        }
+    }
+
+    @Test
     fun `the session is stored before the ack is handed back`() {
         var storedWhenNotified = false
         inbox.addListener { event ->

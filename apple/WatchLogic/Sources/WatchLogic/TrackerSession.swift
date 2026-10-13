@@ -319,6 +319,10 @@ public final class TrackerSession {
     private func onPhoneMessage(_ data: [String: Any]) {
         guard data["type"] as? String == WatchProtocol.typeAck else { return }
         guard pendingPayload != nil else { return }
+        // Only the ack for this session counts: the phone echoes the timestamp
+        // it stored, and a late ack for a session sent earlier must not close
+        // the session before this one is stored.
+        guard WatchProtocol.int64(data["timestamp"]) == sessionTimestamp else { return }
         sending = false
         cancelSyncTimer()
         cancelStatusTimer()

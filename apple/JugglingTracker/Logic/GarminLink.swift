@@ -169,7 +169,11 @@ final class GarminLink: WatchLink, ConnectIQClientDelegate {
     /// before. Returns false for any other URL.
     @discardableResult
     func handleOpenURL(_ url: URL) -> Bool {
-        guard url.scheme == Self.urlScheme, let chosen = client.parseDeviceSelection(url) else { return false }
+        guard url.scheme == Self.urlScheme else { return false }
+        // The link starts only with Garmin chosen; an answer from Garmin
+        // Connect means it is wanted now.
+        if !initialized { start() }
+        guard let chosen = client.parseDeviceSelection(url) else { return false }
         devices = chosen
         saveDevices(chosen)
         connect()

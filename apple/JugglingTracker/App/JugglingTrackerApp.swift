@@ -63,7 +63,12 @@ final class AppServices {
             if let balls = ScreenshotMode.ballCount { model.selectHistoryBallCount(balls) }
             return
         }
-        garmin.start()
+        // The Garmin link only starts once Garmin is the chosen watch, as on
+        // Android, where it also asks for Bluetooth permissions.
+        if settings.watchType == .garmin { garmin.start() }
+        settings.onWatchTypeChange = { [weak garmin] type in
+            if type == .garmin { garmin?.start() }
+        }
         apple.start()
     }
 

@@ -332,7 +332,7 @@ class TrackerSessionTest {
         select(TrackerSession.ITEM_SYNC_RETRY)
         assertEquals(2, link.sent.size)
         assertEquals(link.sent[0], link.sent[1])
-        link.ack()
+        link.ack(1_700_000_000L)
         assertEquals(1, effects.exits)
     }
 
@@ -344,8 +344,22 @@ class TrackerSessionTest {
         select(TrackerSession.ITEM_SYNC_QUIT)
         scheduler.advance(TrackerSession.SYNC_TIMEOUT_MS)
         assertEquals("Sync failed", state.menu!!.title)
-        link.ack()
+        link.ack(1_700_000_000L)
         assertNull(state.menu)
+        assertEquals(1, effects.exits)
+    }
+
+    @Test
+    fun `SYNC-2 an ack for another session does not close the app`() {
+        warmUp()
+        completedRun(3)
+        session.onStartStop()
+        select(TrackerSession.ITEM_SYNC_QUIT)
+        link.ack(1_600_000_000L) // a late answer to an earlier session
+        link.ack() // and one without a timestamp
+        assertEquals(0, effects.exits)
+        assertTrue(state.sending)
+        link.ack(1_700_000_000L)
         assertEquals(1, effects.exits)
     }
 

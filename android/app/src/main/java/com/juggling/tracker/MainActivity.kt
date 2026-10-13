@@ -13,6 +13,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -20,6 +21,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.google.android.gms.tasks.Tasks
 import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.Wearable
+import com.juggling.tracker.data.WatchType
 import com.juggling.tracker.logic.GarminConnectionStatus
 import com.juggling.tracker.logic.JugglingViewModel
 import com.juggling.tracker.logic.WearConnectionStatus
@@ -68,6 +70,13 @@ class MainActivity : ComponentActivity() {
         garminLink.setStatusListener(viewModel::onGarminLinkStatus)
 
         setContent {
+            // The Garmin SDK and its Bluetooth permissions are only needed
+            // with a Garmin watch: someone with a Wear OS watch is not asked
+            // for them, and choosing Garmin in Settings asks then.
+            val watchType = viewModel.watchType
+            LaunchedEffect(watchType) {
+                if (watchType == WatchType.GARMIN) ensurePermissionsThenInitialize()
+            }
             JugglingTrackerTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -86,8 +95,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-
-        ensurePermissionsThenInitialize()
 
         // The Wear OS watch app's messages arrive in WatchMessageService, even
         // with this screen closed. Here only the card's status is followed.

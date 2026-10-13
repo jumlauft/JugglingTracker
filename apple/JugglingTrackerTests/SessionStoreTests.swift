@@ -36,6 +36,24 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertEqual(again.sessions[0].runHistory, [10, 25])
     }
 
+    func testAnImportIsOnDiskWhenItReturns() {
+        let store = SessionStore(fileURL: file)
+        store.importSession(ballCount: 3, timestamp: 1_000, runs: [10])
+
+        // No flush: the watch is acked as soon as the import returns.
+        XCTAssertEqual(SessionStore(fileURL: file).sessions.count, 1)
+    }
+
+    func testASessionThatCannotBeWrittenIsNotStored() throws {
+        // The history file's folder is a plain file, so every write fails.
+        let blocker = file.deletingLastPathComponent().appendingPathComponent("blocked")
+        try Data().write(to: blocker)
+        let store = SessionStore(fileURL: blocker.appendingPathComponent("sessions.jsonl"))
+
+        XCTAssertNil(store.importSession(ballCount: 3, timestamp: 1_000, runs: [10]))
+        XCTAssertTrue(store.sessions.isEmpty)
+    }
+
     func testASessionWithoutRunsIsNotStored() {
         let store = SessionStore(fileURL: file)
         XCTAssertNil(store.importSession(ballCount: 3, timestamp: 1_000, runs: []))
