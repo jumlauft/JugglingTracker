@@ -177,7 +177,7 @@ class GarminLink(context: Context, private val inbox: WatchInbox) {
                     else text(R.string.garmin_connected, name),
                 )
             } else {
-                setStatus(GarminConnectionStatus.DISCONNECTED, text(R.string.garmin_disconnected))
+                setStatus(GarminConnectionStatus.DISCONNECTED, text(R.string.garmin_link_disconnected))
             }
 
             registerImuAppListener()
@@ -213,7 +213,7 @@ class GarminLink(context: Context, private val inbox: WatchInbox) {
                         registerImuAppListener()
                     }
                     IQDevice.IQDeviceStatus.NOT_CONNECTED ->
-                        setStatus(GarminConnectionStatus.DISCONNECTED, text(R.string.garmin_disconnected))
+                        setStatus(GarminConnectionStatus.DISCONNECTED, text(R.string.garmin_link_disconnected))
                     else ->
                         setStatus(GarminConnectionStatus.SDK_ERROR, text(R.string.garmin_unknown_device_status, deviceStatus.name))
                 }
@@ -238,7 +238,7 @@ class GarminLink(context: Context, private val inbox: WatchInbox) {
             handler.post {
                 setStatus(
                     GarminConnectionStatus.WATCH_APP_MISSING,
-                    text(R.string.garmin_watch_app_missing),
+                    text(R.string.garmin_link_watch_app_missing),
                 )
             }
             return

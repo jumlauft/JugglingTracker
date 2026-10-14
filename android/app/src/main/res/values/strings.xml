@@ -194,7 +194,7 @@
     <!-- Garmin link messages under the watch card (GarminLink) -->
     <string name="garmin_connected">Connected to %1$s</string>
     <string name="garmin_connected_several">Connected to %1$s (%2$d paired)</string>
-    <string name="garmin_disconnected">Watch disconnected from phone</string>
+    <string name="garmin_link_disconnected">Watch disconnected from phone</string>
     <string name="garmin_sdk_failed">Garmin SDK failed to start. Please restart the app.</string>
     <string name="garmin_sdk_error">Garmin SDK error: %1$s. Please restart the app.</string>
     <string name="garmin_connect_missing">Garmin Connect app not found. Please install it from the Play Store.</string>
@@ -202,7 +202,7 @@
     <string name="garmin_no_paired_devices">No paired Garmin devices found. Link your watch in the Garmin ConnectIQ app.</string>
     <string name="garmin_device_error">Error finding device. Ensure Bluetooth is active.</string>
     <string name="garmin_unknown_device_status">Unknown device status: %1$s</string>
-    <string name="garmin_watch_app_missing">Install the Juggling Tracker watch app from the Connect IQ Store.</string>
+    <string name="garmin_link_watch_app_missing">Install the Juggling Tracker watch app from the Connect IQ Store.</string>
     <string name="garmin_bluetooth_permission">Bluetooth permissions are required for Garmin sync.</string>
     <string name="garmin_bluetooth_off">Turn on bluetooth to receive data from watch</string>
 </resources>
