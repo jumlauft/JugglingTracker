@@ -2,8 +2,9 @@
 import PackageDescription
 
 // The code the iPhone app and the Apple Watch app share: the catch detector,
-// the Regularity score, the watch message codec and the session history
-// format. It is the Swift counterpart of the Kotlin `shared/` module and has
+// the Regularity score, the watch message codec, the 25 Hz sample throttle,
+// the session summary and history CSV, and the recording CSV header and chunk
+// reassembly. It is the Swift counterpart of the Kotlin `shared/` module and has
 // no dependency on UIKit, SwiftUI, CoreMotion or WatchConnectivity, so its
 // tests run with plain `swift test`.
 let package = Package(

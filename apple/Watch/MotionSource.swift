@@ -1,5 +1,6 @@
 import CoreMotion
 import Foundation
+import JugglingCore
 import WatchLogic
 
 /// The accelerometer, as the Garmin's `Sensor.registerSensorDataListener`

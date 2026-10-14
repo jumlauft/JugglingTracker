@@ -1,19 +1,5 @@
 import Foundation
-
-/// Who juggled a run: their name, the wrist wearing the watch (or phone) and
-/// the hand that made the first throw, each "left" or "right".
-struct Juggler: Equatable {
-    static let left = "left"
-    static let right = "right"
-
-    var name: String
-    var hand: String
-    var firstThrow: String
-
-    var headerFields: [String] {
-        ["juggler=\(RecordingStore.headerSafe(name))", "hand=\(hand)", "firstThrow=\(firstThrow)"]
-    }
-}
+import JugglingCore
 
 /// Raw accelerometer recordings, one CSV file per run under `directory`.
 /// Counterpart of the Android app's `data/RecordingRepository.kt`, writing
@@ -32,7 +18,6 @@ struct Juggler: Equatable {
 final class RecordingStore {
     static let sourceWatch = "watch"
     static let sourcePhone = "phone"
-    private static let exportKeys: Set<String> = ["juggler", "hand", "firstThrow"]
 
     struct Summary: Equatable, Identifiable {
         var fileName: String
@@ -63,62 +48,6 @@ final class RecordingStore {
         RecordingStore(directory: AppFiles.supportDirectory.appendingPathComponent("recordings", isDirectory: true))
     }
 
-    // MARK: - Header helpers
-
-    /// The juggler's name as a header value: the characters that separate
-    /// header fields and lines become spaces.
-    static func headerSafe(_ name: String) -> String {
-        let replaced = name.map { ",=#\r\n".contains($0) ? " " : String($0) }.joined()
-        return replaced.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
-    }
-
-    /// `header` with juggler, hand and firstThrow set, replacing any it carries.
-    static func withJuggler(_ header: String, _ juggler: Juggler) -> String {
-        var body = header
-        if body.hasPrefix("#") { body.removeFirst() }
-        let kept = body.trimmingCharacters(in: .whitespaces)
-            .split(separator: ",", omittingEmptySubsequences: false)
-            .map(String.init)
-            .filter { part in
-                let key = part.split(separator: "=", maxSplits: 1).first.map {
-                    String($0).trimmingCharacters(in: .whitespaces)
-                } ?? ""
-                return !part.trimmingCharacters(in: .whitespaces).isEmpty && !exportKeys.contains(key)
-            }
-        return "# " + (kept + juggler.headerFields).joined(separator: ",")
-    }
-
-    static func headerFields(_ header: String) -> [String: String] {
-        var body = header
-        if body.hasPrefix("#") { body.removeFirst() }
-        var fields: [String: String] = [:]
-        for part in body.trimmingCharacters(in: .whitespaces).split(separator: ",") {
-            let kv = part.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
-            guard kv.count == 2 else { continue }
-            fields[kv[0].trimmingCharacters(in: .whitespaces)] = kv[1].trimmingCharacters(in: .whitespaces)
-        }
-        return fields
-    }
-
-    static func juggler(of fields: [String: String]) -> Juggler? {
-        guard let name = fields["juggler"], !name.isEmpty,
-              let hand = fields["hand"], hand == Juggler.left || hand == Juggler.right,
-              let first = fields["firstThrow"], first == Juggler.left || first == Juggler.right
-        else { return nil }
-        return Juggler(name: name, hand: hand, firstThrow: first)
-    }
-
-    /// The run id and file name stem: the capture time as yyyyMMdd_HHmmss in
-    /// the phone's time zone.
-    static func runId(timestamp: Int64, timeZone: TimeZone = .current) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.timeZone = timeZone
-        formatter.dateFormat = "yyyyMMdd_HHmmss"
-        return formatter.string(from: Date(timeIntervalSince1970: TimeInterval(timestamp)))
-    }
-
     // MARK: - Saving and reading
 
     /// Saves one run to its own CSV file. `timestamp` is epoch seconds.
@@ -130,13 +59,13 @@ final class RecordingStore {
     ) -> URL? {
         guard !x.isEmpty else { return nil }
         let n = min(x.count, y.count, z.count)
-        let runId = Self.runId(timestamp: timestamp)
+        let runId = RecordingHeader.runId(timestamp: timestamp)
         let url = directory.appendingPathComponent("\(runId).csv")
 
-        var header = "# run=\(runId),timestamp=\(timestamp),balls=\(balls),catches=\(catches)" +
-            ",sampleRate=\(sampleRate),units=milli_g,source=\(source)" +
-            ",countMode=watch_hand,detectedAtCapture=\(detected)"
-        if let juggler { header += "," + juggler.headerFields.joined(separator: ",") }
+        let header = RecordingHeader.line(
+            runId: runId, timestamp: timestamp, balls: balls, catches: catches, sampleRate: sampleRate,
+            source: source, detected: detected, juggler: juggler
+        )
         var text = header + "\nx,y,z\n"
         text.reserveCapacity(text.count + n * 16)
         for i in 0..<n {
@@ -153,7 +82,9 @@ final class RecordingStore {
             fileName: url.lastPathComponent, balls: balls, catches: catches, detected: detected,
             sampleRate: sampleRate, timestamp: timestamp, samples: n, source: source,
             // As a re-read of the header would give it back.
-            juggler: juggler.flatMap { Self.juggler(of: Self.headerFields($0.headerFields.joined(separator: ","))) }
+            juggler: juggler.flatMap {
+                RecordingHeader.juggler(of: RecordingHeader.fields($0.headerFields.joined(separator: ",")))
+            }
         )
         lock.withLock { summaryCache[url.lastPathComponent] = summary }
         return url
@@ -195,7 +126,7 @@ final class RecordingStore {
             }
         }
         guard let header else { return nil }
-        let fields = Self.headerFields(header)
+        let fields = RecordingHeader.fields(header)
         guard let balls = fields["balls"].flatMap({ Int($0) }) else { return nil }
         let sampleRate = fields["sampleRate"].flatMap { Int($0) } ?? 0
         return Summary(
@@ -208,7 +139,7 @@ final class RecordingStore {
             samples: samples,
             // Runs from before the source was stored: the watch runs at 25 Hz.
             source: fields["source"] ?? (sampleRate <= 25 ? Self.sourceWatch : Self.sourcePhone),
-            juggler: Self.juggler(of: fields)
+            juggler: RecordingHeader.juggler(of: fields)
         )
     }
 
@@ -221,10 +152,10 @@ final class RecordingStore {
             let raw = line.hasSuffix("\r") ? String(line.dropLast()) : String(line)
             if raw.trimmingCharacters(in: .whitespaces).isEmpty { continue }
             if raw.hasPrefix("#") {
-                if let own = Self.juggler(of: Self.headerFields(raw)) {
-                    out += Self.withJuggler(raw, own)
+                if let own = RecordingHeader.juggler(of: RecordingHeader.fields(raw)) {
+                    out += RecordingHeader.withJuggler(raw, own)
                 } else if let fallback {
-                    out += Self.withJuggler(raw, fallback)
+                    out += RecordingHeader.withJuggler(raw, fallback)
                 } else {
                     out += raw
                 }

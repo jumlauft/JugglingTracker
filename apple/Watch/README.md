@@ -11,14 +11,14 @@ later.
 
 ## Layout
 
-- `../JugglingCore/` - the detector, the Regularity score and the message
-  codec, shared with the iPhone app.
+- `../JugglingCore/` - the detector, the Regularity score, the message codec
+  and the throttle that thins the sensor stream to 25 Hz on a 40 ms grid,
+  shared with the iPhone app.
 - `../WatchLogic/` - everything with behaviour, with no UI, sensor or radio
   types, so `swift test` covers it:
   - `TrackerSession.swift` - Juggle mode (`MainView.mc`): runs, menus, sync.
   - `RecordingSession.swift` - Record mode (`RecordingView.mc`).
   - `AppNavigator.swift` - mode and ball selection, and button routing.
-  - `SampleThrottle.swift` - thins the sensor stream to 25 Hz on a 40 ms grid.
   - `Format.swift` - display strings, identical to what the Garmin draws.
   - `Platform.swift` - the timer, clock, phone link and vibration interfaces.
   - `ConnectivityPhoneLink.swift` - the phone link over WatchConnectivity.
@@ -89,8 +89,7 @@ name carries its requirement id.
 | Requirements | Tests |
 |---|---|
 | APP-1 to APP-5, REC-11 | `AppNavigatorTests` |
-| DET-1 (25 Hz) | `SampleThrottleTests` |
-| DET-2 to DET-11, RUN, SHAPE-1 to SHAPE-3 | `../JugglingCore/Tests` |
+| DET-1 to DET-11, RUN, SHAPE-1 to SHAPE-3 | `../JugglingCore/Tests` (DET-1 in `SampleThrottleTests`) |
 | SHAPE-4, JUG-1 formats | `FormatTests` |
 | JUG-1 to JUG-8, SYNC-1 to SYNC-5 | `TrackerSessionTests` |
 | REC-1 to REC-10 | `RecordingSessionTests` |

@@ -113,74 +113,23 @@ final class WatchInbox {
 
     // MARK: - Recorded runs
     //
-    // The Garmin cannot send a dictionary holding hundreds of numbers, so a
-    // run arrives as rec_start, a series of rec_chunk parts, then rec_end.
-    // Only rec_end is acknowledged, after the run has been written. A retry
-    // from the watch starts again with rec_start.
+    // A run arrives as rec_start, rec_chunk parts and rec_end, put back
+    // together by JugglingCore's RecordingTransfer. Only rec_end is
+    // acknowledged, after the run has been written.
 
-    private struct IncomingRecording {
-        let id: Int64
-        let balls: Int
-        let catches: Int
-        let detected: Int
-        let sampleRate: Int
-        let totalSamples: Int
-        let totalChunks: Int
-        var x: [Int] = []
-        var y: [Int] = []
-        var z: [Int] = []
-        var nextChunk = 0
-    }
-
-    private var incoming: IncomingRecording?
+    private var transfer = RecordingTransfer()
 
     func startRecordingTransfer(_ payload: [String: Any]) {
-        guard let id = WatchProtocol.int64(payload["id"]),
-              let balls = WatchProtocol.int(payload["balls"]),
-              let catches = WatchProtocol.int(payload["catches"])
-        else { return }
-        incoming = IncomingRecording(
-            id: id,
-            balls: balls,
-            catches: catches,
-            detected: WatchProtocol.int(payload["detected"]) ?? 0,
-            sampleRate: WatchProtocol.int(payload["sampleRate"]) ?? 25,
-            totalSamples: WatchProtocol.int(payload["samples"]) ?? 0,
-            totalChunks: WatchProtocol.int(payload["chunks"]) ?? 0
-        )
+        transfer.start(payload)
     }
 
     func appendRecordingChunk(_ payload: [String: Any]) {
-        guard var run = incoming, WatchProtocol.int64(payload["id"]) == run.id,
-              let index = WatchProtocol.int(payload["i"])
-        else { return }
-        // Already have this one: a transport may deliver a message twice.
-        if index < run.nextChunk { return }
-        if index > run.nextChunk {
-            // A chunk was lost; drop the run rather than write bad training
-            // data. rec_end then goes unacked and the watch offers a retry.
-            incoming = nil
-            return
-        }
-        guard let xs = WatchProtocol.intList(payload["x"]),
-              let ys = WatchProtocol.intList(payload["y"]),
-              let zs = WatchProtocol.intList(payload["z"])
-        else { return }
-        run.x += xs
-        run.y += ys
-        run.z += zs
-        run.nextChunk = index + 1
-        incoming = run
+        transfer.append(payload)
     }
 
     /// Returns true when a complete run was written.
     func finishRecordingTransfer(_ payload: [String: Any], from source: Source) -> Bool {
-        guard let run = incoming else { return false }
-        incoming = nil
-        guard WatchProtocol.int64(payload["id"]) == run.id,
-              run.nextChunk == run.totalChunks,
-              run.x.count == run.totalSamples
-        else { return false }
+        guard let run = transfer.finish(payload) else { return false }
 
         Telemetry.shared.log("import_recording", [
             "ball_count": run.balls,

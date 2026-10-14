@@ -1,9 +1,9 @@
-import JugglingCore
-
-/// Thins a faster sensor stream to the detector's 25 Hz (DET-1). It keeps one
-/// sample per 40 ms slot on a fixed grid; measuring 40 ms from the last kept
-/// sample instead would drop a sensor running at, say, 30 ms intervals to
-/// about 17 Hz.
+/// Thins a faster accelerometer stream to the detector's 25 Hz (DET-1): the
+/// iPhone's 100 Hz sensor and the Apple Watch's 50 Hz CoreMotion stream. It
+/// keeps one sample per 40 ms slot on a fixed grid; measuring 40 ms from the
+/// last kept sample instead lets timestamp jitter push every slot later and
+/// drops about one slot in twenty. Same logic as `SampleThrottle.kt` in the
+/// Kotlin `shared/` module.
 public struct SampleThrottle {
     private let periodMs: Int64
     private var nextDueMs: Int64?
