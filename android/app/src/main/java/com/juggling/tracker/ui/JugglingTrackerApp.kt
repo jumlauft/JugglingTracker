@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.juggling.tracker.R
 import com.juggling.tracker.logic.JugglingEvent
 import com.juggling.tracker.logic.JugglingViewModel
-import com.juggling.tracker.model.SessionSummary
+import com.juggling.tracker.shared.SessionSummary
 import java.util.*
 
 enum class Screen {

@@ -15,7 +15,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.juggling.tracker.JugglingTrackerApplication
-import com.juggling.tracker.data.SessionCsv
+import com.juggling.tracker.shared.SessionCsv
 import com.juggling.tracker.data.SessionRepository
 import com.juggling.tracker.data.SettingsManager
 import com.juggling.tracker.util.CrashlyticsUtils

@@ -3,6 +3,8 @@ package com.juggling.tracker.logic
 import com.juggling.tracker.FakeSharedPreferences
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.data.SessionRepository
+import com.juggling.tracker.shared.Juggler
+import com.juggling.tracker.shared.RecordingHeader
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -176,7 +178,7 @@ class WatchInboxTest {
 
     @Test
     fun `a run is saved with whoever is juggling`() {
-        val ada = RecordingRepository.Juggler("Ada", RecordingRepository.HAND_LEFT, RecordingRepository.HAND_RIGHT)
+        val ada = Juggler("Ada", RecordingHeader.HAND_LEFT, RecordingHeader.HAND_RIGHT)
         val tagged = WatchInbox(sessions, recordings) { ada }
         tagged.receive(recStart(samples = 2, chunks = 1), WatchInbox.Source.WEAR_OS)
         tagged.receive(recChunk(0, listOf(1, 2)), WatchInbox.Source.WEAR_OS)

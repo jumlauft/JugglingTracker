@@ -39,8 +39,8 @@ class SessionRepositoryTest {
     fun `restore adds only new sessions and keeps them after a reload`() {
         repository.importSession(3, 1000_000L, listOf(10))
         val backup = listOf(
-            com.juggling.tracker.model.summarizeSession(1000_000L, 3, listOf(99)),
-            com.juggling.tracker.model.summarizeSession(2000_000L, 4, listOf(7)),
+            com.juggling.tracker.shared.summarizeSession(1000_000L, 3, listOf(99)),
+            com.juggling.tracker.shared.summarizeSession(2000_000L, 4, listOf(7)),
         )
 
         assertEquals(1, repository.restoreSessions(backup))
