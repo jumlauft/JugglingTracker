@@ -33,8 +33,10 @@ simulator.
 | `Logic/` | `TrackerModel` (phone sessions, raw recording, watch card), `WatchInbox`, the watch links, accelerometer, voice, Firebase | `logic/`, `sensor/` |
 | `UI/` | SwiftUI screens | `ui/` |
 
-Counting, Regularity, the watch messages and the history CSV come from the
-`JugglingCore` package next to this folder, so they match the Android app.
+Counting, Regularity, the watch messages, the 25 Hz throttle, the history
+CSV, the recording CSV header and the reassembly of a run sent in chunks come
+from the `JugglingCore` package next to this folder, the counterpart of the
+Kotlin `shared/` module, so they match the Android app.
 
 Files keep the Android formats, so a history backup or a raw recording moves
 between the two phones unchanged. The iPhone's accelerometer is converted to

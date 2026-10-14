@@ -1,10 +1,10 @@
+import JugglingCore
 import XCTest
 @testable import JugglingTracker
 
 final class RecordingStoreTests: XCTestCase {
     private var store: RecordingStore!
     private let jonas = Juggler(name: "Jonas Umlauft", hand: Juggler.left, firstThrow: Juggler.right)
-    private let berlin = TimeZone(identifier: "Europe/Berlin")!
 
     override func setUp() {
         super.setUp()
@@ -16,7 +16,7 @@ final class RecordingStoreTests: XCTestCase {
             balls: 3, catches: 12, detected: 11, sampleRate: 100, timestamp: 1_790_081_282,
             x: [1, 2], y: [3, 4], z: [5, 6], source: RecordingStore.sourcePhone, juggler: jonas
         ))
-        let runId = RecordingStore.runId(timestamp: 1_790_081_282)
+        let runId = RecordingHeader.runId(timestamp: 1_790_081_282)
         XCTAssertEqual(url.lastPathComponent, "\(runId).csv")
         XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), """
             # run=\(runId),timestamp=1790081282,balls=3,catches=12,sampleRate=100,units=milli_g,source=phone,countMode=watch_hand,detectedAtCapture=11,juggler=Jonas Umlauft,hand=left,firstThrow=right
@@ -25,10 +25,6 @@ final class RecordingStoreTests: XCTestCase {
             2,4,6
 
             """)
-    }
-
-    func testRunIdIsTheCaptureTimeInTheLocalZone() {
-        XCTAssertEqual(RecordingStore.runId(timestamp: 1_790_081_282, timeZone: berlin), "20260922_144802")
     }
 
     func testListReadsBackWhatWasSaved() {
@@ -46,18 +42,6 @@ final class RecordingStoreTests: XCTestCase {
         XCTAssertEqual(list[1].durationSeconds, 0.12, accuracy: 0.0001)
         XCTAssertNil(list[1].juggler)
         XCTAssertEqual(store.listRecordings(), list)
-    }
-
-    func testHeaderSafeKeepsTheHeaderParseable() {
-        XCTAssertEqual(RecordingStore.headerSafe(" Anna,  Maria=#x\n "), "Anna Maria x")
-    }
-
-    func testWithJugglerReplacesAnEarlierTag() {
-        let header = "# run=1,balls=3,juggler=Old,hand=right,firstThrow=left,units=milli_g"
-        XCTAssertEqual(
-            RecordingStore.withJuggler(header, jonas),
-            "# run=1,balls=3,units=milli_g,juggler=Jonas Umlauft,hand=left,firstThrow=right"
-        )
     }
 
     func testExportTagsOnlyRunsWithoutAJugglerAndDropsExtraColumns() throws {

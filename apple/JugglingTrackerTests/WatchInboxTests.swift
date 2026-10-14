@@ -1,3 +1,4 @@
+import JugglingCore
 import XCTest
 @testable import JugglingTracker
 

@@ -1,7 +1,7 @@
 import XCTest
-@testable import JugglingTracker
+@testable import JugglingCore
 
-/// The Android `SampleThrottleTest` cases.
+/// The `shared/` `SampleThrottleTest` cases.
 final class SampleThrottleTests: XCTestCase {
     private func keptPerSecond(intervalMs: Int64, seconds: Int64 = 10) -> Double {
         var throttle = SampleThrottle()
@@ -14,7 +14,7 @@ final class SampleThrottleTests: XCTestCase {
         return Double(kept) / Double(seconds)
     }
 
-    func testFasterSensorsAreThinnedTo25Hz() {
+    func testDET1FasterSensorsAreThinnedTo25Hz() {
         for interval: Int64 in [5, 10, 20, 30, 38] {
             XCTAssertEqual(keptPerSecond(intervalMs: interval), 25, accuracy: 1, "sensor every \(interval) ms")
         }
