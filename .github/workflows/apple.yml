@@ -3,12 +3,18 @@ name: Apple
 # Checks for the iPhone and Apple Watch apps in apple/. Runs on every pull
 # request and on main after merge whenever something the Apple apps build from
 # or replay has changed, and from the Actions tab (Run workflow) on any branch.
-# The main CI (ci.yml) does not look at apple/.
+# It also runs when the code JugglingCore is ported from changes (the Kotlin
+# shared/ module and the Garmin detector and Regularity score), so a change
+# made there and not yet ported shows up as a failing JugglingCore test rather
+# than as drift. The main CI (ci.yml) does not look at apple/.
 on:
   push:
     branches: [main]
     paths:
       - 'apple/**'
+      - 'shared/**'
+      - 'connectiq/source/JugglingDetector.mc'
+      - 'connectiq/source/ShapeConsistency.mc'
       - 'connectiq/data/**'
       - 'connectiq/scenarios/**'
       - 'simulation/test_detection.py'
@@ -17,6 +23,9 @@ on:
   pull_request:
     paths:
       - 'apple/**'
+      - 'shared/**'
+      - 'connectiq/source/JugglingDetector.mc'
+      - 'connectiq/source/ShapeConsistency.mc'
       - 'connectiq/data/**'
       - 'connectiq/scenarios/**'
       - 'simulation/test_detection.py'

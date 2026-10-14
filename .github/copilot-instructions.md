@@ -82,7 +82,7 @@ cd apple/JugglingCore && swift test
 cd apple/WatchLogic && swift test
 ```
 
-CI: `.github/workflows/apple.yml` runs on a macOS runner on every pull request that touches `apple/`, the recordings or the pinned counts, and on `main` after merge.
+CI: `.github/workflows/apple.yml` runs on a macOS runner on every pull request that touches `apple/`, `shared/`, the Garmin detector or Regularity score, the recordings, the watch scenarios or the pinned counts, and on `main` after merge.
 
 ### Detection simulation
 
