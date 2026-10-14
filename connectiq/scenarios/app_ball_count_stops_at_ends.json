@@ -1,0 +1,49 @@
+{
+  "name": "The ball count stops at 3 and 9 (crown and bezel scrolling)",
+  "requirements": [
+    "APP-3"
+  ],
+  "platforms": [
+    "wearos",
+    "apple"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "down"
+    },
+    {
+      "expect": {
+        "balls": 3
+      }
+    },
+    {
+      "press": "up"
+    },
+    {
+      "press": "up"
+    },
+    {
+      "press": "up"
+    },
+    {
+      "press": "up"
+    },
+    {
+      "press": "up"
+    },
+    {
+      "press": "up"
+    },
+    {
+      "press": "up"
+    },
+    {
+      "expect": {
+        "balls": 9
+      }
+    }
+  ]
+}

@@ -12,6 +12,7 @@ on:
       - 'wearos/**'
       - 'shared/**'
       - 'connectiq/data/**'
+      - 'connectiq/scenarios/**'
       - 'simulation/test_detection.py'
       - '.github/workflows/wearos.yml'
   pull_request:
@@ -19,6 +20,7 @@ on:
       - 'wearos/**'
       - 'shared/**'
       - 'connectiq/data/**'
+      - 'connectiq/scenarios/**'
       - 'simulation/test_detection.py'
       - '.github/workflows/wearos.yml'
   workflow_dispatch:

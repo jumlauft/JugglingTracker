@@ -1,0 +1,32 @@
+{
+  "name": "Catches made while a menu is open are not counted",
+  "requirements": [
+    "JUG-1"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "press": "start"
+    },
+    {
+      "catches": 3
+    },
+    {
+      "press": "back"
+    },
+    {
+      "expect": {
+        "menu": null,
+        "count": 0
+      }
+    }
+  ]
+}

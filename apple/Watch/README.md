@@ -94,6 +94,10 @@ name carries its requirement id.
 | JUG-1 to JUG-8, SYNC-1 to SYNC-5 | `TrackerSessionTests` |
 | REC-1 to REC-10 | `RecordingSessionTests` |
 
+`ScenarioTests` also replays every workflow in `../../connectiq/scenarios`,
+the same files the Wear OS tests replay, so the two watches cannot drift
+apart without a test failing. Add a scenario there when a workflow changes.
+
 Not covered by an automated test: drawing, the Digital Crown, haptics
 (JUG-7 is covered as a call), the accelerometer itself (SENS-1 to SENS-4)
 and the workout session. There is no Apple Watch to try them on yet, so they

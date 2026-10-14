@@ -1,0 +1,72 @@
+{
+  "name": "BACK steps back through the start-up screens and closes the app from the first",
+  "requirements": [
+    "APP-5",
+    "REC-11"
+  ],
+  "steps": [
+    {
+      "press": "up"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "expect": {
+        "screen": "recording"
+      }
+    },
+    {
+      "press": "back"
+    },
+    {
+      "expect": {
+        "screen": "ballSelect",
+        "mode": "record",
+        "balls": 3
+      }
+    },
+    {
+      "press": "back"
+    },
+    {
+      "expect": {
+        "screen": "modeSelect",
+        "recordMode": true,
+        "exits": 0
+      }
+    },
+    {
+      "press": "down"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "expect": {
+        "screen": "ballSelect",
+        "mode": "juggle"
+      }
+    },
+    {
+      "press": "back"
+    },
+    {
+      "expect": {
+        "screen": "modeSelect",
+        "recordMode": false
+      }
+    },
+    {
+      "press": "back"
+    },
+    {
+      "expect": {
+        "exits": 1
+      }
+    }
+  ]
+}

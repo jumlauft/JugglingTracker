@@ -1,0 +1,110 @@
+{
+  "name": "BACK offers to discard the current or last run; Keep changes nothing",
+  "requirements": [
+    "JUG-3",
+    "JUG-5"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "catches": 5
+    },
+    {
+      "idle": 60
+    },
+    {
+      "catches": 4
+    },
+    {
+      "press": "back"
+    },
+    {
+      "expect": {
+        "menu": "discard_run",
+        "menuTitle": "Discard this run?",
+        "menuLabels": [
+          "Discard",
+          "Keep"
+        ],
+        "menuSubLabels": [
+          "4 catches",
+          null
+        ]
+      }
+    },
+    {
+      "select": "discard_yes"
+    },
+    {
+      "expect": {
+        "menu": null,
+        "count": 0,
+        "runs": 1
+      }
+    },
+    {
+      "catches": 3
+    },
+    {
+      "idle": 60
+    },
+    {
+      "expect": {
+        "runs": 2
+      }
+    },
+    {
+      "press": "back"
+    },
+    {
+      "expect": {
+        "menuTitle": "Discard last run?",
+        "menuSubLabels": [
+          "3 catches",
+          null
+        ]
+      }
+    },
+    {
+      "select": "discard_no"
+    },
+    {
+      "expect": {
+        "runs": 2
+      }
+    },
+    {
+      "press": "back"
+    },
+    {
+      "press": "back"
+    },
+    {
+      "expect": {
+        "menu": null,
+        "runs": 2
+      }
+    },
+    {
+      "press": "back"
+    },
+    {
+      "select": "discard_yes"
+    },
+    {
+      "expect": {
+        "runs": 1,
+        "previous": 5,
+        "exits": 0
+      }
+    }
+  ]
+}

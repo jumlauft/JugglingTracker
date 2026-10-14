@@ -1,0 +1,30 @@
+{
+  "name": "The ball count wraps between 9 and 3 (buttons)",
+  "requirements": [
+    "APP-3"
+  ],
+  "platforms": [
+    "garmin"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "down"
+    },
+    {
+      "expect": {
+        "balls": 9
+      }
+    },
+    {
+      "press": "up"
+    },
+    {
+      "expect": {
+        "balls": 3
+      }
+    }
+  ]
+}

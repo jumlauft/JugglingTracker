@@ -1,0 +1,116 @@
+{
+  "name": "START walks a run through recording, labelling and syncing, and the ack ends it",
+  "requirements": [
+    "REC-1",
+    "REC-3",
+    "REC-5",
+    "REC-8"
+  ],
+  "epochSeconds": 1700000000,
+  "steps": [
+    {
+      "press": "up"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "expect": {
+        "phase": "idle"
+      }
+    },
+    {
+      "press": "start"
+    },
+    {
+      "expect": {
+        "phase": "recording"
+      }
+    },
+    {
+      "warmup": true
+    },
+    {
+      "catches": 4
+    },
+    {
+      "press": "start"
+    },
+    {
+      "expect": {
+        "phase": "labeling",
+        "detected": 4,
+        "label": 4
+      }
+    },
+    {
+      "press": "up"
+    },
+    {
+      "expect": {
+        "label": 5
+      }
+    },
+    {
+      "press": "start"
+    },
+    {
+      "expect": {
+        "phase": "syncing",
+        "firstSent": {
+          "type": "rec_start",
+          "id": 1700000000,
+          "balls": 3,
+          "catches": 5,
+          "detected": 4,
+          "sampleRate": 25,
+          "countMode": "watch_hand"
+        }
+      }
+    },
+    {
+      "deliverAll": true
+    },
+    {
+      "expect": {
+        "phase": "syncing",
+        "sentTypes": [
+          "rec_start",
+          "rec_chunk",
+          "rec_end"
+        ],
+        "lastSent": {
+          "type": "rec_end",
+          "id": 1700000000
+        }
+      }
+    },
+    {
+      "phone": {
+        "type": "ack",
+        "timestamp": 1699999995
+      }
+    },
+    {
+      "expect": {
+        "phase": "syncing",
+        "runsCompleted": 0
+      }
+    },
+    {
+      "phone": {
+        "type": "ack",
+        "timestamp": 1700000000
+      }
+    },
+    {
+      "expect": {
+        "phase": "idle",
+        "runsCompleted": 1
+      }
+    }
+  ]
+}

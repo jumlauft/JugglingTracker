@@ -1,0 +1,32 @@
+{
+  "name": "A session with no completed run is not sent and the app closes",
+  "requirements": [
+    "SYNC-3"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "catches": 2
+    },
+    {
+      "press": "start"
+    },
+    {
+      "select": "sync_quit"
+    },
+    {
+      "expect": {
+        "sentCount": 0,
+        "exits": 1
+      }
+    }
+  ]
+}

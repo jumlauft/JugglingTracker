@@ -1,0 +1,63 @@
+{
+  "name": "START opens the session-end menu; BACK out of it and START still work",
+  "requirements": [
+    "JUG-2",
+    "JUG-5",
+    "JUG-6"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "press": "start"
+    },
+    {
+      "expect": {
+        "menu": "session_end",
+        "menuTitle": "End session?",
+        "menuItems": [
+          "sync_quit",
+          "nosync_quit",
+          "continue_session"
+        ],
+        "menuLabels": [
+          "Sync and quit",
+          "Quit without sync",
+          "Continue"
+        ]
+      }
+    },
+    {
+      "press": "back"
+    },
+    {
+      "expect": {
+        "menu": null
+      }
+    },
+    {
+      "press": "start"
+    },
+    {
+      "expect": {
+        "menu": "session_end"
+      }
+    },
+    {
+      "select": "continue_session"
+    },
+    {
+      "expect": {
+        "menu": null,
+        "exits": 0
+      }
+    }
+  ]
+}

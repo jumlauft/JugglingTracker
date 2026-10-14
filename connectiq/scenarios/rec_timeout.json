@@ -1,0 +1,38 @@
+{
+  "name": "No reply from the phone in time opens the sync menu",
+  "requirements": [
+    "REC-6"
+  ],
+  "steps": [
+    {
+      "press": "up"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "wait": 10000
+    },
+    {
+      "expect": {
+        "menu": "rec_sync",
+        "menuTitle": "no reply from phone"
+      }
+    }
+  ]
+}

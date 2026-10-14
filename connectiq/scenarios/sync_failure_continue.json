@@ -1,0 +1,58 @@
+{
+  "name": "Continue after a failed sync clears the banner and a late ack cannot close the app",
+  "requirements": [
+    "JUG-8"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "catches": 3
+    },
+    {
+      "idle": 60
+    },
+    {
+      "press": "start"
+    },
+    {
+      "select": "sync_quit"
+    },
+    {
+      "deliver": false
+    },
+    {
+      "expect": {
+        "error": "Sync failed",
+        "menuTitle": "Sync failed"
+      }
+    },
+    {
+      "select": "continue_session"
+    },
+    {
+      "expect": {
+        "error": null,
+        "menu": null
+      }
+    },
+    {
+      "phone": {
+        "type": "ack",
+        "timestamp": 1700000000
+      }
+    },
+    {
+      "expect": {
+        "exits": 0
+      }
+    }
+  ]
+}
