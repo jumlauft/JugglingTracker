@@ -25,8 +25,7 @@ sealed interface Screen {
 }
 
 /**
- * The start-up flow of `JugglingTrackerApp.mc`, `ModeSelectView.mc` and
- * `BallSelectView.mc`, plus routing of the four Garmin buttons to whichever
+ * The start-up flow of `connectiq/source/AppNavigator.mc`, plus routing of the four Garmin buttons to whichever
  * screen is showing. UP and DOWN come from the rotary input or the on-screen
  * arrows, START from the on-screen button, BACK from a swipe or back key.
  */

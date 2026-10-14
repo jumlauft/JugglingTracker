@@ -5,9 +5,10 @@ and replayed by the logic tests of every watch app:
 
 - Wear OS: `wearos/app/src/test/.../logic/ScenarioTest.kt`
 - Apple Watch: `apple/WatchLogic/Tests/WatchLogicTests/ScenarioTests.swift`
-- Garmin: once the Juggle and Record logic has moved out of `MainView.mc`
-  and `RecordingView.mc` (refactoring step 4), `connectiq/test` replays them
-  too.
+- Garmin: `connectiq/test/ScenarioTest.mc`, generated from these files by
+  `garmin_tests.py` (Monkey C cannot read them in a test build). Run
+  `python3 connectiq/scenarios/garmin_tests.py` after changing a scenario;
+  `test_garmin_scenario_tests_are_up_to_date` in CI fails until you do.
 
 A scenario starts the app on its first screen with a fake phone, a fake
 clock and fake buzz/quit effects, then runs its `steps` in order. A drift

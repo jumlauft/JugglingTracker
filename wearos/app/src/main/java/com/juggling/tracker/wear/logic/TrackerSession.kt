@@ -28,8 +28,8 @@ data class TrackerUiState(
 )
 
 /**
- * Juggle mode: the Wear OS counterpart of `connectiq/source/MainView.mc` and
- * its delegates. It owns the detector, the session-end and discard menus, and
+ * Juggle mode: the Wear OS counterpart of `connectiq/source/TrackerSession.mc`.
+ * It owns the detector, the session-end and discard menus, and
  * the sync to the phone. Requirement ids refer to `connectiq/REQUIREMENTS.md`.
  *
  * Inputs map onto the Garmin buttons: [onStartStop] is START/STOP, [onBack]

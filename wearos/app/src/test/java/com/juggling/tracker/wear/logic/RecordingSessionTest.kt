@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Record mode, `RecordingView.mc` and its delegates. Each test names the
+ * Record mode, the Garmin's `RecordingSession.mc`. Each test names the
  * requirement in `connectiq/REQUIREMENTS.md` it secures.
  */
 class RecordingSessionTest {

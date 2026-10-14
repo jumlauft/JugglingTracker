@@ -10,12 +10,12 @@ All five apps are main development streams, and `CLAUDE.md` says how they are ke
 
 - `connectiq/` - Garmin Connect IQ watch app in Monkey C. Its behaviour is specified in `connectiq/REQUIREMENTS.md`, and `connectiq/test/` holds its unit tests (`run_tests.sh`).
   - `source/JugglingTrackerApp.mc` - app entry point.
-  - `source/ModeSelectView.mc` - Juggle or Record chooser, shown at startup while `ENABLE_RECORDING_MODE` is `true` (it is, in released builds).
-  - `source/BallSelectView.mc` - choose 3-9 balls before a run.
+  - `source/AppNavigator.mc` - the start-up flow (the Juggle or Record chooser, shown while `ENABLE_RECORDING_MODE` is `true`, as it is in released builds, then 3-9 balls) and the routing of the buttons; `AppDelegate.mc` hands it every press, and `ModeSelectView.mc` and `BallSelectView.mc` draw it.
+  - `source/TrackerSession.mc` and `source/RecordingSession.mc` - Juggle mode (runs, menus, session sync) and Record mode (raw accelerometer capture, labeling, chunked transfer), with no device APIs in them, so they run in the unit tests.
+  - `source/Platform.mc` and `source/GarminPlatform.mc` - the timer, clock, phone link and watch effects the sessions use, and their real Connect IQ versions.
   - `source/JugglingDetector.mc` - watch-hand catch detection algorithm.
   - `source/ShapeConsistency.mc` - the Regularity score, how alike each hand cycle is to the one before it.
-  - `source/MainView.mc` - Juggle mode: tracking UI, sensor listener, session sync.
-  - `source/RecordingView.mc` - Record mode: raw accelerometer capture and labeling.
+  - `source/MainView.mc` and `source/RecordingView.mc` - draw the two sessions and feed them the accelerometer.
   - `source/SampleBuffer.mc` - fixed-size store for one recorded run's samples.
   - `manifest.xml`, `monkey.jungle`, `resources/` - Connect IQ configuration and assets.
 - `wearos/` - Wear OS watch app, a Kotlin/Compose port of the Garmin app with the same behaviour. It sends sessions and recordings to the Android app over the Wear OS Data Layer. See `wearos/README.md`.
@@ -42,7 +42,7 @@ All five apps are main development streams, and `CLAUDE.md` says how they are ke
 ```mermaid
 flowchart LR
     A[Garmin accelerometer, 25 Hz] --> B[JugglingDetector.mc]
-    B --> C[MainView watch-hand run/session state]
+    B --> C[TrackerSession watch-hand run/session state]
     C -->|session payload| D[Garmin Connect IQ channel]
     D --> GL[GarminLink]
     GL --> E[WatchInbox]

@@ -17,8 +17,8 @@ table below says which test covers each requirement here.
 - `app/src/main/java/com/juggling/tracker/wear/`
   - `logic/` - everything with behaviour, in plain Kotlin with no Android
     types, so it runs as ordinary JVM tests:
-    - `TrackerSession.kt` - Juggle mode (`MainView.mc`): runs, menus, sync.
-    - `RecordingSession.kt` - Record mode (`RecordingView.mc`).
+    - `TrackerSession.kt` - Juggle mode (Garmin `TrackerSession.mc`): runs, menus, sync.
+    - `RecordingSession.kt` - Record mode (Garmin `RecordingSession.mc`).
     - `AppNavigator.kt` - mode and ball selection, and button routing.
     - `Format.kt` - display strings, identical to what the Garmin draws.
     - `Platform.kt` - the interfaces the sessions use for timers, the clock,

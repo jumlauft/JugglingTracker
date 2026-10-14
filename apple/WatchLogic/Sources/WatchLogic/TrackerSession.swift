@@ -20,8 +20,8 @@ public struct TrackerUiState: Equatable {
     public var exited = false
 }
 
-/// Juggle mode: the Apple Watch counterpart of `connectiq/source/MainView.mc`
-/// and its delegates, ported from `wearos/.../TrackerSession.kt`. It owns the
+/// Juggle mode: the Apple Watch counterpart of
+/// `connectiq/source/TrackerSession.mc`, ported from `wearos/.../TrackerSession.kt`. It owns the
 /// detector, the session-end and discard menus, and the sync to the phone.
 /// Requirement ids refer to `connectiq/REQUIREMENTS.md`.
 ///

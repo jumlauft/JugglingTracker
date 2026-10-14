@@ -2,7 +2,7 @@ import JugglingCore
 import XCTest
 @testable import WatchLogic
 
-/// Juggle mode, `MainView.mc` and its delegates, the same cases as the Wear OS
+/// Juggle mode, the Garmin's `TrackerSession.mc`, the same cases as the Wear OS
 /// `TrackerSessionTest`. Each test names the requirement in
 /// `connectiq/REQUIREMENTS.md` it secures.
 final class TrackerSessionTests: XCTestCase {

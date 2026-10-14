@@ -7,7 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Juggle mode, `MainView.mc` and its delegates. Each test names the
+ * Juggle mode, the Garmin's `TrackerSession.mc`. Each test names the
  * requirement in `connectiq/REQUIREMENTS.md` it secures.
  */
 class TrackerSessionTest {

@@ -27,7 +27,7 @@ public struct RecordingUiState: Equatable {
 }
 
 /// Record mode (developer): the Apple Watch counterpart of
-/// `connectiq/source/RecordingView.mc`, ported from
+/// `connectiq/source/RecordingSession.mc`, ported from
 /// `wearos/.../RecordingSession.kt`. It captures raw accelerometer runs, lets
 /// the user correct the detector's count to the true watch-hand count, and
 /// transfers each run to the phone in chunks. Requirement ids refer to
