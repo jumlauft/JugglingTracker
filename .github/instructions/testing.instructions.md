@@ -22,7 +22,7 @@ applyTo: ["android/**/test/**/*.kt", "android/**/androidTest/**/*.kt", "wearos/*
 - To assert on a `DisposableEffect` or `SideEffect` that writes to the view or window, capture `LocalView.current` in `setContent` and read the property back afterwards (`KeepScreenOnTest`), or read it off `createAndroidComposeRule<ComponentActivity>().activity.window` (`StatusBarAppearanceTest`).
 
 ## Patterns
-- `JugglingViewModel` can be instantiated without a repository for unit tests (constructor accepts `null`).
+- `JugglingViewModel` can be instantiated without a repository for unit tests (constructor accepts `null`); its models (`viewModel.history`, `viewModel.phoneSession`, …) are tested through it.
 - Use `advanceUntilIdle()` after operations that emit to `SharedFlow`.
 - Test method names use backtick syntax: `` `descriptive name of what is tested` ``.
 

@@ -25,7 +25,8 @@ import com.juggling.tracker.shared.RecordingHeader
 import com.juggling.tracker.shared.SessionCsv
 import com.juggling.tracker.data.WatchType
 import com.juggling.tracker.data.RecordingRepository
-import com.juggling.tracker.logic.JugglingViewModel
+import com.juggling.tracker.logic.RawRecordingModel
+import com.juggling.tracker.logic.SettingsModel
 import java.util.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -33,7 +34,7 @@ import kotlinx.coroutines.withContext
 
 /** Settings, plus the recordings table and the export it offers. */
 @Composable
-fun SettingsScreen(viewModel: JugglingViewModel) {
+fun SettingsScreen(settings: SettingsModel, recordings: RawRecordingModel) {
     val context = LocalContext.current
     // File writes for the exports run on Dispatchers.IO from here.
     val scope = rememberCoroutineScope()
@@ -45,7 +46,7 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
                 try {
                     withContext(Dispatchers.IO) {
                         context.contentResolver.openOutputStream(it)?.use { outputStream ->
-                            viewModel.writeRecordingsZip(outputStream)
+                            recordings.writeZip(outputStream)
                         }
                     }
                 } catch (e: Exception) {
@@ -63,12 +64,12 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             onDismissRequest = { showClearRecordingsConfirmation = false },
             title = { Text(stringResource(R.string.dialog_clear_recordings_title)) },
             text = {
-                Text(pluralStringResource(R.plurals.dialog_clear_recordings_text, viewModel.recordingCount, viewModel.recordingCount))
+                Text(pluralStringResource(R.plurals.dialog_clear_recordings_text, recordings.recordingCount, recordings.recordingCount))
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.clearRecordings()
+                        recordings.clear()
                         showClearRecordingsConfirmation = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
@@ -87,13 +88,13 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
     var editingJuggler by remember { mutableStateOf(false) }
     if (editingJuggler) {
         JugglerDialog(
-            initialName = viewModel.jugglerName,
-            initialHand = viewModel.watchHand,
-            initialFirstThrow = viewModel.firstThrowHand,
+            initialName = settings.jugglerName,
+            initialHand = settings.watchHand,
+            initialFirstThrow = settings.firstThrowHand,
             message = null,
             confirmLabel = stringResource(R.string.action_save),
             onConfirm = { name, hand, firstThrow ->
-                viewModel.setExportDetails(name, hand, firstThrow)
+                settings.setExportDetails(name, hand, firstThrow)
                 editingJuggler = false
             },
             onDismiss = { editingJuggler = false },
@@ -103,15 +104,15 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
     // An export waiting on who juggled the runs saved without a juggler, asked for first.
     var pendingExport by remember { mutableStateOf<(() -> Unit)?>(null) }
     pendingExport?.let { export ->
-        val untagged = viewModel.recordingsWithoutJuggler
+        val untagged = recordings.recordingsWithoutJuggler
         JugglerDialog(
-            initialName = viewModel.jugglerName,
-            initialHand = viewModel.watchHand,
-            initialFirstThrow = viewModel.firstThrowHand,
+            initialName = settings.jugglerName,
+            initialHand = settings.watchHand,
+            initialFirstThrow = settings.firstThrowHand,
             message = pluralStringResource(R.plurals.dialog_export_untagged, untagged, untagged),
             confirmLabel = stringResource(R.string.action_continue_export),
             onConfirm = { name, hand, firstThrow ->
-                viewModel.setExportDetails(name, hand, firstThrow)
+                settings.setExportDetails(name, hand, firstThrow)
                 pendingExport = null
                 export()
             },
@@ -121,7 +122,7 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
 
     // Ask who juggled only when some runs were saved without a juggler.
     fun exportAfterAsking(export: () -> Unit) {
-        if (viewModel.recordingsWithoutJuggler > 0) pendingExport = export else export()
+        if (recordings.recordingsWithoutJuggler > 0) pendingExport = export else export()
     }
 
     Column(
@@ -134,8 +135,8 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
         // Watch
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             WatchTypeDropdown(
-                selected = viewModel.watchType,
-                onSelect = { viewModel.setWatchType(it) },
+                selected = settings.watchType,
+                onSelect = { settings.setWatchType(it) },
             )
             Text(
                 text = stringResource(R.string.desc_watch),
@@ -152,11 +153,11 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
         
         SettingToggle(
             label = stringResource(R.string.label_voice_enabled),
-            checked = viewModel.isVoiceEnabled,
-            onCheckedChange = { viewModel.toggleVoice(it) }
+            checked = settings.isVoiceEnabled,
+            onCheckedChange = { settings.toggleVoice(it) }
         )
 
-        if (viewModel.isVoiceEnabled) {
+        if (settings.isVoiceEnabled) {
             Column(modifier = Modifier.padding(horizontal = 8.dp)) {
                 Text(
                     text = stringResource(R.string.label_voice_interval),
@@ -170,8 +171,8 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
                 ) {
                     listOf(1, 2, 5, 10, 20, 50, 100).forEach { interval ->
                         FilterChip(
-                            selected = viewModel.voiceInterval == interval,
-                            onClick = { viewModel.setVoiceInterval(interval) },
+                            selected = settings.voiceInterval == interval,
+                            onClick = { settings.setVoiceInterval(interval) },
                             label = { Text(stringResource(R.string.format_voice_interval, interval)) }
                         )
                     }
@@ -187,8 +188,8 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             SettingToggle(
                 label = stringResource(R.string.label_share_data),
-                checked = viewModel.isAnalyticsEnabled,
-                onCheckedChange = { viewModel.toggleAnalytics(it) }
+                checked = settings.isAnalyticsEnabled,
+                onCheckedChange = { settings.toggleAnalytics(it) }
             )
             Text(
                 text = stringResource(R.string.desc_share_data),
@@ -201,7 +202,7 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
         HorizontalDivider()
 
         // Backup
-        BackupSection(viewModel)
+        BackupSection(settings)
 
         HorizontalDivider()
 
@@ -209,7 +210,7 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
         Text(text = stringResource(R.string.section_raw_recording), style = MaterialTheme.typography.titleLarge)
 
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            JugglerCard(viewModel.currentJuggler) { editingJuggler = true }
+            JugglerCard(settings.currentJuggler) { editingJuggler = true }
             Text(
                 text = stringResource(R.string.desc_juggler),
                 style = MaterialTheme.typography.bodySmall,
@@ -219,14 +220,14 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
         }
 
         Button(
-            onClick = { viewModel.startRawRecordingFlow() },
+            onClick = { recordings.startFlow() },
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(stringResource(R.string.action_start_raw_recording))
         }
 
-        if (viewModel.recordingCount > 0) {
-            RecordingsTable(viewModel.recordings)
+        if (recordings.recordingCount > 0) {
+            RecordingsTable(recordings.recordings)
 
             Button(
                 onClick = {
@@ -242,7 +243,7 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
             }
 
             Button(
-                onClick = { exportAfterAsking { scope.launch { emailRecordings(context, viewModel) } } },
+                onClick = { exportAfterAsking { scope.launch { emailRecordings(context, recordings) } } },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
             ) {
@@ -265,7 +266,7 @@ fun SettingsScreen(viewModel: JugglingViewModel) {
  * See [SessionBackup].
  */
 @Composable
-private fun BackupSection(viewModel: JugglingViewModel) {
+private fun BackupSection(settings: SettingsModel) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -273,7 +274,7 @@ private fun BackupSection(viewModel: JugglingViewModel) {
 
     fun backUpNow() {
         scope.launch {
-            when (viewModel.backUpNow(context.applicationContext)) {
+            when (settings.backUpNow(context.applicationContext)) {
                 SessionBackup.Result.SAVED -> toast(context.getString(R.string.toast_backup_saved))
                 SessionBackup.Result.NOTHING_TO_SAVE -> toast(context.getString(R.string.toast_backup_nothing))
                 SessionBackup.Result.NO_FILE, SessionBackup.Result.FAILED ->
@@ -287,8 +288,8 @@ private fun BackupSection(viewModel: JugglingViewModel) {
         androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv")
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        if (viewModel.connectBackupFile(context, uri)) {
-            viewModel.setBackupEnabled(context, true)
+        if (settings.connectBackupFile(context, uri)) {
+            settings.setBackupEnabled(context, true)
             backUpNow()
         } else {
             toast(context.getString(R.string.toast_backup_location_unusable))
@@ -307,7 +308,7 @@ private fun BackupSection(viewModel: JugglingViewModel) {
                 toast(context.getString(R.string.toast_restore_failed))
                 return@launch
             }
-            val added = viewModel.restoreSessions(parsed.sessions)
+            val added = settings.restoreSessions(parsed.sessions)
             toast(
                 if (added > 0) {
                     context.resources.getQuantityString(R.plurals.toast_restore_done, added, added)
@@ -321,7 +322,7 @@ private fun BackupSection(viewModel: JugglingViewModel) {
     // The file is kept when the backup is turned off, so turning it back on
     // reuses it, as long as the app may still write there.
     fun hasBackupFile(): Boolean {
-        val uri = viewModel.backupUri ?: return false
+        val uri = settings.backupUri ?: return false
         return context.contentResolver.persistedUriPermissions.any {
             it.uri.toString() == uri && it.isWritePermission
         }
@@ -332,11 +333,11 @@ private fun BackupSection(viewModel: JugglingViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         SettingToggle(
             label = stringResource(R.string.label_backup_enabled),
-            checked = viewModel.isBackupEnabled,
+            checked = settings.isBackupEnabled,
             onCheckedChange = { enabled ->
                 when {
-                    !enabled -> viewModel.setBackupEnabled(context, false)
-                    hasBackupFile() -> viewModel.setBackupEnabled(context, true)
+                    !enabled -> settings.setBackupEnabled(context, false)
+                    hasBackupFile() -> settings.setBackupEnabled(context, true)
                     else -> pickBackupFile.launch(SessionBackup.SUGGESTED_FILE_NAME)
                 }
             }
@@ -349,7 +350,7 @@ private fun BackupSection(viewModel: JugglingViewModel) {
         )
     }
 
-    if (viewModel.isBackupEnabled) {
+    if (settings.isBackupEnabled) {
         val lastBackupFormat = remember { java.text.SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()) }
         Column(
             modifier = Modifier.padding(horizontal = 8.dp),
@@ -358,19 +359,19 @@ private fun BackupSection(viewModel: JugglingViewModel) {
             Text(
                 text = stringResource(
                     R.string.backup_file,
-                    viewModel.backupFileName ?: stringResource(R.string.backup_file_unnamed),
+                    settings.backupFileName ?: stringResource(R.string.backup_file_unnamed),
                 ),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                text = if (viewModel.lastBackupMillis > 0L) {
-                    stringResource(R.string.backup_last, lastBackupFormat.format(Date(viewModel.lastBackupMillis)))
+                text = if (settings.lastBackupMillis > 0L) {
+                    stringResource(R.string.backup_last, lastBackupFormat.format(Date(settings.lastBackupMillis)))
                 } else {
                     stringResource(R.string.backup_never)
                 },
                 style = MaterialTheme.typography.bodyMedium,
             )
-            if (viewModel.lastBackupFailed) {
+            if (settings.lastBackupFailed) {
                 Text(
                     text = stringResource(R.string.backup_last_failed),
                     style = MaterialTheme.typography.bodyMedium,
@@ -585,8 +586,8 @@ private const val DEVELOPER_EMAIL = "jugglingtracker@gmail.com"
 
 // Write the recordings zip to a shareable cache file on the IO dispatcher and
 // open an email draft to the developer with it attached.
-private suspend fun emailRecordings(context: android.content.Context, viewModel: JugglingViewModel) {
-    if (viewModel.recordingCount <= 0) {
+private suspend fun emailRecordings(context: android.content.Context, recordings: RawRecordingModel) {
+    if (recordings.recordingCount <= 0) {
         Toast.makeText(context, context.getString(R.string.toast_no_recordings), Toast.LENGTH_SHORT).show()
         return
     }
@@ -595,7 +596,7 @@ private suspend fun emailRecordings(context: android.content.Context, viewModel:
         val file = withContext(Dispatchers.IO) {
             val dir = java.io.File(context.cacheDir, "shared").apply { mkdirs() }
             java.io.File(dir, "juggling_recordings_$ts.zip").also { f ->
-                f.outputStream().use { viewModel.writeRecordingsZip(it) }
+                f.outputStream().use { recordings.writeZip(it) }
             }
         }
 

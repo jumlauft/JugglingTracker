@@ -4,10 +4,10 @@ import UniformTypeIdentifiers
 
 /// Settings, plus the backup and the raw recordings.
 struct SettingsScreen: View {
-    @Environment(TrackerModel.self) private var model
+    @Environment(SettingsModel.self) private var model
 
     var body: some View {
-        @Bindable var settings = model.settings
+        @Bindable var settings = model.values
         Form {
             Section {
                 Picker("Watch", selection: $settings.watchType) {
@@ -51,25 +51,19 @@ struct SettingsScreen: View {
 /// The weekly backup to a CSV file in a folder the user picked (iCloud Drive
 /// or another Files location), and restoring from a backup or export.
 private struct BackupSection: View {
-    @Environment(TrackerModel.self) private var model
+    @Environment(SettingsModel.self) private var model
+    @Environment(ToastCenter.self) private var toasts
     @State private var pickingFolder = false
     @State private var pickingRestoreFile = false
 
     var body: some View {
-        let settings = model.settings
+        let settings = model.values
         Section {
             Toggle("Weekly backup to iCloud Drive", isOn: Binding(
                 get: { settings.isBackupEnabled },
                 set: { enabled in
-                    if !enabled {
-                        settings.isBackupEnabled = false
-                        SessionBackup.cancelSchedule()
-                    } else if SessionBackup.folder(settings: settings) != nil {
-                        settings.isBackupEnabled = true
-                        SessionBackup.schedule()
-                    } else {
-                        pickingFolder = true
-                    }
+                    // Turning it on without a folder asks for one first.
+                    if !model.setBackupEnabled(enabled) { pickingFolder = true }
                 }
             ))
 
@@ -97,13 +91,11 @@ private struct BackupSection: View {
         }
         .fileImporter(isPresented: $pickingFolder, allowedContentTypes: [.folder]) { result in
             guard case let .success(folder) = result else { return }
-            if SessionBackup.connect(folder: folder, settings: settings) {
+            if model.connectBackupFolder(folder) {
                 // Picking a folder also turns the weekly backup on and writes it at once.
-                settings.isBackupEnabled = true
-                SessionBackup.schedule()
                 backUpNow()
             } else {
-                model.toast = "This folder cannot be used for automatic backups. Please choose one in iCloud Drive."
+                toasts.show(String(localized: "This folder cannot be used for automatic backups. Please choose one in iCloud Drive."))
             }
         }
 
@@ -122,10 +114,10 @@ private struct BackupSection: View {
     }
 
     private func backUpNow() {
-        switch SessionBackup.backUp(sessions: model.sessions, settings: model.settings) {
-        case .saved: model.toast = "Backup saved"
-        case .nothingToSave: model.toast = "No sessions to back up yet"
-        case .noFolder, .failed: model.toast = "Backup failed"
+        switch model.backUpNow() {
+        case .saved: toasts.show(String(localized: "Backup saved"))
+        case .nothingToSave: toasts.show(String(localized: "No sessions to back up yet"))
+        case .noFolder, .failed: toasts.show(String(localized: "Backup failed"))
         }
     }
 
@@ -134,13 +126,15 @@ private struct BackupSection: View {
         do {
             parsed = try SessionCSV.parse(SessionBackup.read(url))
         } catch {
-            model.toast = "This file is not a Juggling Tracker backup"
+            toasts.show(String(localized: "This file is not a Juggling Tracker backup"))
             return
         }
         let added = model.restore(parsed.sessions)
-        model.toast = added == 0
-            ? "Nothing new: every session in this file is already here"
-            : "Restored \(added) session\(added == 1 ? "" : "s")"
+        toasts.show(added == 0
+            ? String(localized: "Nothing new: every session in this file is already here")
+            : added == 1
+                ? String(localized: "Restored 1 session")
+                : String(localized: "Restored \(added) sessions"))
     }
 }
 
@@ -152,7 +146,9 @@ private struct RecordingsSection: View {
 
     enum Export { case save, email }
 
-    @Environment(TrackerModel.self) private var model
+    @Environment(RawRecordingModel.self) private var recordings
+    @Environment(SettingsModel.self) private var settingsModel
+    @Environment(ToastCenter.self) private var toasts
     @State private var editingJuggler = false
     @State private var askingJugglerFor: Export?
     @State private var confirmClear = false
@@ -161,20 +157,19 @@ private struct RecordingsSection: View {
     @State private var shareURL: URL?
 
     var body: some View {
-        let settings = model.settings
         Section {
             Button {
                 editingJuggler = true
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Juggler").font(.caption).foregroundStyle(.secondary)
-                    Text(Self.summary(settings.currentJuggler)).foregroundStyle(.primary)
+                    Text(Self.summary(settingsModel.currentJuggler)).foregroundStyle(.primary)
                 }
             }
-            Button("Start Raw Recording") { model.startRawRecordingFlow() }
+            Button("Start Raw Recording") { recordings.startFlow() }
 
-            if model.recordingCount > 0 {
-                RecordingsTable(recordings: model.recordings)
+            if recordings.recordingCount > 0 {
+                RecordingsTable(recordings: recordings.recordings)
                 Button("Export All Recordings") { exportAfterAsking(.save) }
                 Button("Email Recordings to Developer") { exportAfterAsking(.email) }
                 Button("Delete All Recordings", role: .destructive) { confirmClear = true }
@@ -188,7 +183,7 @@ private struct RecordingsSection: View {
             JugglerForm(message: nil, confirmLabel: "Save") { editingJuggler = false }
         }
         .sheet(item: $askingJugglerFor) { export in
-            let untagged = model.recordingsWithoutJuggler
+            let untagged = recordings.recordingsWithoutJuggler
             JugglerForm(
                 message: untagged == 1
                     ? "1 recording was saved without a juggler. These answers will be used for it."
@@ -200,12 +195,12 @@ private struct RecordingsSection: View {
             }
         }
         .alert("Delete All Recordings?", isPresented: $confirmClear) {
-            Button("Delete", role: .destructive) { model.clearRecordings() }
+            Button("Delete", role: .destructive) { recordings.clear() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text(model.recordingCount == 1
+            Text(recordings.recordingCount == 1
                 ? "This deletes the 1 recording stored on this phone. Export or email it first to keep a copy."
-                : "This deletes all \(model.recordingCount) recordings stored on this phone. Export or email them first to keep a copy.")
+                : "This deletes all \(recordings.recordingCount) recordings stored on this phone. Export or email them first to keep a copy.")
         }
         .fileExporter(
             isPresented: Binding(get: { zipFile != nil }, set: { if !$0 { zipFile = nil } }),
@@ -213,7 +208,7 @@ private struct RecordingsSection: View {
             contentType: .zip,
             defaultFilename: "juggling_recordings_\(ExportNames.stamp()).zip"
         ) { result in
-            if case .failure = result { model.toast = "Export failed" }
+            if case .failure = result { toasts.show(String(localized: "Export failed")) }
         }
         .sheet(item: $mailDraft) { draft in
             MailComposer(draft: draft).ignoresSafeArea()
@@ -230,12 +225,12 @@ private struct RecordingsSection: View {
 
     /// Asks who juggled only when some runs were saved without a juggler.
     private func exportAfterAsking(_ export: Export) {
-        if model.recordingsWithoutJuggler > 0 { askingJugglerFor = export } else { run(export) }
+        if recordings.recordingsWithoutJuggler > 0 { askingJugglerFor = export } else { run(export) }
     }
 
     private func run(_ export: Export) {
         Task {
-            let zip = await model.recordingsZip()
+            let zip = await recordings.zip()
             let name = "juggling_recordings_\(ExportNames.stamp()).zip"
             switch export {
             case .save:
@@ -255,7 +250,7 @@ private struct RecordingsSection: View {
                         try zip.write(to: url, options: .atomic)
                         shareURL = url
                     } catch {
-                        model.toast = "Export failed"
+                        toasts.show(String(localized: "Export failed"))
                     }
                 }
             }
@@ -314,7 +309,7 @@ private struct JugglerForm: View {
     let confirmLabel: String
     let onDone: () -> Void
 
-    @Environment(TrackerModel.self) private var model
+    @Environment(SettingsModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var hand: String?
@@ -338,7 +333,7 @@ private struct JugglerForm: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(confirmLabel) {
                         guard let hand, let firstThrow else { return }
-                        model.settings.updateJuggler(
+                        model.values.updateJuggler(
                             name: name.trimmingCharacters(in: .whitespaces), hand: hand, firstThrow: firstThrow
                         )
                         onDone()
@@ -348,9 +343,9 @@ private struct JugglerForm: View {
             }
         }
         .onAppear {
-            name = model.settings.jugglerName
-            hand = model.settings.watchHand
-            firstThrow = model.settings.firstThrowHand
+            name = model.values.jugglerName
+            hand = model.values.watchHand
+            firstThrow = model.values.firstThrowHand
         }
     }
 

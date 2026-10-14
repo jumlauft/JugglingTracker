@@ -4,7 +4,7 @@ import SwiftUI
 /// The home screen: the watch and phone cards, ball-count tabs, the trend
 /// graph and the session history.
 struct TrackerScreen: View {
-    @Environment(TrackerModel.self) private var model
+    @Environment(HistoryModel.self) private var history
     @Binding var path: [Screen]
     @State private var sessionToDelete: SessionSummary?
     @State private var sessionForDetails: SessionSummary?
@@ -14,10 +14,10 @@ struct TrackerScreen: View {
             VStack(spacing: 16) {
                 WatchHeader { path.append(.phoneSession) }
 
-                if model.sessions.isEmpty {
+                if history.sessions.isEmpty {
                     emptyState
                 } else {
-                    history
+                    sessionHistory
                 }
             }
             .padding(16)
@@ -25,9 +25,9 @@ struct TrackerScreen: View {
         .task {
             // A sheet asked for while the first screen is still appearing is
             // dropped, so wait a moment.
-            guard ScreenshotMode.showsDetails, let balls = model.shownHistoryBallCount else { return }
+            guard ScreenshotMode.showsDetails, let balls = history.shownHistoryBallCount else { return }
             try? await Task.sleep(nanoseconds: 1_000_000_000)
-            sessionForDetails = model.sessions.first { $0.ballCount == balls }
+            sessionForDetails = history.sessions.first { $0.ballCount == balls }
         }
         .sheet(item: $sessionForDetails) { session in
             SessionDetailsView(session: session)
@@ -37,7 +37,7 @@ struct TrackerScreen: View {
             isPresented: Binding(get: { sessionToDelete != nil }, set: { if !$0 { sessionToDelete = nil } }),
             presenting: sessionToDelete
         ) { session in
-            Button("Delete", role: .destructive) { model.delete(session) }
+            Button("Delete", role: .destructive) { history.delete(session) }
             Button("Cancel", role: .cancel) {}
         } message: { _ in
             Text("Are you sure you want to delete this session from your history?")
@@ -45,10 +45,10 @@ struct TrackerScreen: View {
     }
 
     @ViewBuilder
-    private var history: some View {
-        let counts = model.historyBallCounts
-        let balls = model.shownHistoryBallCount
-        let filtered = model.sessions.filter { $0.ballCount == balls }
+    private var sessionHistory: some View {
+        let counts = history.historyBallCounts
+        let balls = history.shownHistoryBallCount
+        let filtered = history.sessions.filter { $0.ballCount == balls }
 
         Text("Session History")
             .font(.headline)
@@ -57,7 +57,7 @@ struct TrackerScreen: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(counts, id: \.self) { count in
-                    Button("\(count) Balls") { model.selectHistoryBallCount(count) }
+                    Button("\(count) Balls") { history.selectHistoryBallCount(count) }
                         .buttonStyle(BallChipStyle(isSelected: count == balls))
                         .accessibilityAddTraits(count == balls ? .isSelected : [])
                 }

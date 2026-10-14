@@ -45,8 +45,8 @@ class JugglingViewModelTest {
         viewModel.importSessionFromWatch(payload)
         advanceUntilIdle()
 
-        assertEquals(1, viewModel.completedSessions.size)
-        val summary = viewModel.completedSessions[0]
+        assertEquals(1, viewModel.history.sessions.size)
+        val summary = viewModel.history.sessions[0]
         assertEquals(3, summary.ballCount)
         assertEquals(3, summary.runCount)
         assertEquals(45, summary.totalThrows)
@@ -67,7 +67,7 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        assertEquals(83, viewModel.completedSessions[0].shapeConsistency)
+        assertEquals(83, viewModel.history.sessions[0].shapeConsistency)
     }
 
     @Test
@@ -81,7 +81,7 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        assertEquals(listOf<Int?>(null, null), viewModel.completedSessions.map { it.shapeConsistency })
+        assertEquals(listOf<Int?>(null, null), viewModel.history.sessions.map { it.shapeConsistency })
     }
 
     @Test
@@ -97,7 +97,7 @@ class JugglingViewModelTest {
         viewModel.importSessionFromWatch(payload)
         advanceUntilIdle()
 
-        assertEquals(epochSeconds * 1000L, viewModel.completedSessions[0].timestamp)
+        assertEquals(epochSeconds * 1000L, viewModel.history.sessions[0].timestamp)
     }
 
     @Test
@@ -110,8 +110,8 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        assertEquals(0L, viewModel.completedSessions[0].durationSeconds)
-        assertEquals(listOf(0L), viewModel.completedSessions[0].runDurationsMillis)
+        assertEquals(0L, viewModel.history.sessions[0].durationSeconds)
+        assertEquals(listOf(0L), viewModel.history.sessions[0].runDurationsMillis)
     }
 
     @Test
@@ -125,7 +125,7 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        assertEquals(listOf(9000L, 0L), viewModel.completedSessions[0].runDurationsMillis)
+        assertEquals(listOf(9000L, 0L), viewModel.history.sessions[0].runDurationsMillis)
     }
 
     @Test
@@ -140,7 +140,7 @@ class JugglingViewModelTest {
         viewModel.importSessionFromWatch(payload)
         advanceUntilIdle()
 
-        val summary = viewModel.completedSessions[0]
+        val summary = viewModel.history.sessions[0]
         assertEquals(1, summary.runCount)
         assertEquals(42, summary.bestRun)
         assertEquals(42, summary.totalThrows)
@@ -157,10 +157,10 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        assertEquals(2, viewModel.completedSessions.size)
+        assertEquals(2, viewModel.history.sessions.size)
         // Most recent added at index 0
-        assertEquals(200L * 1000L, viewModel.completedSessions[0].timestamp)
-        assertEquals(100L * 1000L, viewModel.completedSessions[1].timestamp)
+        assertEquals(200L * 1000L, viewModel.history.sessions[0].timestamp)
+        assertEquals(100L * 1000L, viewModel.history.sessions[1].timestamp)
     }
 
     // ── Missing / invalid fields ────────────────────────────────────────
@@ -174,7 +174,7 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        assertTrue(viewModel.completedSessions.isEmpty())
+        assertTrue(viewModel.history.sessions.isEmpty())
     }
 
     @Test
@@ -186,7 +186,7 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        assertTrue(viewModel.completedSessions.isEmpty())
+        assertTrue(viewModel.history.sessions.isEmpty())
     }
 
     @Test
@@ -198,7 +198,7 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        assertTrue(viewModel.completedSessions.isEmpty())
+        assertTrue(viewModel.history.sessions.isEmpty())
     }
 
     @Test
@@ -211,7 +211,7 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        assertTrue(viewModel.completedSessions.isEmpty())
+        assertTrue(viewModel.history.sessions.isEmpty())
     }
 
     @Test
@@ -224,7 +224,7 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        assertTrue(viewModel.completedSessions.isEmpty())
+        assertTrue(viewModel.history.sessions.isEmpty())
     }
 
     @Test
@@ -237,7 +237,7 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        assertTrue(viewModel.completedSessions.isEmpty())
+        assertTrue(viewModel.history.sessions.isEmpty())
     }
 
     @Test
@@ -249,8 +249,8 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        assertEquals(1, viewModel.completedSessions.size)
-        val summary = viewModel.completedSessions[0]
+        assertEquals(1, viewModel.history.sessions.size)
+        val summary = viewModel.history.sessions[0]
         assertEquals(2, summary.runCount)
         assertEquals(30, summary.totalThrows)
     }
@@ -264,7 +264,7 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        assertTrue(viewModel.completedSessions.isEmpty())
+        assertTrue(viewModel.history.sessions.isEmpty())
     }
 
     @Test
@@ -277,8 +277,8 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        assertEquals(1, viewModel.completedSessions.size)
-        assertEquals(3, viewModel.completedSessions[0].ballCount)
+        assertEquals(1, viewModel.history.sessions.size)
+        assertEquals(3, viewModel.history.sessions[0].ballCount)
     }
 
     @Test
@@ -286,7 +286,7 @@ class JugglingViewModelTest {
         viewModel.importSessionFromWatch(emptyMap())
         advanceUntilIdle()
 
-        assertTrue(viewModel.completedSessions.isEmpty())
+        assertTrue(viewModel.history.sessions.isEmpty())
     }
 
     // ── History ball count ──────────────────────────────────────────────
@@ -297,24 +297,24 @@ class JugglingViewModelTest {
 
     @Test
     fun `history shows the smallest ball count until something is chosen`() = runTest {
-        assertNull(viewModel.shownHistoryBallCount)
-        viewModel.restoreSessions(listOf(
+        assertNull(viewModel.history.shownHistoryBallCount)
+        viewModel.history.restore(listOf(
             summarizeSession(2_000_000L, 7, listOf(10)),
             summarizeSession(1_000_000L, 5, listOf(10)),
         ))
-        assertEquals(listOf(5, 7), viewModel.historyBallCounts)
-        assertEquals(5, viewModel.shownHistoryBallCount)
+        assertEquals(listOf(5, 7), viewModel.history.historyBallCounts)
+        assertEquals(5, viewModel.history.shownHistoryBallCount)
     }
 
     @Test
     fun `a session from the watch switches the history to its ball count`() = runTest {
         viewModel.importSessionFromWatch(watchSession(5, 1000L))
-        viewModel.selectHistoryBallCount(5)
+        viewModel.history.selectHistoryBallCount(5)
 
         viewModel.importSessionFromWatch(watchSession(7, 2000L))
         advanceUntilIdle()
 
-        assertEquals(7, viewModel.shownHistoryBallCount)
+        assertEquals(7, viewModel.history.shownHistoryBallCount)
     }
 
     @Test
@@ -324,7 +324,7 @@ class JugglingViewModelTest {
         viewModel.importSessionFromWatch(watchSession(5, 3000L), WatchInbox.Source.WEAR_OS)
         advanceUntilIdle()
 
-        assertEquals(5, viewModel.shownHistoryBallCount)
+        assertEquals(5, viewModel.history.shownHistoryBallCount)
     }
 
     @Test
@@ -334,28 +334,28 @@ class JugglingViewModelTest {
         viewModel.importSessionFromWatch(mapOf("type" to "session", "balls" to 7, "timestamp" to 3000L, "runs" to emptyList<Int>()))
         advanceUntilIdle()
 
-        assertEquals(listOf(5), viewModel.historyBallCounts)
-        assertEquals(5, viewModel.shownHistoryBallCount)
+        assertEquals(listOf(5), viewModel.history.historyBallCounts)
+        assertEquals(5, viewModel.history.shownHistoryBallCount)
     }
 
     @Test
     fun `a recorded run or a restored backup does not switch the history`() = runTest {
         viewModel.importSessionFromWatch(watchSession(3, 1000L))
-        viewModel.restoreSessions(listOf(summarizeSession(5_000_000L, 7, listOf(10))))
+        viewModel.history.restore(listOf(summarizeSession(5_000_000L, 7, listOf(10))))
         viewModel.startRecordingTransfer(mapOf("id" to 9L, "balls" to 7, "catches" to 20, "samples" to 0, "chunks" to 0))
         assertTrue(viewModel.finishRecordingTransfer(mapOf("id" to 9L)))
         advanceUntilIdle()
 
-        assertEquals(3, viewModel.shownHistoryBallCount)
+        assertEquals(3, viewModel.history.shownHistoryBallCount)
     }
 
     @Test
     fun `choosing a chip after a sync wins over the synced ball count`() = runTest {
         viewModel.importSessionFromWatch(watchSession(5, 1000L))
         viewModel.importSessionFromWatch(watchSession(7, 2000L))
-        viewModel.selectHistoryBallCount(5)
+        viewModel.history.selectHistoryBallCount(5)
 
-        assertEquals(5, viewModel.shownHistoryBallCount)
+        assertEquals(5, viewModel.history.shownHistoryBallCount)
     }
 
     // ── Delete ──────────────────────────────────────────────────────────
@@ -366,11 +366,11 @@ class JugglingViewModelTest {
             "balls" to 3, "timestamp" to 1000L, "runs" to listOf(10)
         ))
         advanceUntilIdle()
-        assertEquals(1, viewModel.completedSessions.size)
+        assertEquals(1, viewModel.history.sessions.size)
 
-        viewModel.deleteSession(viewModel.completedSessions[0])
+        viewModel.history.delete(viewModel.history.sessions[0])
 
-        assertTrue(viewModel.completedSessions.isEmpty())
+        assertTrue(viewModel.history.sessions.isEmpty())
     }
 
     @Test
@@ -380,17 +380,17 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        val fake = viewModel.completedSessions[0].copy(timestamp = 999L)
-        viewModel.deleteSession(fake)
+        val fake = viewModel.history.sessions[0].copy(timestamp = 999L)
+        viewModel.history.delete(fake)
 
-        assertEquals(1, viewModel.completedSessions.size)
+        assertEquals(1, viewModel.history.sessions.size)
     }
 
     // ── CSV export ──────────────────────────────────────────────────────
 
     @Test
     fun `csv export empty sessions produces header only`() {
-        val csv = viewModel.getSessionsCsv()
+        val csv = viewModel.history.csv()
 
         assertTrue(csv.startsWith("Date,Ball Count,"))
         assertEquals(1, csv.lines().count { it.isNotBlank() })
@@ -407,7 +407,7 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        val csv = viewModel.getSessionsCsv()
+        val csv = viewModel.history.csv()
         val lines = csv.lines().filter { it.isNotBlank() }
 
         assertEquals(2, lines.size)
@@ -429,7 +429,7 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        val csv = viewModel.getSessionsCsv()
+        val csv = viewModel.history.csv()
         val lines = csv.lines().filter { it.isNotBlank() }
 
         assertEquals(3, lines.size) // header + 2 data rows
@@ -446,7 +446,7 @@ class JugglingViewModelTest {
             ))
             advanceUntilIdle()
 
-            val dataLine = viewModel.getSessionsCsv().lines()[1]
+            val dataLine = viewModel.history.csv().lines()[1]
             assertTrue(dataLine.contains(",15.50,"))
             assertEquals(11, dataLine.split(",").size)
         } finally {
@@ -464,7 +464,7 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        val lines = viewModel.getSessionsCsv().lines().filter { it.isNotBlank() }
+        val lines = viewModel.history.csv().lines().filter { it.isNotBlank() }
         assertTrue(lines[0].endsWith(",Regularity Percent,Timestamp Millis"))
         assertTrue(lines[1].endsWith(",83,200000"))   // newest first
         assertTrue(lines[2].endsWith(",,100000"))
@@ -476,13 +476,13 @@ class JugglingViewModelTest {
             "balls" to 3, "timestamp" to 1716931200L, "runs" to listOf(5)
         ))
         advanceUntilIdle()
-        val export = SessionCsv.parse(viewModel.getSessionsCsv()).sessions +
+        val export = SessionCsv.parse(viewModel.history.csv()).sessions +
             summarizeSession(1716940000000L, 4, listOf(7, 9))
 
-        assertEquals(1, viewModel.restoreSessions(export))
-        assertEquals(0, viewModel.restoreSessions(export))
+        assertEquals(1, viewModel.history.restore(export))
+        assertEquals(0, viewModel.history.restore(export))
 
-        assertEquals(listOf(1716940000000L, 1716931200000L), viewModel.completedSessions.map { it.timestamp })
+        assertEquals(listOf(1716940000000L, 1716931200000L), viewModel.history.sessions.map { it.timestamp })
     }
 
     @Test
@@ -496,8 +496,8 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        assertEquals(1, viewModel.completedSessions.size)
-        assertEquals(listOf(5, 9), viewModel.completedSessions[0].runHistory)
+        assertEquals(1, viewModel.history.sessions.size)
+        assertEquals(listOf(5, 9), viewModel.history.sessions[0].runHistory)
     }
 
     // ── Event emission ──────────────────────────────────────────────────
@@ -523,28 +523,28 @@ class JugglingViewModelTest {
 
     @Test
     fun `start phone session updates phone state`() {
-        viewModel.startPhoneSession(ballCount = 4, startedAtMillis = 1000L)
+        viewModel.phoneSession.start(ballCount = 4, startedAtMillis = 1000L)
 
-        val state = viewModel.phoneSessionState
+        val state = viewModel.phoneSession.state
         assertTrue(state.isRecording)
         assertEquals(4, state.selectedBallCount)
-        assertEquals("Mount the phone to your wrist and start juggling", state.statusMessage)
+        assertEquals(PhoneSessionStatus.MOUNT_PHONE, state.status)
     }
 
     @Test
     fun `stop phone session without runs does not create session`() {
-        viewModel.startPhoneSession(ballCount = 3, startedAtMillis = 1000L)
+        viewModel.phoneSession.start(ballCount = 3, startedAtMillis = 1000L)
 
         val saved = viewModel.stopPhoneSessionAndSave(stoppedAtMillis = 5000L)
 
         assertFalse(saved)
-        assertTrue(viewModel.completedSessions.isEmpty())
-        assertEquals("No phone runs to save", viewModel.phoneSessionState.sensorError)
+        assertTrue(viewModel.history.sessions.isEmpty())
+        assertEquals(PhoneSessionStatus.NO_RUNS, viewModel.phoneSession.state.sensorError)
     }
 
     @Test
     fun `stop phone session saves detected runs in session history`() = runTest {
-        viewModel.startPhoneSession(ballCount = 3, startedAtMillis = 100_000L)
+        viewModel.phoneSession.start(ballCount = 3, startedAtMillis = 100_000L)
         var sampleMs = feedPhoneBaseline(0L, JugglingDetector.WARMUP_SAMPLES + 30)
         // Five bursts are three watch-hand catches, which clears
         // MIN_RUN_CATCHES; anything shorter is dropped as a false start.
@@ -554,9 +554,9 @@ class JugglingViewModelTest {
         advanceUntilIdle()
 
         assertTrue(saved)
-        assertFalse(viewModel.phoneSessionState.isRecording)
-        assertEquals(1, viewModel.completedSessions.size)
-        val summary = viewModel.completedSessions[0]
+        assertFalse(viewModel.phoneSession.state.isRecording)
+        assertEquals(1, viewModel.history.sessions.size)
+        val summary = viewModel.history.sessions[0]
         assertEquals(3, summary.ballCount)
         assertEquals(listOf(3), summary.runHistory)
         assertEquals(12L, summary.durationSeconds)
@@ -571,7 +571,7 @@ class JugglingViewModelTest {
             viewModel.events.collect { events.add(it) }
         }
 
-        viewModel.startPhoneSession(ballCount = 3, startedAtMillis = 100_000L)
+        viewModel.phoneSession.start(ballCount = 3, startedAtMillis = 100_000L)
         var sampleMs = feedPhoneBaseline(0L, JugglingDetector.WARMUP_SAMPLES + 30)
         // Three watch-hand catches, so the run survives MIN_RUN_CATCHES and
         // there is actually a session to save.
@@ -589,7 +589,7 @@ class JugglingViewModelTest {
 
     @Test
     fun `a phone session of only false starts saves nothing`() = runTest {
-        viewModel.startPhoneSession(ballCount = 3, startedAtMillis = 100_000L)
+        viewModel.phoneSession.start(ballCount = 3, startedAtMillis = 100_000L)
         var sampleMs = feedPhoneBaseline(0L, JugglingDetector.WARMUP_SAMPLES + 30)
         // Two catches: a drop, not a run.
         sampleMs = feedPhoneBurst(sampleMs)
@@ -600,7 +600,37 @@ class JugglingViewModelTest {
         advanceUntilIdle()
 
         assertFalse("a session of false starts has nothing worth saving", saved)
-        assertTrue(viewModel.completedSessions.isEmpty())
+        assertTrue(viewModel.history.sessions.isEmpty())
+    }
+
+    @Test
+    fun `a raw recording counts live without touching the phone session`() = runTest {
+        viewModel.rawRecording.startFlow()
+        viewModel.rawRecording.confirmBalls(3)
+        var sampleMs = feedPhoneBaseline(0L, JugglingDetector.WARMUP_SAMPLES + 30)
+        repeat(5) { sampleMs = feedPhoneBurst(sampleMs) }
+
+        assertEquals(3, viewModel.rawRecording.state.liveCount)
+        assertTrue(viewModel.rawRecording.state.sampleCount > 0)
+        assertEquals(PhoneSessionUiState(), viewModel.phoneSession.state)
+
+        viewModel.rawRecording.cancel()
+        assertEquals(0, viewModel.rawRecording.state.liveCount)
+    }
+
+    @Test
+    fun `catches are announced at the voice interval`() = runTest {
+        val events = mutableListOf<JugglingEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.events.collect { events.add(it) }
+        }
+        viewModel.phoneSession.start(ballCount = 3, startedAtMillis = 0L)
+        var sampleMs = feedPhoneBaseline(0L, JugglingDetector.WARMUP_SAMPLES + 30)
+        // 21 bursts are 11 watch-hand catches; the default interval is 10.
+        repeat(21) { sampleMs = feedPhoneBurst(sampleMs) }
+        advanceUntilIdle()
+
+        assertEquals(listOf(JugglingEvent.Announcement("10")), events)
     }
 
     // ── Statistics accuracy ─────────────────────────────────────────────
@@ -613,7 +643,7 @@ class JugglingViewModelTest {
         ))
         advanceUntilIdle()
 
-        val summary = viewModel.completedSessions[0]
+        val summary = viewModel.history.sessions[0]
         assertEquals(20.0, summary.avgThrows, 0.001)
         assertEquals(8.165, summary.stdDevThrows, 0.01)
     }
@@ -729,21 +759,21 @@ class JugglingViewModelTest {
             )
 
             // Nothing is read while the view model is being built.
-            assertEquals(0, vm.recordingCount)
+            assertEquals(0, vm.rawRecording.recordingCount)
             advanceUntilIdle()
-            assertEquals(1, vm.recordingCount)
-            assertEquals(1, vm.recordings.size)
+            assertEquals(1, vm.rawRecording.recordingCount)
+            assertEquals(1, vm.rawRecording.recordings.size)
 
             vm.startRecordingTransfer(startPayload(samples = 2, chunks = 1))
             vm.appendRecordingChunk(chunkPayload(0, listOf(1, 2)))
             assertTrue(vm.finishRecordingTransfer(mapOf("type" to "rec_end", "id" to 42L)))
             advanceUntilIdle()
-            assertEquals(2, vm.recordingCount)
-            assertEquals(listOf(42L, 1L), vm.recordings.map { it.timestamp })
+            assertEquals(2, vm.rawRecording.recordingCount)
+            assertEquals(listOf(42L, 1L), vm.rawRecording.recordings.map { it.timestamp })
 
-            vm.clearRecordings()
-            assertEquals(0, vm.recordingCount)
-            assertTrue(vm.recordings.isEmpty())
+            vm.rawRecording.clear()
+            assertEquals(0, vm.rawRecording.recordingCount)
+            assertTrue(vm.rawRecording.recordings.isEmpty())
             advanceUntilIdle()
             assertEquals(0, repo.recordingCount())
         } finally {
@@ -756,17 +786,17 @@ class JugglingViewModelTest {
     @Test
     fun `measured sample rate comes from sensor timestamps`() {
         // 101 samples 10 ms apart: one second at 100 Hz.
-        assertEquals(100, JugglingViewModel.measuredSampleRate(101, 0L, 1_000_000_000L))
+        assertEquals(100, RawRecordingModel.measuredSampleRate(101, 0L, 1_000_000_000L))
         // 400 samples over 2.1 s rounds to the nearest Hz.
-        assertEquals(190, JugglingViewModel.measuredSampleRate(400, 5L, 5L + 2_100_000_000L))
+        assertEquals(190, RawRecordingModel.measuredSampleRate(400, 5L, 5L + 2_100_000_000L))
     }
 
     @Test
     fun `measured sample rate falls back to the requested rate when unmeasurable`() {
-        val requested = JugglingViewModel.PHONE_REQUESTED_SAMPLE_RATE
-        assertEquals(requested, JugglingViewModel.measuredSampleRate(0, null, null))
-        assertEquals(requested, JugglingViewModel.measuredSampleRate(1, 7L, 7L))
-        assertEquals(requested, JugglingViewModel.measuredSampleRate(5, 9L, 9L))
+        val requested = RawRecordingModel.PHONE_REQUESTED_SAMPLE_RATE
+        assertEquals(requested, RawRecordingModel.measuredSampleRate(0, null, null))
+        assertEquals(requested, RawRecordingModel.measuredSampleRate(1, 7L, 7L))
+        assertEquals(requested, RawRecordingModel.measuredSampleRate(5, 9L, 9L))
     }
 
     @Test
@@ -778,14 +808,14 @@ class JugglingViewModelTest {
                 recordingRepository = recordings,
                 ioDispatcher = mainDispatcherRule.testDispatcher,
             )
-            vm.startRawRecordingFlow()
-            vm.confirmRawRecordingBalls(3)
+            vm.rawRecording.startFlow()
+            vm.rawRecording.confirmBalls(3)
             // A phone that ignores the 200 Hz request and delivers 50 Hz.
             val periodNanos = 20_000_000L
             val start = 123_456_789_000L
             repeat(251) { i -> vm.processPhoneSample(0.0, 0.0, GRAVITY, start + i * periodNanos) }
-            vm.stopRawRecording()
-            vm.saveRawRecording(10)
+            vm.rawRecording.stop()
+            vm.rawRecording.save(10)
             advanceUntilIdle()
 
             val saved = recordings.listRecordings().single()

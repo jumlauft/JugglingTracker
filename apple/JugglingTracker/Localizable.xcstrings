@@ -1,0 +1,120 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Accelerometer is not responding. Restart the phone and try again.": {
+      "comment": "Used in PhoneSessionModel.swift"
+    },
+    "Backup failed": {
+      "comment": "Used in SettingsScreen.swift"
+    },
+    "Backup saved": {
+      "comment": "Used in SettingsScreen.swift"
+    },
+    "Bluetooth is off. Turn it on to sync with your watch.": {
+      "comment": "Used in GarminLink.swift"
+    },
+    "Connected to %@": {
+      "comment": "Used in GarminLink.swift"
+    },
+    "Connected to %@ (%lld shared)": {
+      "comment": "Used in GarminLink.swift"
+    },
+    "Export failed": {
+      "comment": "Used in SettingsScreen.swift"
+    },
+    "Garmin Connect app not found. Please install it from the App Store.": {
+      "comment": "Used in GarminLink.swift"
+    },
+    "Install the Juggling Tracker watch app from the Connect IQ Store.": {
+      "comment": "Used in GarminLink.swift"
+    },
+    "Juggling app is not installed on the watch": {
+      "comment": "Used in WatchHeader.swift"
+    },
+    "Mount the phone to your wrist and start juggling": {
+      "comment": "Used in PhoneSessionModel.swift"
+    },
+    "No Apple Watch is paired with this iPhone": {
+      "comment": "Used in WatchHeader.swift"
+    },
+    "No Garmin watch chosen yet. Tap to choose it.": {
+      "comment": "Used in GarminLink.swift"
+    },
+    "No phone runs to save": {
+      "comment": "Used in PhoneSessionModel.swift"
+    },
+    "No sessions to back up yet": {
+      "comment": "Used in SettingsScreen.swift"
+    },
+    "Nothing new: every session in this file is already here": {
+      "comment": "Used in SettingsScreen.swift"
+    },
+    "Phone accelerometer unavailable": {
+      "comment": "Used in PhoneSessionModel.swift"
+    },
+    "Phone session cancelled": {
+      "comment": "Used in PhoneSessionModel.swift"
+    },
+    "Phone session saved": {
+      "comment": "Used in PhoneSessionModel.swift"
+    },
+    "Ready to record with Apple Watch": {
+      "comment": "Used in WatchHeader.swift"
+    },
+    "Ready to record with Garmin": {
+      "comment": "Used in WatchHeader.swift"
+    },
+    "Ready to record with phone": {
+      "comment": "Used in PhoneSessionModel.swift"
+    },
+    "Received %lld runs for %lld balls": {
+      "comment": "Used in TrackerModel.swift"
+    },
+    "Receiving data...": {
+      "comment": "Used in WatchHeader.swift"
+    },
+    "Record with Apple Watch": {
+      "comment": "Used in WatchHeader.swift"
+    },
+    "Record with Garmin watch": {
+      "comment": "Used in WatchHeader.swift"
+    },
+    "Restored %lld sessions": {
+      "comment": "Used in SettingsScreen.swift"
+    },
+    "Restored 1 session": {
+      "comment": "Used in SettingsScreen.swift"
+    },
+    "Run active": {
+      "comment": "Used in PhoneSessionModel.swift"
+    },
+    "Saved %lld phone runs for %lld balls": {
+      "comment": "Used in TrackerModel.swift"
+    },
+    "This file is not a Juggling Tracker backup": {
+      "comment": "Used in SettingsScreen.swift"
+    },
+    "This folder cannot be used for automatic backups. Please choose one in iCloud Drive.": {
+      "comment": "Used in SettingsScreen.swift"
+    },
+    "This iPhone cannot connect to an Apple Watch": {
+      "comment": "Used in WatchHeader.swift"
+    },
+    "Waiting for next run": {
+      "comment": "Used in PhoneSessionModel.swift"
+    },
+    "Watch disconnected from phone": {
+      "comment": "Used in GarminLink.swift"
+    },
+    "Watch is not connected to phone": {
+      "comment": "Used in WatchHeader.swift"
+    },
+    "Watch is not linked correctly to phone": {
+      "comment": "Used in WatchHeader.swift"
+    },
+    "Watch not found. Tap to choose it again.": {
+      "comment": "Used in GarminLink.swift"
+    }
+  },
+  "version": "1.0"
+}

@@ -51,7 +51,7 @@ class PhoneSessionScreenAwakeTest {
     @Test
     fun `the screen is held awake for as long as a phone session runs`() = runTest {
         val viewModel = JugglingViewModel()
-        viewModel.startPhoneSession(3, startedAtMillis = 0L)
+        viewModel.phoneSession.start(3, startedAtMillis = 0L)
 
         assertTrue(
             "the display must be held awake as soon as the session starts",
@@ -70,14 +70,14 @@ class PhoneSessionScreenAwakeTest {
         assertEquals(
             "the synthetic run should have produced catches",
             3,
-            viewModel.phoneSessionState.currentCount,
+            viewModel.phoneSession.state.currentCount,
         )
     }
 
     @Test
     fun `the screen is released once a session is saved`() = runTest {
         val viewModel = JugglingViewModel()
-        viewModel.startPhoneSession(3, startedAtMillis = 0L)
+        viewModel.phoneSession.start(3, startedAtMillis = 0L)
 
         var tNanos = feedBaseline(viewModel, START_NANOS, JugglingDetector.WARMUP_SAMPLES + 30)
         repeat(BURSTS_FOR_A_REAL_RUN) { tNanos = feedBurst(viewModel, tNanos) }
@@ -95,9 +95,9 @@ class PhoneSessionScreenAwakeTest {
     @Test
     fun `the screen is released when a session is cancelled`() = runTest {
         val viewModel = JugglingViewModel()
-        viewModel.startPhoneSession(3, startedAtMillis = 0L)
+        viewModel.phoneSession.start(3, startedAtMillis = 0L)
 
-        viewModel.cancelPhoneSession()
+        viewModel.phoneSession.cancel()
 
         assertFalse(
             "a cancelled session must give the display back",
@@ -108,7 +108,7 @@ class PhoneSessionScreenAwakeTest {
     @Test
     fun `the screen is released when a session stops with nothing to save`() = runTest {
         val viewModel = JugglingViewModel()
-        viewModel.startPhoneSession(3, startedAtMillis = 0L)
+        viewModel.phoneSession.start(3, startedAtMillis = 0L)
 
         assertFalse(
             "no runs means nothing was saved",
@@ -123,17 +123,17 @@ class PhoneSessionScreenAwakeTest {
     @Test
     fun `the screen is released when the sensor is reported broken`() = runTest {
         val viewModel = JugglingViewModel()
-        viewModel.startPhoneSession(3, startedAtMillis = 0L)
+        viewModel.phoneSession.start(3, startedAtMillis = 0L)
 
         // A wedged accelerometer ends the session from inside the sample path;
         // that route has to release the display too. See FrozenSensorTest.
         var tNanos = START_NANOS
-        repeat(JugglingViewModel.FROZEN_SENSOR_SAMPLES + 5) {
+        repeat(PhoneSessionModel.FROZEN_SENSOR_SAMPLES + 5) {
             viewModel.processPhoneSample(9.68, -9.79, -9.65, tNanos)
             tNanos += PERIOD_NANOS
         }
 
-        assertFalse("the dead session must not still be recording", viewModel.phoneSessionState.isRecording)
+        assertFalse("the dead session must not still be recording", viewModel.phoneSession.state.isRecording)
         assertFalse(
             "a session killed by a broken sensor must give the display back",
             viewModel.shouldKeepScreenOn,
@@ -143,26 +143,26 @@ class PhoneSessionScreenAwakeTest {
     @Test
     fun `the screen is held awake while a raw recording captures samples`() = runTest {
         val viewModel = JugglingViewModel()
-        viewModel.startRawRecordingFlow()
+        viewModel.rawRecording.startFlow()
 
         assertFalse(
             "choosing a ball count collects no samples yet",
             viewModel.shouldKeepScreenOn,
         )
 
-        viewModel.confirmRawRecordingBalls(3)
+        viewModel.rawRecording.confirmBalls(3)
         assertTrue(
             "raw recording streams the same sensor and needs the same protection",
             viewModel.shouldKeepScreenOn,
         )
 
-        viewModel.stopRawRecording()
+        viewModel.rawRecording.stop()
         assertFalse(
             "the labeling step takes no samples, so the display can sleep",
             viewModel.shouldKeepScreenOn,
         )
 
-        viewModel.cancelRawRecording()
+        viewModel.rawRecording.cancel()
         assertFalse(viewModel.shouldKeepScreenOn)
     }
 

@@ -64,14 +64,14 @@ fun JugglingTrackerApp(
     }
 
     RawRecordingFlow(
-        viewModel = viewModel,
+        recording = viewModel.rawRecording,
         onStart = onStartRawRecording,
         onStop = onStopRawRecording,
         onCancel = onCancelRawRecording,
     )
 
     BackHandler(enabled = currentScreen != Screen.Tracker) {
-        if (currentScreen == Screen.PhoneSession && viewModel.phoneSessionState.isRecording) {
+        if (currentScreen == Screen.PhoneSession && viewModel.phoneSession.state.isRecording) {
             showQuitConfirmation = true
         } else {
             currentScreen = Screen.Tracker
@@ -197,7 +197,7 @@ fun JugglingTrackerApp(
                     if (currentScreen != Screen.Tracker) {
                         IconButton(
                             onClick = {
-                                if (currentScreen == Screen.PhoneSession && viewModel.phoneSessionState.isRecording) {
+                                if (currentScreen == Screen.PhoneSession && viewModel.phoneSession.state.isRecording) {
                                     showQuitConfirmation = true
                                 } else {
                                     if (currentScreen == Screen.PhoneSession) onCancelPhoneSession()
@@ -222,7 +222,9 @@ fun JugglingTrackerApp(
         Box(modifier = Modifier.padding(innerPadding)) {
             if (currentScreen == Screen.Tracker) {
                 TrackerScreen(
-                    viewModel = viewModel,
+                    watchStatus = viewModel.watchStatus,
+                    history = viewModel.history,
+                    watchType = viewModel.settings.watchType,
                     onPhoneRecordClick = { currentScreen = Screen.PhoneSession },
                     onGarminLinkClick = { showGarminLinkInstructions = true },
                     onGarminSessionClick = { showGarminSessionInstructions = true },
@@ -231,14 +233,14 @@ fun JugglingTrackerApp(
                 ) { selectedSessionForDetails.value = it }
             } else if (currentScreen == Screen.PhoneSession) {
                 PhoneSessionScreen(
-                    viewModel = viewModel,
+                    session = viewModel.phoneSession,
                     onBack = { currentScreen = Screen.Tracker },
                     onStartPhoneSession = onStartPhoneSession,
                     onStopPhoneSession = onStopPhoneSession,
                     onCancelPhoneSession = onCancelPhoneSession,
                 )
             } else {
-                SettingsScreen(viewModel)
+                SettingsScreen(settings = viewModel.settings, recordings = viewModel.rawRecording)
             }
         }
     }

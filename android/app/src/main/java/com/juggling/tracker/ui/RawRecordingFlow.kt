@@ -11,17 +11,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.juggling.tracker.R
-import com.juggling.tracker.logic.JugglingViewModel
+import com.juggling.tracker.logic.RawRecordingModel
 
 /** The raw-capture flow: pick a ball count, record, then enter the real catch count. */
 @Composable
 fun RawRecordingFlow(
-    viewModel: JugglingViewModel,
+    recording: RawRecordingModel,
     onStart: (Int) -> Boolean,
     onStop: () -> Unit,
     onCancel: () -> Unit,
 ) {
-    val state = viewModel.rawRecordingState
+    val state = recording.state
     
     when (state.step) {
         com.juggling.tracker.logic.RawRecordingStep.SELECT_BALLS -> {
@@ -73,7 +73,7 @@ fun RawRecordingFlow(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Detected: ${viewModel.phoneSessionState.currentCount}",
+                            text = stringResource(R.string.raw_recording_detected, state.liveCount),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -85,7 +85,7 @@ fun RawRecordingFlow(
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("STOP")
+                        Text(stringResource(R.string.action_stop_recording))
                     }
                 }
             )
@@ -115,7 +115,7 @@ fun RawRecordingFlow(
                 },
                 confirmButton = {
                     Button(
-                        onClick = { viewModel.saveRawRecording(catchesText.toIntOrNull() ?: 0) },
+                        onClick = { recording.save(catchesText.toIntOrNull() ?: 0) },
                         enabled = catchesText.isNotEmpty()
                     ) {
                         Text(stringResource(R.string.action_save))

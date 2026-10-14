@@ -3,20 +3,20 @@ import SwiftUI
 /// The raw-capture flow from Settings: pick a ball count, record, then enter
 /// the real catch count. Shown over whatever screen is open.
 private struct RawRecordingFlow: ViewModifier {
-    @Environment(TrackerModel.self) private var model
+    @Environment(RawRecordingModel.self) private var recording
     @Environment(AppServices.self) private var services
 
     func body(content: Content) -> some View {
         content.sheet(
             isPresented: Binding(
-                get: { model.rawRecording.step != .idle },
+                get: { recording.state.step != .idle },
                 set: { shown in if !shown { services.cancelRawRecording() } }
             )
         ) {
             RawRecordingSheet()
                 // A swipe down must not stop a recording or throw the
                 // recorded run away; only Cancel discards it.
-                .interactiveDismissDisabled(model.rawRecording.step == .recording || model.rawRecording.step == .enterCatches)
+                .interactiveDismissDisabled(recording.state.step == .recording || recording.state.step == .enterCatches)
                 .presentationDetents([.medium])
         }
     }
@@ -29,7 +29,7 @@ extension View {
 }
 
 private struct RawRecordingSheet: View {
-    @Environment(TrackerModel.self) private var model
+    @Environment(RawRecordingModel.self) private var recording
     @Environment(AppServices.self) private var services
     @State private var balls = 3
     @State private var catchesText = ""
@@ -37,7 +37,7 @@ private struct RawRecordingSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
-                switch model.rawRecording.step {
+                switch recording.state.step {
                 case .idle:
                     EmptyView()
                 case .selectBalls:
@@ -47,9 +47,9 @@ private struct RawRecordingSheet: View {
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
                 case .recording:
-                    Text("\(model.rawRecording.sampleCount) samples recorded")
+                    Text("\(recording.state.sampleCount) samples recorded")
                         .font(.body.monospacedDigit())
-                    Text("Detected: \(model.phoneSession.currentCount)")
+                    Text("Detected: \(recording.state.liveCount)")
                         .font(.title2.bold())
                     Button(role: .destructive) {
                         services.stopRawRecording()
@@ -69,7 +69,7 @@ private struct RawRecordingSheet: View {
                             if digits != text { catchesText = digits }
                         }
                     Button("Save") {
-                        model.saveRawRecording(actualCatches: Int(catchesText) ?? 0)
+                        recording.save(actualCatches: Int(catchesText) ?? 0)
                         catchesText = ""
                     }
                     .buttonStyle(.borderedProminent)
@@ -81,18 +81,18 @@ private struct RawRecordingSheet: View {
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if model.rawRecording.step != .recording {
+                if recording.state.step != .recording {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") { services.cancelRawRecording() }
                     }
                 }
             }
         }
-        .onAppear { balls = model.rawRecording.selectedBallCount }
+        .onAppear { balls = recording.state.selectedBallCount }
     }
 
     private var title: String {
-        switch model.rawRecording.step {
+        switch recording.state.step {
         case .idle, .selectBalls: "Ball Count"
         case .recording: "Record Acceleration Data"
         case .enterCatches: "Recording Stopped"

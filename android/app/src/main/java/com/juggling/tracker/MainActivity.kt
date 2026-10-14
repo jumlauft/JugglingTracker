@@ -72,13 +72,13 @@ class MainActivity : ComponentActivity() {
 
         // The Garmin card follows the app-wide link; it reports its current
         // state straight away, then every change.
-        garminLink.setStatusListener(viewModel::onGarminLinkStatus)
+        garminLink.setStatusListener(viewModel.watchStatus::onGarminLinkStatus)
 
         setContent {
             // The Garmin SDK and its Bluetooth permissions are only needed
             // with a Garmin watch: someone with a Wear OS watch is not asked
             // for them, and choosing Garmin in Settings asks then.
-            val watchType = viewModel.watchType
+            val watchType = viewModel.settings.watchType
             LaunchedEffect(watchType) {
                 if (watchType == WatchType.GARMIN) ensurePermissionsThenInitialize()
             }
@@ -124,7 +124,7 @@ class MainActivity : ComponentActivity() {
                 watchesWithApp = if (capable.isSuccessful) capable.result.nodes.size else 0,
             )
             if (!nodes.isSuccessful) Log.w(TAG, "Wear OS Data Layer unavailable", nodes.exception)
-            viewModel.onWearLinkStatus(status)
+            viewModel.watchStatus.onWearLinkStatus(status)
         }
     }
 
@@ -177,7 +177,7 @@ class MainActivity : ComponentActivity() {
             } else {
                 garminLink.reportProblem(
                     GarminConnectionStatus.SDK_ERROR,
-                    "Bluetooth permissions are required for Garmin sync.",
+                    getString(R.string.garmin_bluetooth_permission),
                 )
             }
         }
@@ -189,38 +189,38 @@ class MainActivity : ComponentActivity() {
         } else {
             garminLink.reportProblem(
                 GarminConnectionStatus.BLUETOOTH_DISABLED,
-                "Turn on bluetooth to receive data from watch",
+                getString(R.string.garmin_bluetooth_off),
             )
         }
     }
 
     private fun startPhoneRecording(ballCount: Int): Boolean {
-        if (viewModel.phoneSessionState.isRecording && phoneAccelerometer.isActive) return true
+        if (viewModel.phoneSession.state.isRecording && phoneAccelerometer.isActive) return true
 
-        viewModel.startPhoneSession(ballCount)
+        viewModel.phoneSession.start(ballCount)
         if (!registerPhoneSensorListener()) {
-            viewModel.markPhoneSensorUnavailable("Phone accelerometer unavailable")
+            viewModel.phoneSession.markSensorUnavailable()
             return false
         }
         return true
     }
 
     private fun startRawRecording(ballCount: Int): Boolean {
-        viewModel.confirmRawRecordingBalls(ballCount)
+        viewModel.rawRecording.confirmBalls(ballCount)
         if (!registerPhoneSensorListener()) {
-            viewModel.cancelRawRecording()
+            viewModel.rawRecording.cancel()
             return false
         }
         return true
     }
 
     private fun stopRawRecording() {
-        viewModel.stopRawRecording()
+        viewModel.rawRecording.stop()
         stopPhoneSensorListener()
     }
 
     private fun cancelRawRecording() {
-        viewModel.cancelRawRecording()
+        viewModel.rawRecording.cancel()
         stopPhoneSensorListener()
     }
 
@@ -231,7 +231,7 @@ class MainActivity : ComponentActivity() {
 
     private fun cancelPhoneRecording() {
         stopPhoneSensorListener()
-        viewModel.cancelPhoneSession()
+        viewModel.phoneSession.cancel()
     }
 
     private fun registerPhoneSensorListener(): Boolean = phoneAccelerometer.start()
@@ -243,15 +243,12 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshWearStatus()
-        val isRecordingActive = viewModel.phoneSessionState.isRecording || 
-                viewModel.rawRecordingState.step == com.juggling.tracker.logic.RawRecordingStep.RECORDING
-        
-        if (isRecordingActive && !phoneAccelerometer.isActive) {
+        if (viewModel.isUsingPhoneSensor && !phoneAccelerometer.isActive) {
             if (!registerPhoneSensorListener()) {
-                if (viewModel.phoneSessionState.isRecording) {
-                    viewModel.markPhoneSensorUnavailable("Phone accelerometer unavailable")
+                if (viewModel.phoneSession.state.isRecording) {
+                    viewModel.phoneSession.markSensorUnavailable()
                 } else {
-                    viewModel.cancelRawRecording()
+                    viewModel.rawRecording.cancel()
                 }
             }
         }

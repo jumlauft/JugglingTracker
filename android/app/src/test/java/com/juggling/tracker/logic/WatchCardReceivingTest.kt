@@ -28,8 +28,8 @@ class WatchCardReceivingTest {
     fun setup() {
         inbox = WatchInbox()
         viewModel = JugglingViewModel(inbox = inbox)
-        viewModel.onGarminLinkStatus(GarminConnectionStatus.READY, "Connected")
-        viewModel.onWearLinkStatus(WearConnectionStatus.READY)
+        viewModel.watchStatus.onGarminLinkStatus(GarminConnectionStatus.READY, "Connected")
+        viewModel.watchStatus.onWearLinkStatus(WearConnectionStatus.READY)
     }
 
     private val id = 1_780_000_000L
@@ -50,18 +50,18 @@ class WatchCardReceivingTest {
             // Well past the old 1.5 s flash between each chunk.
             advanceTimeBy(5_000)
             runCurrent()
-            assertEquals(GarminConnectionStatus.RECEIVING, viewModel.garminStatus)
+            assertEquals(GarminConnectionStatus.RECEIVING, viewModel.watchStatus.garminStatus)
             inbox.receive(recChunk(i), WatchInbox.Source.GARMIN)
         }
         advanceTimeBy(5_000)
         runCurrent()
-        assertEquals(GarminConnectionStatus.RECEIVING, viewModel.garminStatus)
+        assertEquals(GarminConnectionStatus.RECEIVING, viewModel.watchStatus.garminStatus)
 
         inbox.receive(recEnd(), WatchInbox.Source.GARMIN)
-        assertEquals(GarminConnectionStatus.RECEIVING, viewModel.garminStatus)
-        advanceTimeBy(JugglingViewModel.RECEIVING_DISPLAY_MS + 1)
+        assertEquals(GarminConnectionStatus.RECEIVING, viewModel.watchStatus.garminStatus)
+        advanceTimeBy(WatchStatusModel.RECEIVING_DISPLAY_MS + 1)
         runCurrent()
-        assertEquals(GarminConnectionStatus.READY, viewModel.garminStatus)
+        assertEquals(GarminConnectionStatus.READY, viewModel.watchStatus.garminStatus)
     }
 
     @Test
@@ -72,12 +72,12 @@ class WatchCardReceivingTest {
         inbox.receive(recChunk(0), WatchInbox.Source.WEAR_OS)
         advanceTimeBy(5_000)
         runCurrent()
-        assertEquals(WearConnectionStatus.RECEIVING, viewModel.wearStatus)
+        assertEquals(WearConnectionStatus.RECEIVING, viewModel.watchStatus.wearStatus)
         inbox.receive(recChunk(1), WatchInbox.Source.WEAR_OS)
         inbox.receive(recEnd(), WatchInbox.Source.WEAR_OS)
-        advanceTimeBy(JugglingViewModel.RECEIVING_DISPLAY_MS + 1)
+        advanceTimeBy(WatchStatusModel.RECEIVING_DISPLAY_MS + 1)
         runCurrent()
-        assertEquals(WearConnectionStatus.READY, viewModel.wearStatus)
+        assertEquals(WearConnectionStatus.READY, viewModel.watchStatus.wearStatus)
     }
 
     @Test
@@ -85,22 +85,22 @@ class WatchCardReceivingTest {
         inbox.receive(recStart(chunks = 4), WatchInbox.Source.GARMIN)
         inbox.receive(recChunk(0), WatchInbox.Source.GARMIN)
 
-        advanceTimeBy(JugglingViewModel.RECEIVING_STALL_MS + 1)
+        advanceTimeBy(WatchStatusModel.RECEIVING_STALL_MS + 1)
         runCurrent()
 
-        assertEquals(GarminConnectionStatus.READY, viewModel.garminStatus)
+        assertEquals(GarminConnectionStatus.READY, viewModel.watchStatus.garminStatus)
     }
 
     @Test
     fun `a link status reported mid-transfer shows once the transfer ends`() = runTest {
         inbox.receive(recStart(chunks = 1), WatchInbox.Source.GARMIN)
-        viewModel.onGarminLinkStatus(GarminConnectionStatus.DISCONNECTED, "Watch disconnected from phone")
-        assertEquals(GarminConnectionStatus.RECEIVING, viewModel.garminStatus)
+        viewModel.watchStatus.onGarminLinkStatus(GarminConnectionStatus.DISCONNECTED, "Watch disconnected from phone")
+        assertEquals(GarminConnectionStatus.RECEIVING, viewModel.watchStatus.garminStatus)
 
-        advanceTimeBy(JugglingViewModel.RECEIVING_STALL_MS + 1)
+        advanceTimeBy(WatchStatusModel.RECEIVING_STALL_MS + 1)
         runCurrent()
 
-        assertEquals(GarminConnectionStatus.DISCONNECTED, viewModel.garminStatus)
+        assertEquals(GarminConnectionStatus.DISCONNECTED, viewModel.watchStatus.garminStatus)
     }
 
     @Test
@@ -109,9 +109,9 @@ class WatchCardReceivingTest {
             mapOf("type" to "session", "balls" to 3, "timestamp" to 1L, "runs" to listOf(5)),
             WatchInbox.Source.GARMIN,
         )
-        assertEquals(GarminConnectionStatus.RECEIVING, viewModel.garminStatus)
-        advanceTimeBy(JugglingViewModel.RECEIVING_DISPLAY_MS + 1)
+        assertEquals(GarminConnectionStatus.RECEIVING, viewModel.watchStatus.garminStatus)
+        advanceTimeBy(WatchStatusModel.RECEIVING_DISPLAY_MS + 1)
         runCurrent()
-        assertEquals(GarminConnectionStatus.READY, viewModel.garminStatus)
+        assertEquals(GarminConnectionStatus.READY, viewModel.watchStatus.garminStatus)
     }
 }

@@ -30,7 +30,8 @@ simulator.
 | --- | --- | --- |
 | `App/` | App entry, the services wired together | `JugglingTrackerApplication`, `MainActivity` |
 | `Data/` | Session history (JSON Lines), raw recordings (CSV), settings, weekly backup | `data/`, `backup/` |
-| `Logic/` | `TrackerModel` (phone sessions, raw recording, watch card), `WatchInbox`, the watch links, accelerometer, voice, Firebase | `logic/`, `sensor/` |
+| `Logic/` | `TrackerModel`, which holds `WatchStatusModel` (the watch card), `HistoryModel`, `PhoneSessionModel`, `RawRecordingModel` and `SettingsModel`, each a model of the same name on Android; `WatchInbox`, the watch links, accelerometer, voice, Firebase | `logic/`, `sensor/` |
+| `Localizable.xcstrings` | The String Catalog: texts the models and links produce (statuses, messages); SwiftUI adds its own labels at build | `res/values/strings.xml` |
 | `UI/` | SwiftUI screens | `ui/` |
 
 Counting, Regularity, the watch messages, the 25 Hz throttle, the history

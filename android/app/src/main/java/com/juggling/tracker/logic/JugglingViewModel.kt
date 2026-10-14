@@ -1,35 +1,16 @@
 package com.juggling.tracker.logic
 
-import android.content.Context
-import android.net.Uri
-import android.util.Log
-import com.juggling.tracker.backup.SessionBackup
-import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.juggling.tracker.shared.Juggler
-import com.juggling.tracker.shared.SessionSummary
-import com.juggling.tracker.shared.normalizeRunDurations
-import com.juggling.tracker.shared.summarizeSession
-import com.juggling.tracker.shared.SampleThrottle
-import com.juggling.tracker.shared.SessionCsv
-import com.juggling.tracker.data.SessionRepository
+import com.google.firebase.analytics.FirebaseAnalytics
 import com.juggling.tracker.data.RecordingRepository
+import com.juggling.tracker.data.SessionRepository
 import com.juggling.tracker.data.SettingsManager
-import com.juggling.tracker.data.WatchType
-import com.juggling.tracker.shared.JugglingDetector
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
-import android.os.Bundle
-import com.google.firebase.analytics.FirebaseAnalytics
 
 sealed class JugglingEvent {
     data class Announcement(val text: String) : JugglingEvent()
@@ -37,177 +18,72 @@ sealed class JugglingEvent {
     data class PhoneSessionSaved(val count: Int, val ballCount: Int) : JugglingEvent()
 }
 
-enum class GarminConnectionStatus {
-    READY,
-    RECEIVING,
-    NOT_INITIALIZED,
-    BLUETOOTH_DISABLED,
-    NO_PAIRED_DEVICES,
-    CONNECT_IQ_MISSING,
-    WATCH_APP_MISSING,
-    DISCONNECTED,
-    SDK_ERROR
-}
-
-/** The Wear OS watch app's link to this phone, over the Data Layer. */
-enum class WearConnectionStatus {
-    CHECKING,
-    READY,
-    RECEIVING,
-    NO_WATCH,
-    WATCH_APP_MISSING,
-    UNAVAILABLE;
-
-    companion object {
-        /**
-         * [connectedWatches] is how many watches the phone is connected to, and
-         * [watchesWithApp] how many of them are running a reachable copy of the
-         * watch app; null when the Data Layer could not be asked at all.
-         */
-        fun classify(connectedWatches: Int?, watchesWithApp: Int): WearConnectionStatus = when {
-            connectedWatches == null -> UNAVAILABLE
-            watchesWithApp > 0 -> READY
-            connectedWatches == 0 -> NO_WATCH
-            else -> WATCH_APP_MISSING
-        }
-    }
-}
-
-data class PhoneSessionUiState(
-    val selectedBallCount: Int = 3,
-    val isRecording: Boolean = false,
-    val currentCount: Int = 0,
-    val previousCount: Int = 0,
-    val completedRuns: List<Int> = emptyList(),
-    val runDurationsMillis: List<Long> = emptyList(),
-    val sessionRunCount: Int = 0,
-    val sessionAverage: Double = 0.0,
-    val sessionMax: Int = 0,
-    val elapsedSeconds: Long = 0L,
-    val statusMessage: String = "Ready to record with phone",
-    val sensorError: String? = null,
-)
-
-data class RawRecordingUiState(
-    val step: RawRecordingStep = RawRecordingStep.IDLE,
-    val selectedBallCount: Int = 3,
-    val sampleCount: Int = 0,
-)
-
-enum class RawRecordingStep {
-    IDLE,
-    SELECT_BALLS,
-    RECORDING,
-    ENTER_CATCHES
-}
-
+/**
+ * Holds the app's models and wires them together; each screen talks to the
+ * models it shows:
+ *
+ * - [watchStatus]: the watch card on the home screen
+ * - [history]: the session history
+ * - [phoneSession]: a session counted with the phone's own sensor
+ * - [rawRecording]: raw recordings for the detection corpus
+ * - [settings]: everything on the Settings screen but the recordings
+ *
+ * What the watches send reaches them through the [WatchInbox]. The iPhone
+ * app's TrackerModel holds the same models.
+ */
 class JugglingViewModel(
-    private val repository: SessionRepository? = null,
-    private val recordingRepository: RecordingRepository? = null,
-    private val analytics: FirebaseAnalytics? = null,
-    private val settings: SettingsManager? = null,
+    repository: SessionRepository? = null,
+    recordingRepository: RecordingRepository? = null,
+    analytics: FirebaseAnalytics? = null,
+    settingsManager: SettingsManager? = null,
     // The app's own inbox, shared with the Wear OS listener service and the
     // Garmin link; it must hold the same repositories as this view model.
     // Without one (tests) the view model gets an inbox of its own.
     inbox: WatchInbox? = null,
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
-    private val inbox = inbox ?: WatchInbox(repository, recordingRepository, analytics) { currentJuggler }
-
-    // Garmin Status
-    var garminStatus by mutableStateOf(GarminConnectionStatus.NOT_INITIALIZED)
-    var statusMessage by mutableStateOf("")
-
-    // Wear OS status
-    var wearStatus by mutableStateOf(WearConnectionStatus.CHECKING)
-
-    // While a watch is sending, its card stays on "receiving"; a status its
-    // link reports meanwhile waits here and shows once the transfer ends.
-    private var garminReceiving: Job? = null
-    private var wearReceiving: Job? = null
-    private var garminLinkWhileReceiving: GarminConnectionStatus? = null
-    private var wearLinkWhileReceiving: WearConnectionStatus? = null
-
-    /** What the Garmin link reports about the watch's connection. */
-    fun onGarminLinkStatus(status: GarminConnectionStatus, message: String) {
-        statusMessage = message
-        if (garminReceiving != null) garminLinkWhileReceiving = status else garminStatus = status
-    }
-
-    /** What the Data Layer reports about the Wear OS watch's connection. */
-    fun onWearLinkStatus(status: WearConnectionStatus) {
-        if (wearReceiving != null) wearLinkWhileReceiving = status else wearStatus = status
-    }
-
-    // Settings
-    val isAnalyticsEnabled get() = settings?.isAnalyticsEnabled ?: true
-    val isVoiceEnabled get() = settings?.isVoiceEnabled ?: true
-    val voiceInterval get() = settings?.voiceInterval ?: 10
-    val watchType get() = settings?.watchType ?: WatchType.GARMIN
-
-    fun setWatchType(type: WatchType) {
-        settings?.updateWatchType(type)
-    }
-
-    val jugglerName get() = settings?.jugglerName ?: ""
-    val watchHand get() = settings?.watchHand
-    val firstThrowHand get() = settings?.firstThrowHand
-
-    /**
-     * Who is juggling now, once a name and both hands have been entered. New
-     * recordings are saved with it, and an export tags older runs that have
-     * none with it.
-     */
-    val currentJuggler: Juggler? get() = settings?.currentJuggler
-
-    /** Remember who juggles, the watch wrist and the first-throw hand for the next recordings. */
-    fun setExportDetails(name: String, hand: String, firstThrow: String) {
-        settings?.updateExportDetails(name.trim(), hand, firstThrow)
-    }
-
-    /** Stored recordings saved before the juggler was stored with each run. */
-    val recordingsWithoutJuggler get() = recordings.count { it.juggler == null }
-
-    fun toggleAnalytics(enabled: Boolean) {
-        settings?.updateAnalyticsEnabled(enabled)
-        analytics?.setAnalyticsCollectionEnabled(enabled)
-        // JugglingTrackerApplication applies the saved choice at start-up;
-        // this applies a change at once.
-        try {
-            com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(enabled)
-        } catch (e: IllegalStateException) {
-            // Firebase is not initialised (unit tests).
-            Log.w(TAG, "Cannot change Crashlytics collection", e)
-        }
-    }
-
-    fun toggleVoice(enabled: Boolean) {
-        settings?.updateVoiceEnabled(enabled)
-    }
-
-    fun setVoiceInterval(interval: Int) {
-        settings?.updateVoiceInterval(interval)
-    }
-
-    // Event Flow
     private val _events = MutableSharedFlow<JugglingEvent>()
     val events = _events.asSharedFlow()
 
-    // Recording state, filled in from disk by refreshRecordings.
-    var recordingCount by mutableIntStateOf(0)
-        private set
-    var recordings by mutableStateOf(emptyList<RecordingRepository.RecordingSummary>())
-        private set
+    val watchStatus = WatchStatusModel(viewModelScope)
+    val history = HistoryModel(repository)
+    val settings = SettingsModel(settingsManager, history, repository, analytics, ioDispatcher)
+    val phoneSession = PhoneSessionModel(history, analytics, onCatch = ::announce)
+    val rawRecording = RawRecordingModel(
+        viewModelScope, recordingRepository, { settings.currentJuggler }, ioDispatcher, onCatch = ::announce,
+    )
 
-    // Keeps recording saves, clears and refreshes on the IO dispatcher in the
-    // order they were asked for, so a refresh never shows a cleared run.
-    private val recordingFiles = Mutex()
+    private val inbox = inbox ?: WatchInbox(repository, recordingRepository, analytics) { settings.currentJuggler }
 
-    var phoneSessionState by mutableStateOf(PhoneSessionUiState())
-        private set
+    // What the watches deliver reaches the screens through the inbox, which
+    // may have stored it while no screen was open at all.
+    private val inboxListener: (WatchInbox.Event) -> Unit = { event ->
+        when (event) {
+            is WatchInbox.Event.Receiving -> watchStatus.showReceiving(event.source, event.more)
+            is WatchInbox.Event.SessionStored -> {
+                history.showReceived(event.session)
+                emit(JugglingEvent.SyncCompleted(event.session.runCount, event.session.ballCount))
+            }
+            WatchInbox.Event.RecordingStored -> rawRecording.refresh()
+        }
+    }
 
-    var rawRecordingState by mutableStateOf(RawRecordingUiState())
-        private set
+    init {
+        this.inbox.addListener(inboxListener)
+    }
+
+    override fun onCleared() {
+        inbox.removeListener(inboxListener)
+        super.onCleared()
+    }
+
+    private fun emit(event: JugglingEvent) {
+        viewModelScope.launch { _events.emit(event) }
+    }
+
+    private fun announce(count: Int) {
+        if (settings.shouldAnnounce(count)) emit(JugglingEvent.Announcement(count.toString()))
+    }
 
     /**
      * True while the accelerometer has to keep streaming, so the UI can hold the
@@ -221,140 +97,36 @@ class JugglingViewModel(
      * means it cannot drift out of step with the sensor.
      */
     val shouldKeepScreenOn: Boolean
-        get() = phoneSessionState.isRecording ||
-            rawRecordingState.step == RawRecordingStep.RECORDING
-
-    private val rawAccelX = mutableListOf<Int>()
-    private val rawAccelY = mutableListOf<Int>()
-    private val rawAccelZ = mutableListOf<Int>()
-    private var rawRecordingStartedAtMillis: Long? = null
-    // Sensor timestamps of the first and last captured sample, so the saved
-    // file carries the rate the accelerometer actually delivered rather than
-    // the rate requested from it, which Android treats only as a hint.
-    private var rawFirstSampleNanos: Long? = null
-    private var rawLastSampleNanos: Long? = null
-
-    private var phoneDetector: JugglingDetector? = null
-    private var phoneSessionStartedAtMillis: Long? = null
-    private var phoneSessionStartSampleMillis: Long? = null
-    private val phoneThrottle = SampleThrottle()
-
-    // A wedged accelerometer keeps delivering events at full rate, but every
-    // one carries the identical vector. The detector then sees zero linear
-    // acceleration and counts nothing, which looked exactly like "the user has
-    // not started juggling yet": the session sat on "Ready" forever with no
-    // hint that anything was wrong. Consecutive byte-identical samples are the
-    // signature -- a genuinely still phone still jitters in the low bits, so
-    // this cannot fire just because the phone is resting.
-    private var phoneFrozenSamples = 0
-    private var phoneLastRawX = Double.NaN
-    private var phoneLastRawY = Double.NaN
-    private var phoneLastRawZ = Double.NaN
-
-    val completedSessions = mutableStateListOf<SessionSummary>()
+        get() = isUsingPhoneSensor
 
     /**
-     * The ball count whose history the home screen shows: the chip the user
-     * tapped last, or the ball count of the session a watch sent last,
-     * whichever came later. Null until either happens. Kept here rather than
-     * in the screen so a sync that lands while another screen is open is
-     * still shown on the way back.
+     * Whether a phone session or raw recording still wants accelerometer
+     * samples. False once a frozen sensor ended the session, so the screen
+     * can let go of the sensor.
      */
-    var historyBallCount by mutableStateOf<Int?>(null)
-        private set
+    val isUsingPhoneSensor: Boolean
+        get() = phoneSession.state.isRecording || rawRecording.state.step == RawRecordingStep.RECORDING
 
-    /** The ball counts the history has sessions for, smallest first. */
-    val historyBallCounts: List<Int>
-        get() = completedSessions.map { it.ballCount }.distinct().sorted()
-
-    /**
-     * The chip that is selected: [historyBallCount] while the history has
-     * sessions for it, otherwise the smallest ball count. Null with no history.
-     */
-    val shownHistoryBallCount: Int?
-        get() {
-            val counts = historyBallCounts
-            return historyBallCount?.takeIf { it in counts } ?: counts.firstOrNull()
-        }
-
-    fun selectHistoryBallCount(ballCount: Int) {
-        historyBallCount = ballCount
+    /** Hands a batch of phone accelerometer events to whichever is capturing. */
+    fun processPhoneSamples(samples: List<PhoneAccelSample>) {
+        if (samples.isEmpty()) return
+        rawRecording.process(samples)
+        phoneSession.process(samples)
     }
 
-    // What the watches deliver reaches this screen through the inbox, which
-    // may have stored it while no screen was open at all.
-    private val inboxListener: (WatchInbox.Event) -> Unit = { event ->
-        when (event) {
-            is WatchInbox.Event.Receiving -> showReceiving(event.source, event.more)
-            is WatchInbox.Event.SessionStored -> {
-                showStoredSession(event.session)
-                // Flip the history to what just arrived. Several sessions in
-                // one sync each pass through here, so the last one wins.
-                historyBallCount = event.session.ballCount
-                viewModelScope.launch {
-                    _events.emit(JugglingEvent.SyncCompleted(event.session.runCount, event.session.ballCount))
-                }
-            }
-            WatchInbox.Event.RecordingStored -> refreshRecordings()
-        }
+    fun processPhoneSample(ax: Double, ay: Double, az: Double, timestampNanos: Long) {
+        processPhoneSamples(listOf(PhoneAccelSample(ax, ay, az, timestampNanos)))
     }
 
-    init {
-        // Load any previously stored sessions on startup.
-        repository?.getSessions()?.let { sessions ->
-            completedSessions.clear()
-            completedSessions.addAll(sessions)
-        }
-        this.inbox.addListener(inboxListener)
-        refreshRecordings()
+    /** Ends the phone session and stores it; false when there was no run to save. */
+    fun stopPhoneSessionAndSave(stoppedAtMillis: Long = System.currentTimeMillis()): Boolean {
+        val balls = phoneSession.state.selectedBallCount
+        val runs = phoneSession.stopAndSave(stoppedAtMillis) ?: return false
+        emit(JugglingEvent.PhoneSessionSaved(runs, balls))
+        return true
     }
 
-    /** Re-read the recordings list and count on the IO dispatcher. */
-    private fun refreshRecordings() {
-        val repo = recordingRepository ?: return
-        viewModelScope.launch {
-            val (count, list) = recordingFiles.withLock {
-                withContext(ioDispatcher) { repo.recordingCount() to repo.listRecordings() }
-            }
-            recordingCount = count
-            recordings = list
-        }
-    }
-
-    override fun onCleared() {
-        inbox.removeListener(inboxListener)
-        super.onCleared()
-    }
-
-    // The watch card shows "receiving" from a transfer's first message until
-    // a moment after its last. A run arrives in several messages; between
-    // them the card holds on for up to RECEIVING_STALL_MS, longer than the
-    // watch itself waits, so a transfer that died cannot leave it orange.
-    private fun showReceiving(source: WatchInbox.Source, more: Boolean) {
-        val hold = if (more) RECEIVING_STALL_MS else RECEIVING_DISPLAY_MS
-        when (source) {
-            WatchInbox.Source.GARMIN -> {
-                garminStatus = GarminConnectionStatus.RECEIVING
-                garminReceiving?.cancel()
-                garminReceiving = viewModelScope.launch {
-                    delay(hold)
-                    garminReceiving = null
-                    garminStatus = garminLinkWhileReceiving ?: GarminConnectionStatus.READY
-                    garminLinkWhileReceiving = null
-                }
-            }
-            WatchInbox.Source.WEAR_OS -> {
-                wearStatus = WearConnectionStatus.RECEIVING
-                wearReceiving?.cancel()
-                wearReceiving = viewModelScope.launch {
-                    delay(hold)
-                    wearReceiving = null
-                    wearStatus = wearLinkWhileReceiving ?: WearConnectionStatus.READY
-                    wearLinkWhileReceiving = null
-                }
-            }
-        }
-    }
+    // ── Watch messages, fed in directly ─────────────────────────────────
 
     /**
      * Feeds a finished session straight into the inbox, as if [source] had
@@ -363,89 +135,6 @@ class JugglingViewModel(
     fun importSessionFromWatch(payload: Map<String, Any>, source: WatchInbox.Source = WatchInbox.Source.GARMIN) {
         inbox.importSession(payload, source)
     }
-
-    private fun storeFinishedSession(
-        balls: Int,
-        timestamp: Long,
-        runs: List<Int>,
-        durationSeconds: Long,
-        runDurationsMillis: List<Long>,
-        shapeConsistency: Int? = null,
-    ) {
-        val session = repository?.importSession(balls, timestamp, runs, durationSeconds, runDurationsMillis, shapeConsistency)
-            ?: summarizeSession(timestamp, balls, runs, durationSeconds, runDurationsMillis, shapeConsistency)
-        showStoredSession(session)
-    }
-
-    private fun showStoredSession(session: SessionSummary) {
-        if (repository != null) {
-            // Reload from the repository so the list matches what is stored.
-            completedSessions.clear()
-            completedSessions.addAll(repository.getSessions())
-            return
-        }
-        // No repository (unit tests): keep the list the way the repository
-        // would, one session per timestamp, a resend replacing the old copy.
-        val existing = completedSessions.indexOfFirst { it.timestamp == session.timestamp }
-        if (existing >= 0) {
-            completedSessions[existing] = session
-        } else {
-            completedSessions.add(0, session)
-        }
-    }
-
-
-    fun deleteSession(session: SessionSummary) {
-        completedSessions.remove(session)
-        repository?.deleteSession(session)
-    }
-
-    fun getSessionsCsv(): String = SessionCsv.write(completedSessions)
-
-    // ── Backup (see SessionBackup) ──────────────────────────────────────
-
-    val isBackupEnabled get() = settings?.isBackupEnabled ?: false
-    val backupUri get() = settings?.backupUri
-    val backupFileName get() = settings?.backupFileName
-    val lastBackupMillis get() = settings?.lastBackupMillis ?: 0L
-    val lastBackupFailed get() = settings?.lastBackupFailed ?: false
-
-    /** Use [uri] as the backup file; false when the app may not write there. */
-    fun connectBackupFile(context: Context, uri: Uri): Boolean {
-        val settings = settings ?: return false
-        return SessionBackup.connect(context, uri, settings)
-    }
-
-    fun setBackupEnabled(context: Context, enabled: Boolean) {
-        val settings = settings ?: return
-        SessionBackup.setEnabled(context, settings, enabled)
-    }
-
-    /** Writes the backup file now, off the main thread. */
-    suspend fun backUpNow(context: Context): SessionBackup.Result {
-        val repository = repository ?: return SessionBackup.Result.FAILED
-        val settings = settings ?: return SessionBackup.Result.FAILED
-        return withContext(ioDispatcher) { SessionBackup.backUp(context, repository, settings) }
-    }
-
-    /**
-     * Add a backup's sessions to the history, skipping those already here.
-     * Returns how many were added.
-     */
-    fun restoreSessions(backup: List<SessionSummary>): Int {
-        if (repository != null) {
-            val added = repository.restoreSessions(backup)
-            completedSessions.clear()
-            completedSessions.addAll(repository.getSessions())
-            return added
-        }
-        val added = SessionCsv.newSessions(backup, completedSessions)
-        completedSessions.addAll(added)
-        completedSessions.sortByDescending { it.timestamp }
-        return added.size
-    }
-
-    // ── Recording support ──────────────────────────────────────────────
 
     // A watch's recorded run arrives as rec_start, rec_chunk parts and
     // rec_end, and the inbox reassembles it. These feed it directly, as if a
@@ -458,342 +147,4 @@ class JugglingViewModel(
     /** Returns true when a complete run was written. */
     fun finishRecordingTransfer(payload: Map<String, Any>, source: WatchInbox.Source = WatchInbox.Source.GARMIN): Boolean =
         inbox.finishRecordingTransfer(payload, source)
-
-    /**
-     * Zip of all stored recordings for export. Each run keeps the juggler saved
-     * with it; runs without one are tagged with [currentJuggler].
-     */
-    suspend fun writeRecordingsZip(out: java.io.OutputStream) {
-        val repo = recordingRepository ?: return
-        val fallback = currentJuggler
-        withContext(ioDispatcher) { repo.exportAllZip(out, fallback = fallback) }
-    }
-
-    /** Delete all stored recordings. */
-    fun clearRecordings() {
-        recordingCount = 0
-        recordings = emptyList()
-        val repo = recordingRepository ?: return
-        viewModelScope.launch {
-            recordingFiles.withLock { withContext(ioDispatcher) { repo.clearAll() } }
-        }
-    }
-
-    // ── Raw Data Recording support ─────────────────────────────────────
-
-    fun startRawRecordingFlow() {
-        rawRecordingState = RawRecordingUiState(step = RawRecordingStep.SELECT_BALLS)
-    }
-
-    fun confirmRawRecordingBalls(balls: Int) {
-        rawRecordingState = rawRecordingState.copy(
-            step = RawRecordingStep.RECORDING,
-            selectedBallCount = balls
-        )
-        rawAccelX.clear()
-        rawAccelY.clear()
-        rawAccelZ.clear()
-        rawFirstSampleNanos = null
-        rawLastSampleNanos = null
-        rawRecordingStartedAtMillis = System.currentTimeMillis()
-
-        // Run the detector during capture so the UI can show a live count.
-        phoneDetector = JugglingDetector(balls)
-        phoneSessionStartSampleMillis = null
-        phoneThrottle.reset()
-    }
-
-    fun stopRawRecording() {
-        if (rawRecordingState.step != RawRecordingStep.RECORDING) return
-        rawRecordingState = rawRecordingState.copy(step = RawRecordingStep.ENTER_CATCHES)
-    }
-
-    fun saveRawRecording(actualCatches: Int) {
-        val timestamp = rawRecordingStartedAtMillis ?: System.currentTimeMillis()
-        val detector = phoneDetector
-        val detected = detector?.currentCount ?: 0
-        
-        val balls = rawRecordingState.selectedBallCount
-        val juggler = currentJuggler
-        val sampleRate = measuredSampleRate(rawAccelX.size, rawFirstSampleNanos, rawLastSampleNanos)
-        // Copied because cancelRawRecording clears the buffers before the
-        // write on the IO dispatcher gets to them.
-        val xs = rawAccelX.toList()
-        val ys = rawAccelY.toList()
-        val zs = rawAccelZ.toList()
-        recordingRepository?.let { repo ->
-            viewModelScope.launch {
-                recordingFiles.withLock {
-                    withContext(ioDispatcher) {
-                        repo.saveRecording(
-                            balls = balls,
-                            catches = actualCatches,
-                            detected = detected,
-                            sampleRate = sampleRate,
-                            timestamp = timestamp / 1000L, // store as epoch seconds to match watch
-                            accelX = xs,
-                            accelY = ys,
-                            accelZ = zs,
-                            source = RecordingRepository.SOURCE_PHONE,
-                            juggler = juggler,
-                        )
-                    }
-                }
-                refreshRecordings()
-            }
-        }
-        cancelRawRecording()
-    }
-
-    fun cancelRawRecording() {
-        rawRecordingState = RawRecordingUiState(step = RawRecordingStep.IDLE)
-        rawAccelX.clear()
-        rawAccelY.clear()
-        rawAccelZ.clear()
-        rawFirstSampleNanos = null
-        rawLastSampleNanos = null
-        phoneDetector = null
-    }
-
-    // ── Phone IMU session support ──────────────────────────────────────
-
-    fun selectPhoneBallCount(ballCount: Int) {
-        if (phoneSessionState.isRecording) return
-        phoneSessionState = phoneSessionState.copy(selectedBallCount = ballCount.coerceIn(3, 9))
-    }
-
-    fun startPhoneSession(ballCount: Int, startedAtMillis: Long = System.currentTimeMillis()) {
-        val sanitizedBallCount = ballCount.coerceIn(3, 9)
-
-        phoneDetector = JugglingDetector(sanitizedBallCount)
-        phoneSessionStartedAtMillis = startedAtMillis
-        phoneSessionStartSampleMillis = null
-        phoneThrottle.reset()
-        resetFrozenSensorTracking()
-        phoneSessionState = PhoneSessionUiState(
-            selectedBallCount = sanitizedBallCount,
-            isRecording = true,
-            statusMessage = "Mount the phone to your wrist and start juggling",
-        )
-
-        analytics?.logEvent("start_phone_session", Bundle().apply {
-            putInt("ball_count", sanitizedBallCount)
-        })
-    }
-
-    fun processPhoneSample(ax: Double, ay: Double, az: Double, timestampNanos: Long) {
-        processPhoneSamples(listOf(PhoneAccelSample(ax, ay, az, timestampNanos)))
-    }
-
-    /**
-     * Takes a batch of raw phone accelerometer events (PhoneAccelerometerSource
-     * delivers about ten a second) and writes the Compose state once per batch
-     * rather than once per 200 Hz sample.
-     */
-    fun processPhoneSamples(samples: List<PhoneAccelSample>) {
-        if (samples.isEmpty()) return
-        // Handle raw recording capture
-        if (rawRecordingState.step == RawRecordingStep.RECORDING) {
-            for (s in samples) {
-                // Convert m/s^2 to milli-g
-                rawAccelX.add((s.ax * 1000.0 / 9.80665).toInt())
-                rawAccelY.add((s.ay * 1000.0 / 9.80665).toInt())
-                rawAccelZ.add((s.az * 1000.0 / 9.80665).toInt())
-            }
-            if (rawFirstSampleNanos == null) rawFirstSampleNanos = samples.first().timestampNanos
-            rawLastSampleNanos = samples.last().timestampNanos
-            rawRecordingState = rawRecordingState.copy(sampleCount = rawAccelX.size)
-        }
-
-        var lastProcessedMs: Long? = null
-        for (s in samples) {
-            val detector = phoneDetector ?: break
-            if (!phoneSessionState.isRecording && rawRecordingState.step != RawRecordingStep.RECORDING) break
-
-            val sampleMs = s.timestampNanos / 1_000_000L
-            if (!phoneThrottle.accept(sampleMs)) continue
-
-            if (phoneSessionStartSampleMillis == null) {
-                phoneSessionStartSampleMillis = sampleMs
-            }
-
-            if (phoneSessionState.isRecording && isSensorStreamFrozen(s.ax, s.ay, s.az)) {
-                markPhoneSensorUnavailable(
-                    "Accelerometer is not responding. Restart the phone and try again."
-                )
-                return
-            }
-
-            val oldCount = detector.currentCount
-            detector.processSampleMs2(s.ax, s.ay, s.az, sampleMs)
-            val newCount = detector.currentCount
-            detector.checkAutoFinish(sampleMs)
-
-            if (newCount > oldCount) {
-                checkVoiceAnnouncement(newCount)
-            }
-            lastProcessedMs = sampleMs
-        }
-
-        lastProcessedMs?.let { updatePhoneSessionStateFromDetector(it) }
-    }
-
-    /**
-     * True once the accelerometer has repeated the exact same vector for
-     * [FROZEN_SENSOR_SECONDS] of throttled samples. Compared bit-for-bit on
-     * purpose: real readings always jitter, so only a stuck sensor can hold
-     * all three axes identical for seconds at a time.
-     */
-    private fun isSensorStreamFrozen(ax: Double, ay: Double, az: Double): Boolean {
-        if (ax == phoneLastRawX && ay == phoneLastRawY && az == phoneLastRawZ) {
-            phoneFrozenSamples += 1
-        } else {
-            phoneFrozenSamples = 0
-            phoneLastRawX = ax
-            phoneLastRawY = ay
-            phoneLastRawZ = az
-        }
-        return phoneFrozenSamples >= FROZEN_SENSOR_SAMPLES
-    }
-
-    private fun checkVoiceAnnouncement(count: Int) {
-        if (!isVoiceEnabled) return
-        if (count > 0 && count % voiceInterval == 0) {
-            viewModelScope.launch {
-                _events.emit(JugglingEvent.Announcement(count.toString()))
-            }
-        }
-    }
-
-    fun stopPhoneSessionAndSave(stoppedAtMillis: Long = System.currentTimeMillis()): Boolean {
-        val detector = phoneDetector ?: return false
-        detector.finishCurrentRun()
-
-        val runs = detector.runCatches()
-        val selectedBallCount = detector.ballCount.coerceIn(3, 9)
-        
-        analytics?.logEvent("stop_phone_session", Bundle().apply {
-            putInt("ball_count", selectedBallCount)
-            putInt("run_count", runs.size)
-            putInt("total_throws", runs.sum())
-            putBoolean("success", true)
-        })
-
-        if (runs.isEmpty()) {
-            resetPhoneSession("No phone runs to save")
-            phoneSessionState = phoneSessionState.copy(sensorError = "No phone runs to save")
-            return false
-        }
-
-        val startedAtMillis = phoneSessionStartedAtMillis ?: stoppedAtMillis
-        val durationSeconds = ((stoppedAtMillis - startedAtMillis) / 1000L).coerceAtLeast(0L)
-        storeFinishedSession(
-            balls = selectedBallCount,
-            timestamp = startedAtMillis,
-            runs = runs,
-            durationSeconds = durationSeconds,
-            runDurationsMillis = normalizeRunDurations(runs.size, detector.runDurationsMillis()),
-        )
-        resetPhoneSession("Phone session saved")
-
-        viewModelScope.launch {
-            _events.emit(JugglingEvent.PhoneSessionSaved(runs.size, selectedBallCount))
-        }
-        return true
-    }
-
-    fun cancelPhoneSession() {
-        resetPhoneSession("Phone session cancelled")
-    }
-
-    /**
-     * Whether a phone session or raw recording still wants accelerometer
-     * samples. False once a frozen sensor ended the session, so the screen
-     * can let go of the sensor.
-     */
-    val isUsingPhoneSensor: Boolean
-        get() = phoneSessionState.isRecording || rawRecordingState.step == RawRecordingStep.RECORDING
-
-    fun markPhoneSensorUnavailable(message: String) {
-        resetPhoneSession(message)
-        phoneSessionState = phoneSessionState.copy(sensorError = message)
-    }
-
-    private fun updatePhoneSessionStateFromDetector(sampleMs: Long) {
-        val detector = phoneDetector ?: return
-        val startSampleMs = phoneSessionStartSampleMillis ?: sampleMs
-        val elapsedSeconds = ((sampleMs - startSampleMs) / 1000L).coerceAtLeast(0L)
-        val statusMessage = when {
-            detector.currentCount > 0 || detector.isRunActive() -> "Run active"
-            detector.sessionRuns() > 0 -> "Waiting for next run"
-            else -> "Mount the phone to your wrist and start juggling"
-        }
-
-        phoneSessionState = phoneSessionState.copy(
-            currentCount = detector.currentCount,
-            previousCount = detector.previousCount,
-            completedRuns = detector.runCatches(),
-            runDurationsMillis = detector.runDurationsMillis(),
-            sessionRunCount = detector.sessionRuns(),
-            sessionAverage = detector.sessionAverage(),
-            sessionMax = detector.sessionMax,
-            elapsedSeconds = elapsedSeconds,
-            statusMessage = statusMessage,
-            sensorError = null,
-        )
-    }
-
-    private fun resetPhoneSession(statusMessage: String = "Ready to record with phone") {
-        val selectedBallCount = phoneSessionState.selectedBallCount
-        phoneDetector = null
-        phoneSessionStartedAtMillis = null
-        phoneSessionStartSampleMillis = null
-        phoneThrottle.reset()
-        resetFrozenSensorTracking()
-        phoneSessionState = PhoneSessionUiState(
-            selectedBallCount = selectedBallCount,
-            statusMessage = statusMessage,
-        )
-    }
-
-    private fun resetFrozenSensorTracking() {
-        phoneFrozenSamples = 0
-        phoneLastRawX = Double.NaN
-        phoneLastRawY = Double.NaN
-        phoneLastRawZ = Double.NaN
-    }
-
-    companion object {
-        private const val TAG = "JugglingViewModel"
-
-        /** How long the watch card shows "receiving" after a transfer's last message. */
-        const val RECEIVING_DISPLAY_MS = 1500L
-
-        /**
-         * How long the card waits for a transfer's next message before giving
-         * up on it. Longer than the watches' own SYNC_TIMEOUT_MS (10 s).
-         */
-        const val RECEIVING_STALL_MS = 15_000L
-
-        /** Seconds of an unchanging accelerometer before calling it broken. */
-        const val FROZEN_SENSOR_SECONDS = 5L
-        const val FROZEN_SENSOR_SAMPLES =
-            (FROZEN_SENSOR_SECONDS * JugglingDetector.SAMPLE_RATE).toInt()
-
-        /** The rate MainActivity asks the accelerometer for, in Hz. */
-        const val PHONE_REQUESTED_SAMPLE_RATE = 200
-
-        /**
-         * The whole-Hz rate [count] samples arrived at between the sensor
-         * timestamps of the first and last. Falls back to the requested rate
-         * when there are too few samples, or no time between them, to measure.
-         */
-        fun measuredSampleRate(count: Int, firstNanos: Long?, lastNanos: Long?): Int {
-            if (count < 2 || firstNanos == null || lastNanos == null || lastNanos <= firstNanos) {
-                return PHONE_REQUESTED_SAMPLE_RATE
-            }
-            val rate = (count - 1) * 1_000_000_000.0 / (lastNanos - firstNanos)
-            return Math.round(rate).toInt().coerceAtLeast(1)
-        }
-    }
 }

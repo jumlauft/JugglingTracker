@@ -22,7 +22,7 @@ Juggling tracker with three watch apps and two phone apps: a Garmin watch app, a
   - `GarminLink.kt` — Garmin Connect IQ SDK integration, process-scoped so a recreated screen cannot drop a transfer.
   - `WatchMessageService.kt` — `WearableListenerService` for the Wear OS watch's messages; it receives with the app closed.
   - `logic/WatchInbox.kt` — Stores every watch message and decides the `ack`: only what was stored is acked.
-  - `logic/JugglingViewModel.kt` — State management, session import, CSV export.
+  - `logic/JugglingViewModel.kt` — Holds the screens' models (`WatchStatusModel`, `HistoryModel`, `PhoneSessionModel`, `RawRecordingModel`, `SettingsModel`) and wires them to the inbox and the voice. The iPhone `TrackerModel` holds the same five.
   - `data/SessionRepository.kt` — Session history: in-memory cache plus `sessions.jsonl`, one JSON object per line, written on a background executor.
   - `data/RecordingRepository.kt` — Raw recording CSV storage and zip export.
   - `data/SettingsManager.kt` — Settings (watch type, voice, analytics, juggler, backup file).

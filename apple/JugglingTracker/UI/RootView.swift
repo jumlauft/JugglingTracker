@@ -37,7 +37,7 @@ struct RootView: View {
                 }
         }
         .rawRecordingFlow()
-        .toastBanner(message: Binding(get: { model.toast }, set: { model.toast = $0 }))
+        .toastBanner(message: Binding(get: { model.toasts.message }, set: { model.toasts.message = $0 }))
         // Hold the display awake while samples are being collected: juggling
         // never touches the screen, and a locked phone stops the accelerometer.
         .onChange(of: model.shouldKeepScreenOn, initial: true) { _, keepOn in

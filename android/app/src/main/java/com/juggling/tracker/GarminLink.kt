@@ -65,6 +65,8 @@ class GarminLink(context: Context, private val inbox: WatchInbox) {
         setStatus(status, message)
     }
 
+    private fun text(id: Int, vararg args: Any): String = appContext.getString(id, *args)
+
     private fun setStatus(status: GarminConnectionStatus, message: String) {
         this.status = status
         this.message = message
@@ -112,15 +114,15 @@ class GarminLink(context: Context, private val inbox: WatchInbox) {
                         when (errorStatus) {
                             ConnectIQ.IQSdkErrorStatus.GCM_NOT_INSTALLED -> setStatus(
                                 GarminConnectionStatus.CONNECT_IQ_MISSING,
-                                "Garmin Connect app not found. Please install it from the Play Store.",
+                                text(R.string.garmin_connect_missing),
                             )
                             ConnectIQ.IQSdkErrorStatus.GCM_UPGRADE_NEEDED -> setStatus(
                                 GarminConnectionStatus.SDK_ERROR,
-                                "Please update the Garmin Connect app from the Play Store.",
+                                text(R.string.garmin_connect_update),
                             )
                             else -> setStatus(
                                 GarminConnectionStatus.SDK_ERROR,
-                                "Garmin SDK error: ${errorStatus.name}. Please restart the app.",
+                                text(R.string.garmin_sdk_error, errorStatus.name),
                             )
                         }
                     }
@@ -138,7 +140,7 @@ class GarminLink(context: Context, private val inbox: WatchInbox) {
             starting = false
             Log.e(TAG, "Error initializing Garmin ConnectIQ SDK", e)
             CrashlyticsUtils.recordException(e)
-            setStatus(GarminConnectionStatus.SDK_ERROR, "Garmin SDK failed to start. Please restart the app.")
+            setStatus(GarminConnectionStatus.SDK_ERROR, text(R.string.garmin_sdk_failed))
         }
     }
 
@@ -149,7 +151,7 @@ class GarminLink(context: Context, private val inbox: WatchInbox) {
             if (devices.isNullOrEmpty()) {
                 setStatus(
                     GarminConnectionStatus.NO_PAIRED_DEVICES,
-                    "No paired Garmin devices found. Link your watch in the Garmin ConnectIQ app.",
+                    text(R.string.garmin_no_paired_devices),
                 )
                 return
             }
@@ -168,17 +170,21 @@ class GarminLink(context: Context, private val inbox: WatchInbox) {
 
             // Initial status check
             if (sdk.getDeviceStatus(device) == IQDevice.IQDeviceStatus.CONNECTED) {
-                val suffix = if (devices.size > 1) " (${devices.size} paired)" else ""
-                setStatus(GarminConnectionStatus.READY, "Connected to ${device.friendlyName}$suffix")
+                val name = device.friendlyName ?: ""
+                setStatus(
+                    GarminConnectionStatus.READY,
+                    if (devices.size > 1) text(R.string.garmin_connected_several, name, devices.size)
+                    else text(R.string.garmin_connected, name),
+                )
             } else {
-                setStatus(GarminConnectionStatus.DISCONNECTED, "Watch disconnected from phone")
+                setStatus(GarminConnectionStatus.DISCONNECTED, text(R.string.garmin_link_disconnected))
             }
 
             registerImuAppListener()
         } catch (e: Exception) {
             Log.e(TAG, "Error finding device", e)
             CrashlyticsUtils.recordException(e)
-            setStatus(GarminConnectionStatus.SDK_ERROR, "Error finding device. Ensure Bluetooth is active.")
+            setStatus(GarminConnectionStatus.SDK_ERROR, text(R.string.garmin_device_error))
         }
     }
 
@@ -198,7 +204,7 @@ class GarminLink(context: Context, private val inbox: WatchInbox) {
             handler.post {
                 when (deviceStatus) {
                     IQDevice.IQDeviceStatus.CONNECTED -> {
-                        setStatus(GarminConnectionStatus.READY, "Connected to ${device.friendlyName}")
+                        setStatus(GarminConnectionStatus.READY, text(R.string.garmin_connected, device.friendlyName ?: ""))
                         // The app-event registration does not survive the
                         // watch dropping off (USB mode, BLE drop). Without
                         // re-arming it the phone reports "connected" while
@@ -207,9 +213,9 @@ class GarminLink(context: Context, private val inbox: WatchInbox) {
                         registerImuAppListener()
                     }
                     IQDevice.IQDeviceStatus.NOT_CONNECTED ->
-                        setStatus(GarminConnectionStatus.DISCONNECTED, "Watch disconnected from phone")
+                        setStatus(GarminConnectionStatus.DISCONNECTED, text(R.string.garmin_link_disconnected))
                     else ->
-                        setStatus(GarminConnectionStatus.SDK_ERROR, "Unknown device status: ${deviceStatus.name}")
+                        setStatus(GarminConnectionStatus.SDK_ERROR, text(R.string.garmin_unknown_device_status, deviceStatus.name))
                 }
             }
         }
@@ -232,7 +238,7 @@ class GarminLink(context: Context, private val inbox: WatchInbox) {
             handler.post {
                 setStatus(
                     GarminConnectionStatus.WATCH_APP_MISSING,
-                    "Install the Juggling Tracker watch app from the Connect IQ Store.",
+                    text(R.string.garmin_link_watch_app_missing),
                 )
             }
             return
