@@ -54,13 +54,22 @@ private indirect enum Value: Equatable, CustomStringConvertible {
     init(_ any: Any?) {
         switch any {
         case nil, is NSNull: self = .null
-        case let n as NSNumber where String(cString: n.objCType) == "c": self = .bool(n.boolValue)
+        // JSONSerialization gives NSNumbers, which also cast to Bool, Int and
+        // Double; the session's own values are Swift types. A JSON true or
+        // false is a CFBoolean, whatever objCType this Foundation reports.
+        case let n as NSNumber where type(of: any!) is NSNumber.Type:
+            if CFGetTypeID(n) == CFBooleanGetTypeID() {
+                self = .bool(n.boolValue)
+            } else if n.doubleValue != n.doubleValue.rounded() {
+                self = .double(n.doubleValue)
+            } else {
+                self = .int(n.int64Value)
+            }
         case let b as Bool: self = .bool(b)
         case let i as Int: self = .int(Int64(i))
         case let i as Int64: self = .int(i)
         case let i as Int32: self = .int(Int64(i))
         case let d as Double: self = d == d.rounded() ? .int(Int64(d)) : .double(d)
-        case let n as NSNumber: self = .int(n.int64Value)
         case let s as String: self = .string(s)
         case let list as [Any]: self = .list(list.map { Value($0) })
         default: self = .string(String(describing: any!))
