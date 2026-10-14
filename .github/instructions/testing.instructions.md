@@ -65,7 +65,7 @@ cd wearos
 - `ScenarioTest.mc` is generated from `connectiq/scenarios/*.json` by `connectiq/scenarios/garmin_tests.py`, and `ScenarioRunner.mc` replays it. Never edit it by hand; regenerate it after changing a scenario, or `test_garmin_scenario_tests_are_up_to_date` fails.
 
 ## Apple Tests
-- `apple/JugglingCore/Tests` replays the same corpus as `shared/` and reads the pinned counts out of `simulation/test_detection.py`; `apple/WatchLogic/Tests` mirrors the Wear OS `logic/` tests; `apple/JugglingTrackerTests` covers the iPhone app. Run the packages with `swift test`, the app tests in Xcode, or all of them on GitHub in `apple.yml`, which runs on every pull request that touches `apple/`.
+- `apple/JugglingCore/Tests` replays the same corpus as `shared/` and reads the pinned counts out of `simulation/test_detection.py`; `apple/WatchLogic/Tests` mirrors the Wear OS `logic/` tests; `apple/JugglingTrackerTests` covers the iPhone app. Run the packages with `swift test`, the app tests in Xcode, or all of them on GitHub in `apple.yml`, which runs on every pull request that touches `apple/`, or the code `JugglingCore` is ported from (`shared/`, `JugglingDetector.mc`, `ShapeConsistency.mc`).
 
 ## Running Detection Tests
 ```sh
