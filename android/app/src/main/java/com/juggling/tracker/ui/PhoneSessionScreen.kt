@@ -16,18 +16,18 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.juggling.tracker.R
-import com.juggling.tracker.logic.JugglingViewModel
+import com.juggling.tracker.logic.PhoneSessionModel
 
 /** The live phone session screen and the cards it is built from. */
 @Composable
 fun PhoneSessionScreen(
-    viewModel: JugglingViewModel,
+    session: PhoneSessionModel,
     onBack: () -> Unit,
     onStartPhoneSession: (Int) -> Boolean,
     onStopPhoneSession: () -> Boolean,
     onCancelPhoneSession: () -> Unit,
 ) {
-    val state = viewModel.phoneSessionState
+    val state = session.state
 
     Column(
         modifier = Modifier
@@ -41,7 +41,7 @@ fun PhoneSessionScreen(
             StatusIndicator(isJuggling = state.currentCount > 0)
 
             Text(
-                text = state.statusMessage,
+                text = state.status.text(),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
@@ -115,14 +115,14 @@ fun PhoneSessionScreen(
                     BallChip(
                         label = "$count",
                         selected = state.selectedBallCount == count,
-                        onClick = { viewModel.selectPhoneBallCount(count) },
+                        onClick = { session.selectBallCount(count) },
                     )
                 }
             }
 
             if (state.sensorError != null) {
                 Text(
-                    text = state.sensorError,
+                    text = state.sensorError.text(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.align(Alignment.Start),

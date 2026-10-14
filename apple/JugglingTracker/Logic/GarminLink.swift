@@ -187,7 +187,7 @@ final class GarminLink: WatchLink, ConnectIQClientDelegate {
         probe += 1
         guard !devices.isEmpty else {
             device = nil
-            setStatus(.noPairedDevices, "No Garmin watch chosen yet. Tap to choose it.")
+            setStatus(.noPairedDevices, String(localized: "No Garmin watch chosen yet. Tap to choose it."))
             return
         }
         // Messages are taken from every shared watch and both app ids, so
@@ -208,18 +208,19 @@ final class GarminLink: WatchLink, ConnectIQClientDelegate {
     private func show(_ deviceStatus: GarminDeviceStatus, of device: GarminDevice) {
         switch deviceStatus {
         case .connected:
-            let more = devices.count > 1 ? " (\(devices.count) shared)" : ""
-            setStatus(.ready, "Connected to \(device.displayName)\(more)")
+            setStatus(.ready, devices.count > 1
+                ? String(localized: "Connected to \(device.displayName) (\(devices.count) shared)")
+                : String(localized: "Connected to \(device.displayName)"))
             checkWatchApp(on: device)
         case .notConnected, .notFound:
             probe += 1
-            setStatus(.disconnected, "Watch disconnected from phone")
+            setStatus(.disconnected, String(localized: "Watch disconnected from phone"))
         case .bluetoothOff:
             probe += 1
-            setStatus(.bluetoothDisabled, "Bluetooth is off. Turn it on to sync with your watch.")
+            setStatus(.bluetoothDisabled, String(localized: "Bluetooth is off. Turn it on to sync with your watch."))
         case .invalid:
             probe += 1
-            setStatus(.sdkError, "Watch not found. Tap to choose it again.")
+            setStatus(.sdkError, String(localized: "Watch not found. Tap to choose it again."))
         }
     }
 
@@ -232,7 +233,7 @@ final class GarminLink: WatchLink, ConnectIQClientDelegate {
 
     private func checkWatchApp(on device: GarminDevice, index: Int, probe: Int) {
         guard index < Self.watchAppIds.count else {
-            setStatus(.watchAppMissing, "Install the Juggling Tracker watch app from the Connect IQ Store.")
+            setStatus(.watchAppMissing, String(localized: "Install the Juggling Tracker watch app from the Connect IQ Store."))
             return
         }
         client.isAppInstalled(Self.watchAppIds[index], on: device) { [weak self] installed in
@@ -274,7 +275,7 @@ final class GarminLink: WatchLink, ConnectIQClientDelegate {
         // A message proves the watch and its app are there, whatever the card said.
         if status != .ready {
             self.device = device
-            setStatus(.ready, "Connected to \(device.displayName)")
+            setStatus(.ready, String(localized: "Connected to \(device.displayName)"))
         }
         guard let ack = inbox.receive(payload, from: .garmin) else { return }
         // Tells the watch the session or run is stored; only then may it let go of it.
@@ -282,7 +283,7 @@ final class GarminLink: WatchLink, ConnectIQClientDelegate {
     }
 
     func connectIQNeedsGarminConnect() {
-        setStatus(.connectIQMissing, "Garmin Connect app not found. Please install it from the App Store.")
+        setStatus(.connectIQMissing, String(localized: "Garmin Connect app not found. Please install it from the App Store."))
     }
 
     // MARK: - Kept watches

@@ -175,4 +175,34 @@
     <string name="recordings_col_duration">Length</string>
     <string name="recordings_source_watch">Watch 25Hz</string>
     <string name="recordings_source_phone">Phone %1$dHz</string>
+    <!-- Phone session status (PhoneSessionStatus, ui/StatusTexts.kt). The iPhone
+         app has the same texts in its String Catalog. -->
+    <string name="phone_status_ready">Ready to record with phone</string>
+    <string name="phone_status_mount_phone">Mount the phone to your wrist and start juggling</string>
+    <string name="phone_status_run_active">Run active</string>
+    <string name="phone_status_waiting_for_run">Waiting for next run</string>
+    <string name="phone_status_saved">Phone session saved</string>
+    <string name="phone_status_cancelled">Phone session cancelled</string>
+    <string name="phone_status_no_runs">No phone runs to save</string>
+    <string name="phone_status_sensor_unavailable">Phone accelerometer unavailable</string>
+    <string name="phone_status_sensor_frozen">Accelerometer is not responding. Restart the phone and try again.</string>
+
+    <!-- Raw recording -->
+    <string name="raw_recording_detected">Detected: %1$d</string>
+    <string name="action_stop_recording">STOP</string>
+
+    <!-- Garmin link messages under the watch card (GarminLink) -->
+    <string name="garmin_connected">Connected to %1$s</string>
+    <string name="garmin_connected_several">Connected to %1$s (%2$d paired)</string>
+    <string name="garmin_disconnected">Watch disconnected from phone</string>
+    <string name="garmin_sdk_failed">Garmin SDK failed to start. Please restart the app.</string>
+    <string name="garmin_sdk_error">Garmin SDK error: %1$s. Please restart the app.</string>
+    <string name="garmin_connect_missing">Garmin Connect app not found. Please install it from the Play Store.</string>
+    <string name="garmin_connect_update">Please update the Garmin Connect app from the Play Store.</string>
+    <string name="garmin_no_paired_devices">No paired Garmin devices found. Link your watch in the Garmin ConnectIQ app.</string>
+    <string name="garmin_device_error">Error finding device. Ensure Bluetooth is active.</string>
+    <string name="garmin_unknown_device_status">Unknown device status: %1$s</string>
+    <string name="garmin_watch_app_missing">Install the Juggling Tracker watch app from the Connect IQ Store.</string>
+    <string name="garmin_bluetooth_permission">Bluetooth permissions are required for Garmin sync.</string>
+    <string name="garmin_bluetooth_off">Turn on bluetooth to receive data from watch</string>
 </resources>

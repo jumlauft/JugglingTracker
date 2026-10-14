@@ -3,13 +3,14 @@ import SwiftUI
 /// The live phone session: pick the balls and start, then the count, the
 /// session stats and Save or Cancel.
 struct PhoneSessionScreen: View {
-    @Environment(TrackerModel.self) private var model
+    @Environment(PhoneSessionModel.self) private var session
+    @Environment(RawRecordingModel.self) private var rawRecording
     @Environment(AppServices.self) private var services
     @Binding var path: [Screen]
     @State private var confirmQuit = false
 
     var body: some View {
-        let state = model.phoneSession
+        let state = session.state
         ScrollView {
             VStack(spacing: 16) {
                 if state.isRecording {
@@ -52,7 +53,7 @@ struct PhoneSessionScreen: View {
         .onDisappear {
             // Leaving with the system back gesture before starting, or after
             // the session ended, leaves nothing running.
-            if !model.phoneSession.isRecording && model.rawRecording.step != .recording {
+            if !session.state.isRecording && rawRecording.state.step != .recording {
                 services.accelerometer.stop()
             }
         }
@@ -74,11 +75,11 @@ struct PhoneSessionScreen: View {
 
         BallCountPicker(selection: Binding(
             get: { state.selectedBallCount },
-            set: { model.selectPhoneBallCount($0) }
+            set: { session.selectBallCount($0) }
         ))
 
         if let error = state.sensorError {
-            Text(error)
+            Text(error.text)
                 .foregroundStyle(.red)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -102,7 +103,7 @@ struct PhoneSessionScreen: View {
             .foregroundStyle(state.currentCount > 0 ? Color.accentColor : .secondary)
             .overlay(Capsule().stroke(state.currentCount > 0 ? Color.accentColor : .secondary))
 
-        Text(state.statusMessage)
+        Text(state.status.text)
             .font(.headline)
 
         HStack(spacing: 16) {

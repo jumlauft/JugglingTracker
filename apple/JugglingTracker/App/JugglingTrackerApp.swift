@@ -9,6 +9,12 @@ struct JugglingTrackerApp: App {
         WindowGroup {
             RootView()
                 .environment(app.model)
+                .environment(app.model.watchStatus)
+                .environment(app.model.history)
+                .environment(app.model.phoneSession)
+                .environment(app.model.rawRecording)
+                .environment(app.model.settings)
+                .environment(app.model.toasts)
                 .environment(app)
                 // Garmin Connect hands back the watches the user chose.
                 .onOpenURL { url in app.garminLink.handleOpenURL(url) }
@@ -45,7 +51,7 @@ final class AppServices {
         let sessions = screenshots ? ScreenshotMode.sessionStore() : SessionStore.standard { Telemetry.shared.record($0) }
         let model = TrackerModel(settings: settings, sessionStore: sessions, recordingStore: screenshots ? nil : .standard())
         let garmin = GarminLink(client: ConnectIQSDKClient(), inbox: model.inbox) { [weak model] status, message in
-            Task { @MainActor in model?.onGarminLinkStatus(status, message: message) }
+            Task { @MainActor in model?.watchStatus.onGarminLinkStatus(status, message: message) }
         }
         self.model = model
         garminLink = garmin
@@ -54,13 +60,13 @@ final class AppServices {
         model.speak = { voice.speak($0) }
 
         let apple = AppleWatchLink(inbox: model.inbox, session: PhoneWatchSession.makeIfSupported()) { [weak model] status in
-            Task { @MainActor in model?.onAppleWatchLinkStatus(status) }
+            Task { @MainActor in model?.watchStatus.onAppleWatchLinkStatus(status) }
         }
         appleWatchLink = apple
         if screenshots {
-            model.onGarminLinkStatus(.ready, message: "Connected to Forerunner 265")
-            model.onAppleWatchLinkStatus(.ready)
-            if let balls = ScreenshotMode.ballCount { model.selectHistoryBallCount(balls) }
+            model.watchStatus.onGarminLinkStatus(.ready, message: "Connected to Forerunner 265")
+            model.watchStatus.onAppleWatchLinkStatus(.ready)
+            if let balls = ScreenshotMode.ballCount { model.history.selectHistoryBallCount(balls) }
             return
         }
         // The Garmin link only starts once Garmin is the chosen watch, as on
@@ -73,19 +79,16 @@ final class AppServices {
     }
 
     func didBecomeActive() {
-        if SessionBackup.isDue(settings: model.settings) {
-            _ = SessionBackup.backUp(sessions: model.sessions, settings: model.settings)
-        }
-        if model.settings.isBackupEnabled { SessionBackup.schedule() }
+        model.settings.backUpIfDue()
     }
 
     func didEnterBackground() {
-        if model.settings.isBackupEnabled { SessionBackup.schedule() }
+        if model.settings.values.isBackupEnabled { SessionBackup.schedule() }
     }
 
     func runScheduledBackup() async {
-        if model.settings.isBackupEnabled {
-            _ = SessionBackup.backUp(sessions: model.sessions, settings: model.settings)
+        if model.settings.values.isBackupEnabled {
+            _ = model.settings.backUpNow()
             SessionBackup.schedule()
         }
     }
@@ -94,33 +97,33 @@ final class AppServices {
 
     /// Starts sampling for a phone session. Returns false when the phone has no accelerometer.
     func startPhoneSession(ballCount: Int) -> Bool {
-        model.startPhoneSession(ballCount: ballCount)
+        model.phoneSession.start(ballCount: ballCount)
         return startSensor()
     }
 
     func stopPhoneSession() -> Bool {
-        if !(model.rawRecording.step == .recording) { accelerometer.stop() }
+        if !(model.rawRecording.state.step == .recording) { accelerometer.stop() }
         return model.stopPhoneSessionAndSave()
     }
 
     func cancelPhoneSession() {
-        if !(model.rawRecording.step == .recording) { accelerometer.stop() }
-        model.cancelPhoneSession()
+        if !(model.rawRecording.state.step == .recording) { accelerometer.stop() }
+        model.phoneSession.cancel()
     }
 
     func startRawRecording(ballCount: Int) -> Bool {
-        model.confirmRawRecordingBalls(ballCount)
+        model.rawRecording.confirmBalls(ballCount)
         return startSensor()
     }
 
     func stopRawRecording() {
-        if !model.phoneSession.isRecording { accelerometer.stop() }
-        model.stopRawRecording()
+        if !model.phoneSession.state.isRecording { accelerometer.stop() }
+        model.rawRecording.stop()
     }
 
     func cancelRawRecording() {
-        if !model.phoneSession.isRecording { accelerometer.stop() }
-        model.cancelRawRecording()
+        if !model.phoneSession.state.isRecording { accelerometer.stop() }
+        model.rawRecording.cancel()
     }
 
     private func startSensor() -> Bool {
@@ -136,8 +139,8 @@ final class AppServices {
             }
         }
         if !started {
-            model.markPhoneSensorUnavailable("Phone accelerometer unavailable")
-            if model.rawRecording.step == .recording { model.cancelRawRecording() }
+            model.phoneSession.markSensorUnavailable()
+            if model.rawRecording.state.step == .recording { model.rawRecording.cancel() }
         }
         return started
     }

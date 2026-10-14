@@ -75,7 +75,7 @@ class PhoneSessionPipelineTest {
         val viewModel = JugglingViewModel()
         val samples = loadSamples(RUN_ID)
 
-        viewModel.startPhoneSession(BALLS, startedAtMillis = 0L)
+        viewModel.phoneSession.start(BALLS, startedAtMillis = 0L)
 
         // Android hands out SensorEvent.timestamp in nanoseconds since boot.
         var tNanos = 1_000_000_000L
@@ -87,12 +87,12 @@ class PhoneSessionPipelineTest {
             }
         }
 
-        val state = viewModel.phoneSessionState
+        val state = viewModel.phoneSession.state
         val counted = state.completedRuns.sum() + state.currentCount
 
         assertTrue(
             "phone session never left the idle status: " +
-                "status=\"${state.statusMessage}\" currentCount=${state.currentCount} " +
+                "status=\"${state.status}\" currentCount=${state.currentCount} " +
                 "runs=${state.completedRuns}",
             counted > 0,
         )
@@ -112,7 +112,7 @@ class PhoneSessionPipelineTest {
     fun `phone session counts the same when samples arrive in batches`() = runTest {
         val viewModel = JugglingViewModel()
         val samples = loadSamples(RUN_ID)
-        viewModel.startPhoneSession(BALLS, startedAtMillis = 0L)
+        viewModel.phoneSession.start(BALLS, startedAtMillis = 0L)
 
         val startMs = 1_000L
         val endMs = startMs + samples.size * JugglingDetector.SAMPLE_PERIOD_MS
@@ -129,7 +129,7 @@ class PhoneSessionPipelineTest {
         }
         viewModel.processPhoneSamples(batch.toList())
 
-        val state = viewModel.phoneSessionState
+        val state = viewModel.phoneSession.state
         val counted = state.completedRuns.sum() + state.currentCount
         assertEquals(
             "batched phone session counted $counted catches on $RUN_ID",

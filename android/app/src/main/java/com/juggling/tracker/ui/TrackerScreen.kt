@@ -15,14 +15,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.juggling.tracker.R
-import com.juggling.tracker.logic.JugglingViewModel
+import com.juggling.tracker.data.WatchType
+import com.juggling.tracker.logic.HistoryModel
+import com.juggling.tracker.logic.WatchStatusModel
 import com.juggling.tracker.shared.SessionSummary
 
 /** The home screen: watch/phone header, ball-count tabs and session history. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackerScreen(
-    viewModel: JugglingViewModel,
+    watchStatus: WatchStatusModel,
+    history: HistoryModel,
+    watchType: WatchType,
     onPhoneRecordClick: () -> Unit,
     onGarminLinkClick: () -> Unit,
     onGarminSessionClick: () -> Unit,
@@ -40,7 +44,7 @@ fun TrackerScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        sessionToDelete?.let { viewModel.deleteSession(it) }
+                        sessionToDelete?.let { history.delete(it) }
                         sessionToDelete = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
@@ -66,25 +70,25 @@ fun TrackerScreen(
     ) {
         // Garmin Status Header
         GarminStatusHeader(
-            status = viewModel.garminStatus,
-            message = viewModel.statusMessage,
+            status = watchStatus.garminStatus,
+            message = watchStatus.garminMessage,
             onPhoneRecordClick = onPhoneRecordClick,
             onGarminLinkClick = onGarminLinkClick,
             onGarminSessionClick = onGarminSessionClick,
-            watchType = viewModel.watchType,
-            wearStatus = viewModel.wearStatus,
+            watchType = watchType,
+            wearStatus = watchStatus.wearStatus,
             onWearLinkClick = onWearLinkClick,
             onWearSessionClick = onWearSessionClick,
         )
 
-        if (viewModel.completedSessions.isNotEmpty()) {
+        if (history.sessions.isNotEmpty()) {
             Text(
                 text = stringResource(R.string.section_session_history),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.align(Alignment.Start)
             )
 
-            val selectedTabBallCount = viewModel.shownHistoryBallCount
+            val selectedTabBallCount = history.shownHistoryBallCount
 
             Row(
                 modifier = Modifier
@@ -92,16 +96,16 @@ fun TrackerScreen(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                viewModel.historyBallCounts.forEach { count ->
+                history.historyBallCounts.forEach { count ->
                     BallChip(
                         label = stringResource(R.string.format_balls_tab, count),
                         selected = selectedTabBallCount == count,
-                        onClick = { viewModel.selectHistoryBallCount(count) },
+                        onClick = { history.selectHistoryBallCount(count) },
                     )
                 }
             }
 
-            val filteredSessions = viewModel.completedSessions.filter { it.ballCount == selectedTabBallCount }
+            val filteredSessions = history.sessions.filter { it.ballCount == selectedTabBallCount }
 
             SessionHistoryGraph(
                 sessions = filteredSessions,

@@ -11,16 +11,16 @@ struct WatchCardState: Equatable {
     var tap: Tap
 
     static func garmin(_ status: GarminConnectionStatus, message: String) -> WatchCardState {
-        let notLinked = "Watch is not linked correctly to phone"
+        let notLinked = String(localized: "Watch is not linked correctly to phone")
         switch status {
         case .ready:
-            return .init(tone: .ready, title: "Ready to record with Garmin", detail: nil, tap: .sessionHelp)
+            return .init(tone: .ready, title: String(localized: "Ready to record with Garmin"), detail: nil, tap: .sessionHelp)
         case .receiving:
-            return .init(tone: .receiving, title: "Receiving data...", detail: nil, tap: .none)
+            return .init(tone: .receiving, title: String(localized: "Receiving data..."), detail: nil, tap: .none)
         case .notInitialized:
-            return .init(tone: .neutral, title: "Record with Garmin watch", detail: nil, tap: .none)
+            return .init(tone: .neutral, title: String(localized: "Record with Garmin watch"), detail: nil, tap: .none)
         case .watchAppMissing:
-            return .init(tone: .error, title: "Juggling app is not installed on the watch", detail: nil, tap: .linkHelp)
+            return .init(tone: .error, title: String(localized: "Juggling app is not installed on the watch"), detail: nil, tap: .linkHelp)
         case .connectIQMissing, .disconnected:
             return .init(tone: .error, title: notLinked, detail: nil, tap: .linkHelp)
         case .bluetoothDisabled, .noPairedDevices, .sdkError:
@@ -29,20 +29,20 @@ struct WatchCardState: Equatable {
     }
 
     static func appleWatch(_ status: AppleWatchConnectionStatus) -> WatchCardState {
-        let notConnected = "Watch is not connected to phone"
+        let notConnected = String(localized: "Watch is not connected to phone")
         switch status {
         case .ready:
-            return .init(tone: .ready, title: "Ready to record with Apple Watch", detail: nil, tap: .sessionHelp)
+            return .init(tone: .ready, title: String(localized: "Ready to record with Apple Watch"), detail: nil, tap: .sessionHelp)
         case .receiving:
-            return .init(tone: .receiving, title: "Receiving data...", detail: nil, tap: .none)
+            return .init(tone: .receiving, title: String(localized: "Receiving data..."), detail: nil, tap: .none)
         case .checking:
-            return .init(tone: .neutral, title: "Record with Apple Watch", detail: nil, tap: .none)
+            return .init(tone: .neutral, title: String(localized: "Record with Apple Watch"), detail: nil, tap: .none)
         case .noWatch:
-            return .init(tone: .error, title: notConnected, detail: "No Apple Watch is paired with this iPhone", tap: .linkHelp)
+            return .init(tone: .error, title: notConnected, detail: String(localized: "No Apple Watch is paired with this iPhone"), tap: .linkHelp)
         case .watchAppMissing:
-            return .init(tone: .error, title: "Juggling app is not installed on the watch", detail: nil, tap: .linkHelp)
+            return .init(tone: .error, title: String(localized: "Juggling app is not installed on the watch"), detail: nil, tap: .linkHelp)
         case .unavailable:
-            return .init(tone: .error, title: notConnected, detail: "This iPhone cannot connect to an Apple Watch", tap: .linkHelp)
+            return .init(tone: .error, title: notConnected, detail: String(localized: "This iPhone cannot connect to an Apple Watch"), tap: .linkHelp)
         }
     }
 }
@@ -53,23 +53,24 @@ struct WatchCardState: Equatable {
 /// inert while connecting or receiving. The card keeps one size whatever it
 /// shows, sized for the longest text it can show.
 struct WatchHeader: View {
-    @Environment(TrackerModel.self) private var model
+    @Environment(WatchStatusModel.self) private var watchStatus
+    @Environment(SettingsModel.self) private var settings
     @Environment(AppServices.self) private var services
     let onPhoneTap: () -> Void
     @State private var help: WatchHelp?
 
-    private var watchType: WatchType { model.settings.watchType }
+    private var watchType: WatchType { settings.values.watchType }
 
     private var card: WatchCardState {
         switch watchType {
-        case .garmin: WatchCardState.garmin(model.garminStatus, message: model.garminMessage)
-        case .appleWatch: WatchCardState.appleWatch(model.appleWatchStatus)
+        case .garmin: WatchCardState.garmin(watchStatus.garminStatus, message: watchStatus.garminMessage)
+        case .appleWatch: WatchCardState.appleWatch(watchStatus.appleWatchStatus)
         }
     }
 
     private var allStates: [WatchCardState] {
         switch watchType {
-        case .garmin: GarminConnectionStatus.allCases.map { WatchCardState.garmin($0, message: model.garminMessage) }
+        case .garmin: GarminConnectionStatus.allCases.map { WatchCardState.garmin($0, message: watchStatus.garminMessage) }
         case .appleWatch: AppleWatchConnectionStatus.allCases.map { WatchCardState.appleWatch($0) }
         }
     }

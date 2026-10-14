@@ -69,7 +69,7 @@ class KeepScreenOnTest {
     fun `starting a phone session holds the screen awake`() {
         renderApp()
 
-        composeTestRule.runOnUiThread { viewModel.startPhoneSession(ballCount = 3) }
+        composeTestRule.runOnUiThread { viewModel.phoneSession.start(ballCount = 3) }
         composeTestRule.waitForIdle()
 
         assertTrue(
@@ -81,7 +81,7 @@ class KeepScreenOnTest {
     @Test
     fun `saving the session releases the screen`() {
         renderApp()
-        composeTestRule.runOnUiThread { viewModel.startPhoneSession(ballCount = 3) }
+        composeTestRule.runOnUiThread { viewModel.phoneSession.start(ballCount = 3) }
         composeTestRule.waitForIdle()
 
         composeTestRule.runOnUiThread { viewModel.stopPhoneSessionAndSave() }
@@ -93,10 +93,10 @@ class KeepScreenOnTest {
     @Test
     fun `cancelling the session releases the screen`() {
         renderApp()
-        composeTestRule.runOnUiThread { viewModel.startPhoneSession(ballCount = 3) }
+        composeTestRule.runOnUiThread { viewModel.phoneSession.start(ballCount = 3) }
         composeTestRule.waitForIdle()
 
-        composeTestRule.runOnUiThread { viewModel.cancelPhoneSession() }
+        composeTestRule.runOnUiThread { viewModel.phoneSession.cancel() }
         composeTestRule.waitForIdle()
 
         assertFalse(view.keepScreenOn)
@@ -109,8 +109,8 @@ class KeepScreenOnTest {
         renderApp()
 
         composeTestRule.runOnUiThread {
-            viewModel.startRawRecordingFlow()
-            viewModel.confirmRawRecordingBalls(5)
+            viewModel.rawRecording.startFlow()
+            viewModel.rawRecording.confirmBalls(5)
         }
         composeTestRule.waitForIdle()
 

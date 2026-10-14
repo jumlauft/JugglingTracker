@@ -11,7 +11,8 @@ applyTo: "android/**/*.kt"
 ## State Management
 - Use `mutableStateOf` and `mutableStateListOf` for observable state in ViewModels.
 - Create ViewModels via `ViewModelProvider.Factory` — never inject the repository directly into constructors without the factory pattern.
-- Connection state lives in `JugglingViewModel` (`garminStatus`, `statusMessage`, `wearStatus`). `MainActivity` copies the Garmin status from `GarminLink` and follows the Wear OS capability for the card. All other state belongs in `JugglingViewModel`; screens reach settings and repositories only through it.
+- `JugglingViewModel` holds one model per area and wires them together: `WatchStatusModel` (the watch card: `garminStatus`, `garminMessage`, `wearStatus`), `HistoryModel`, `PhoneSessionModel`, `RawRecordingModel` and `SettingsModel`. Each screen takes the models it shows (`TrackerScreen(watchStatus, history, …)`, `SettingsScreen(settings, recordings)`), never the Application, a repository or `SettingsManager`. `MainActivity` copies the Garmin status from `GarminLink` into `WatchStatusModel` and follows the Wear OS capability for the card. The iPhone app splits `TrackerModel` the same way; keep the two in step.
+- Models hold no user-facing text. A status is an enum (`PhoneSessionStatus`) that the UI turns into a `strings.xml` text (`ui/StatusTexts.kt`); the iPhone app has the same cases and texts in its String Catalog.
 - Receiving is process-scoped, never tied to a screen. `JugglingTrackerApplication` holds one `SessionRepository`, `RecordingRepository`, `WatchInbox` and `GarminLink`; screens follow `WatchInbox` through its listener. Never build a second repository: each caches what it stores, so two would miss each other's writes.
 
 ## Persistence

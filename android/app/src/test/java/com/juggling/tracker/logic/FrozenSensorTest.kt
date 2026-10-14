@@ -52,20 +52,21 @@ class FrozenSensorTest {
     @Test
     fun `a frozen accelerometer is reported instead of sitting on Ready`() = runTest {
         val viewModel = JugglingViewModel()
-        viewModel.startPhoneSession(3, startedAtMillis = 0L)
+        viewModel.phoneSession.start(3, startedAtMillis = 0L)
 
-        feed(viewModel, JugglingViewModel.FROZEN_SENSOR_SAMPLES + 5) {
+        feed(viewModel, PhoneSessionModel.FROZEN_SENSOR_SAMPLES + 5) {
             Triple(STUCK_X, STUCK_Y, STUCK_Z)
         }
 
-        val state = viewModel.phoneSessionState
+        val state = viewModel.phoneSession.state
         assertNotNull(
             "a stuck sensor must surface an error, not leave the session idle",
             state.sensorError,
         )
-        assertTrue(
-            "the error should tell the user what to do, was \"${state.sensorError}\"",
-            state.sensorError!!.contains("Accelerometer", ignoreCase = true),
+        assertEquals(
+            "the error should tell the user the sensor is stuck",
+            PhoneSessionStatus.SENSOR_FROZEN,
+            state.sensorError,
         )
         assertFalse("the dead session must not still claim to be recording", state.isRecording)
         assertFalse("the screen should let go of the sensor", viewModel.isUsingPhoneSensor)
@@ -74,19 +75,19 @@ class FrozenSensorTest {
     @Test
     fun `a phone lying still is not mistaken for a broken sensor`() = runTest {
         val viewModel = JugglingViewModel()
-        viewModel.startPhoneSession(3, startedAtMillis = 0L)
+        viewModel.phoneSession.start(3, startedAtMillis = 0L)
 
         // A resting phone reads ~1g with the low bits jittering. Far longer
         // than the frozen threshold, so a naive "no movement" check would
         // wrongly fire here.
         var seed = 12345L
-        feed(viewModel, JugglingViewModel.FROZEN_SENSOR_SAMPLES * 3) {
+        feed(viewModel, PhoneSessionModel.FROZEN_SENSOR_SAMPLES * 3) {
             seed = seed * 6364136223846793005L + 1442695040888963407L
             val noise = ((seed shr 33).toDouble() / Long.MAX_VALUE) * 0.02
             Triple(0.01 + noise, 0.02 - noise, 9.80 + noise)
         }
 
-        val state = viewModel.phoneSessionState
+        val state = viewModel.phoneSession.state
         assertNull(
             "a still but healthy sensor must not be reported as broken: \"${state.sensorError}\"",
             state.sensorError,
@@ -98,14 +99,14 @@ class FrozenSensorTest {
     @Test
     fun `a brief repeated reading does not trip the check`() = runTest {
         val viewModel = JugglingViewModel()
-        viewModel.startPhoneSession(3, startedAtMillis = 0L)
+        viewModel.phoneSession.start(3, startedAtMillis = 0L)
 
         // Identical samples, but stopping just short of the threshold.
-        feed(viewModel, JugglingViewModel.FROZEN_SENSOR_SAMPLES - 1) {
+        feed(viewModel, PhoneSessionModel.FROZEN_SENSOR_SAMPLES - 1) {
             Triple(STUCK_X, STUCK_Y, STUCK_Z)
         }
 
-        assertNull(viewModel.phoneSessionState.sensorError)
-        assertTrue(viewModel.phoneSessionState.isRecording)
+        assertNull(viewModel.phoneSession.state.sensorError)
+        assertTrue(viewModel.phoneSession.state.isRecording)
     }
 }

@@ -56,7 +56,7 @@ final class TrackerModelTests: XCTestCase {
 
     func testAPhoneSessionCountsAsTheDetectorDoesAndIsStored() {
         let start = Date(timeIntervalSince1970: 1_790_000_000)
-        model.startPhoneSession(ballCount: 3, at: start)
+        model.phoneSession.start(ballCount: 3, at: start)
         for batch in phoneBatches("20260922_144802") { model.processPhoneSamples(batch) }
         XCTAssertTrue(model.stopPhoneSessionAndSave(at: start.addingTimeInterval(90)))
 
@@ -66,73 +66,73 @@ final class TrackerModelTests: XCTestCase {
         XCTAssertEqual(saved?.runHistory, expected)
         XCTAssertEqual(saved?.timestamp, 1_790_000_000_000)
         XCTAssertEqual(saved?.durationSeconds, 90)
-        XCTAssertEqual(model.sessions, store.sessions)
-        XCTAssertFalse(model.phoneSession.isRecording)
-        XCTAssertEqual(model.toast, "Saved \(expected.count) phone runs for 3 balls")
+        XCTAssertEqual(model.history.sessions, store.sessions)
+        XCTAssertFalse(model.phoneSession.state.isRecording)
+        XCTAssertEqual(model.toasts.message, "Saved \(expected.count) phone runs for 3 balls")
     }
 
     func testVoiceAnnouncesEveryIntervalOfCatches() {
-        model.settings.voiceInterval = 10
-        model.startPhoneSession(ballCount: 3)
+        model.settings.values.voiceInterval = 10
+        model.phoneSession.start(ballCount: 3)
         for batch in phoneBatches("20260922_144802") { model.processPhoneSamples(batch) }
         XCTAssertFalse(spoken.isEmpty)
         XCTAssertEqual(spoken.filter { (Int($0) ?? 1) % 10 != 0 }, [])
     }
 
     func testVoiceOffSaysNothingWhileJuggling() {
-        model.settings.isVoiceEnabled = false
-        model.startPhoneSession(ballCount: 3)
+        model.settings.values.isVoiceEnabled = false
+        model.phoneSession.start(ballCount: 3)
         for batch in phoneBatches("20260922_144802") { model.processPhoneSamples(batch) }
         XCTAssertTrue(spoken.isEmpty)
     }
 
     func testAFrozenAccelerometerEndsTheSessionWithAnError() {
-        model.startPhoneSession(ballCount: 3)
+        model.phoneSession.start(ballCount: 3)
         let stuck = (0..<700).map { i in
             PhoneAccelSample(ax: 0.1, ay: 0.2, az: 9.8, timestampNanos: Int64(i) * 10_000_000)
         }
         model.processPhoneSamples(stuck)
-        XCTAssertFalse(model.phoneSession.isRecording)
-        XCTAssertEqual(model.phoneSession.sensorError, "Accelerometer is not responding. Restart the phone and try again.")
+        XCTAssertFalse(model.phoneSession.state.isRecording)
+        XCTAssertEqual(model.phoneSession.state.sensorError, .sensorFrozen)
         XCTAssertFalse(model.isUsingPhoneSensor) // the app lets go of the sensor
     }
 
     func testStoppingWithoutAnyRunSavesNothing() {
-        model.startPhoneSession(ballCount: 3)
+        model.phoneSession.start(ballCount: 3)
         XCTAssertFalse(model.stopPhoneSessionAndSave())
         XCTAssertTrue(store.sessions.isEmpty)
-        XCTAssertEqual(model.phoneSession.sensorError, "No phone runs to save")
+        XCTAssertEqual(model.phoneSession.state.sensorError, .noRuns)
     }
 
     func testTheScreenStaysOnExactlyWhileSampling() {
         XCTAssertFalse(model.shouldKeepScreenOn)
-        model.startPhoneSession(ballCount: 3)
+        model.phoneSession.start(ballCount: 3)
         XCTAssertTrue(model.shouldKeepScreenOn)
-        model.cancelPhoneSession()
+        model.phoneSession.cancel()
         XCTAssertFalse(model.shouldKeepScreenOn)
-        model.startRawRecordingFlow()
+        model.rawRecording.startFlow()
         XCTAssertFalse(model.shouldKeepScreenOn)
-        model.confirmRawRecordingBalls(5)
+        model.rawRecording.confirmBalls(5)
         XCTAssertTrue(model.shouldKeepScreenOn)
-        model.stopRawRecording()
+        model.rawRecording.stop()
         XCTAssertFalse(model.shouldKeepScreenOn)
     }
 
     func testARawRecordingIsSavedInMilliGWithItsMeasuredRate() async throws {
-        model.startRawRecordingFlow()
-        model.confirmRawRecordingBalls(4)
+        model.rawRecording.startFlow()
+        model.rawRecording.confirmBalls(4)
         // One second at 100 Hz, phone lying face up.
         let samples = (0..<101).map { i in
             PhoneAccelSample.fromCoreMotion(x: 0, y: 0, z: -1, timestamp: 10 + Double(i) * 0.01)
         }
         model.processPhoneSamples(samples)
-        XCTAssertEqual(model.rawRecording.sampleCount, 101)
-        model.stopRawRecording()
-        XCTAssertEqual(model.rawRecording.step, .enterCatches)
-        model.saveRawRecording(actualCatches: 0)
-        XCTAssertEqual(model.rawRecording.step, .idle)
+        XCTAssertEqual(model.rawRecording.state.sampleCount, 101)
+        model.rawRecording.stop()
+        XCTAssertEqual(model.rawRecording.state.step, .enterCatches)
+        model.rawRecording.save(actualCatches: 0)
+        XCTAssertEqual(model.rawRecording.state.step, .idle)
 
-        let recordings = try XCTUnwrap(model.recordingStore)
+        let recordings = try XCTUnwrap(model.rawRecording.recordingStore)
         // The save runs off the main thread; wait for it.
         for _ in 0..<50 where recordings.recordingCount == 0 {
             try await Task.sleep(nanoseconds: 20_000_000)
@@ -148,9 +148,19 @@ final class TrackerModelTests: XCTestCase {
         XCTAssertTrue(["0,0,1000", "0,0,999"].contains(firstRow), firstRow)
     }
 
+    func testARawRecordingCountsLiveWithoutTouchingThePhoneSession() {
+        model.rawRecording.startFlow()
+        model.rawRecording.confirmBalls(3)
+        for batch in phoneBatches("20260922_144802") { model.processPhoneSamples(batch) }
+        XCTAssertGreaterThan(model.rawRecording.state.liveCount, 0)
+        XCTAssertEqual(model.phoneSession.state, PhoneSessionState())
+        model.rawRecording.cancel()
+        XCTAssertEqual(model.rawRecording.state.liveCount, 0)
+    }
+
     func testMeasuredSampleRateFallsBackToTheRequestedRate() {
-        XCTAssertEqual(TrackerModel.measuredSampleRate(count: 1, firstNanos: 0, lastNanos: 0), 100)
-        XCTAssertEqual(TrackerModel.measuredSampleRate(count: 51, firstNanos: 0, lastNanos: 1_000_000_000), 50)
+        XCTAssertEqual(RawRecordingModel.measuredSampleRate(count: 1, firstNanos: 0, lastNanos: 0), 100)
+        XCTAssertEqual(RawRecordingModel.measuredSampleRate(count: 51, firstNanos: 0, lastNanos: 1_000_000_000), 50)
     }
 
     func testAWatchSessionShowsUpAndIsAnnounced() {
@@ -158,24 +168,24 @@ final class TrackerModelTests: XCTestCase {
             ["type": "session", "balls": 5, "timestamp": 1_790_000_000, "runs": [10, 20], "shapeConsistency": 77],
             from: .appleWatch
         )
-        XCTAssertEqual(model.sessions.first?.shapeConsistency, 77)
-        XCTAssertEqual(model.appleWatchStatus, .receiving)
+        XCTAssertEqual(model.history.sessions.first?.shapeConsistency, 77)
+        XCTAssertEqual(model.watchStatus.appleWatchStatus, .receiving)
         XCTAssertEqual(spoken, ["Received 2 runs for 5 balls"])
     }
 
     func testALinkStatusWaitsUntilTheTransferEnds() {
         model.inbox.receive(["type": "rec_start", "id": 1, "balls": 3, "catches": 1, "samples": 0, "chunks": 0], from: .garmin)
-        model.onGarminLinkStatus(.disconnected, message: "")
-        XCTAssertEqual(model.garminStatus, .receiving)
+        model.watchStatus.onGarminLinkStatus(.disconnected, message: "")
+        XCTAssertEqual(model.watchStatus.garminStatus, .receiving)
     }
 
     func testRestoreAddsABackupsNewSessions() throws {
         model.inbox.receive(["type": "session", "balls": 3, "timestamp": 1_790_000_000, "runs": [10]], from: .garmin)
-        let backup = try SessionCSV.parse(SessionCSV.write(model.sessions)).sessions + [
+        let backup = try SessionCSV.parse(SessionCSV.write(model.history.sessions)).sessions + [
             SessionSummary.summarize(timestamp: 1_700_000_000_000, ballCount: 4, runs: [3]),
         ]
-        XCTAssertEqual(model.restore(backup), 1)
-        XCTAssertEqual(model.sessions.map(\.timestamp), [1_790_000_000_000, 1_700_000_000_000])
+        XCTAssertEqual(model.history.restore(backup), 1)
+        XCTAssertEqual(model.history.sessions.map(\.timestamp), [1_790_000_000_000, 1_700_000_000_000])
     }
 
     // MARK: History ball count
@@ -185,50 +195,50 @@ final class TrackerModelTests: XCTestCase {
     }
 
     func testHistoryShowsTheSmallestBallCountUntilSomethingIsChosen() {
-        XCTAssertNil(model.shownHistoryBallCount)
-        _ = model.restore([
+        XCTAssertNil(model.history.shownHistoryBallCount)
+        _ = model.history.restore([
             SessionSummary.summarize(timestamp: 2_000_000, ballCount: 7, runs: [10]),
             SessionSummary.summarize(timestamp: 1_000_000, ballCount: 5, runs: [10]),
         ])
-        XCTAssertEqual(model.historyBallCounts, [5, 7])
-        XCTAssertEqual(model.shownHistoryBallCount, 5)
+        XCTAssertEqual(model.history.historyBallCounts, [5, 7])
+        XCTAssertEqual(model.history.shownHistoryBallCount, 5)
     }
 
     func testASessionFromTheWatchSwitchesTheHistoryToItsBallCount() {
         receiveSession(balls: 5, timestamp: 1000)
-        model.selectHistoryBallCount(5)
+        model.history.selectHistoryBallCount(5)
         receiveSession(balls: 7, timestamp: 2000)
-        XCTAssertEqual(model.shownHistoryBallCount, 7)
+        XCTAssertEqual(model.history.shownHistoryBallCount, 7)
     }
 
     func testSeveralSessionsInOneSyncLeaveTheHistoryOnTheLastOne() {
         receiveSession(balls: 7, timestamp: 1000, from: .appleWatch)
         receiveSession(balls: 4, timestamp: 2000, from: .appleWatch)
         receiveSession(balls: 5, timestamp: 3000, from: .appleWatch)
-        XCTAssertEqual(model.shownHistoryBallCount, 5)
+        XCTAssertEqual(model.history.shownHistoryBallCount, 5)
     }
 
     func testAPayloadThatIsNotStoredLeavesTheHistoryWhereItWas() {
         receiveSession(balls: 5, timestamp: 1000)
         model.inbox.receive(["type": "session", "timestamp": 2000, "runs": [10]], from: .garmin)
         model.inbox.receive(["type": "session", "balls": 7, "timestamp": 3000, "runs": [Int]()], from: .garmin)
-        XCTAssertEqual(model.historyBallCounts, [5])
-        XCTAssertEqual(model.shownHistoryBallCount, 5)
+        XCTAssertEqual(model.history.historyBallCounts, [5])
+        XCTAssertEqual(model.history.shownHistoryBallCount, 5)
     }
 
     func testARecordedRunOrARestoredBackupDoesNotSwitchTheHistory() {
         receiveSession(balls: 3, timestamp: 1000)
-        _ = model.restore([SessionSummary.summarize(timestamp: 5_000_000, ballCount: 7, runs: [10])])
+        _ = model.history.restore([SessionSummary.summarize(timestamp: 5_000_000, ballCount: 7, runs: [10])])
         model.inbox.receive(["type": "rec_start", "id": 9, "balls": 7, "catches": 20, "samples": 0, "chunks": 0], from: .garmin)
         model.inbox.receive(["type": "rec_end", "id": 9], from: .garmin)
-        XCTAssertEqual(model.shownHistoryBallCount, 3)
+        XCTAssertEqual(model.history.shownHistoryBallCount, 3)
     }
 
     func testChoosingAChipAfterASyncWinsOverTheSyncedBallCount() {
         receiveSession(balls: 5, timestamp: 1000)
         receiveSession(balls: 7, timestamp: 2000)
-        model.selectHistoryBallCount(5)
-        XCTAssertEqual(model.shownHistoryBallCount, 5)
+        model.history.selectHistoryBallCount(5)
+        XCTAssertEqual(model.history.shownHistoryBallCount, 5)
     }
 
     func testAppleWatchStatusClassification() {

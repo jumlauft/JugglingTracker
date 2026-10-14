@@ -27,7 +27,7 @@ All five apps are main development streams, and `CLAUDE.md` says how they are ke
   - `GarminLink.kt` - Garmin Connect IQ SDK integration; it lives as long as the app process, not the screen.
   - `WatchMessageService.kt` - receives the Wear OS watch's messages; Google Play services starts it, so the phone app does not have to be open.
   - `logic/WatchInbox.kt` - stores what either watch sends and decides whether it gets its `ack`.
-  - `logic/JugglingViewModel.kt` - UI/session state, imports, CSV export, voice events.
+  - `logic/JugglingViewModel.kt` - holds the screens' models and wires them to the inbox and the voice: `WatchStatusModel` (the watch card), `HistoryModel` (session history and CSV), `PhoneSessionModel` (sessions counted with the phone's sensor), `RawRecordingModel` (raw recordings) and `SettingsModel` (the Settings screen). The iPhone app's `TrackerModel` holds the same five.
   - `data/SessionRepository.kt` - the finished-session history, one JSON object per line in `sessions.jsonl` (older builds kept it in SharedPreferences and are moved over on first load).
   - `backup/SessionBackup.kt` - the weekly backup to a file the user picked, and restore.
   - `data/RecordingRepository.kt` - raw recording CSV persistence and zip export.
@@ -52,8 +52,8 @@ flowchart LR
     Z --> WS[WatchMessageService]
     WS --> E
     E --> G[SessionRepository]
-    E -->|stored| F[JugglingViewModel]
-    P[Phone accelerometer, 25 Hz effective] --> Q[JugglingDetector.kt]
+    E -->|stored| F[HistoryModel]
+    P[Phone accelerometer, 25 Hz effective] --> Q[PhoneSessionModel]
     Q --> F
     F --> G
     GL -->|ack once stored| D
