@@ -40,9 +40,27 @@ struct SettingsScreen: View {
             BackupSection()
 
             RecordingsSection()
+
+            Section {
+            } footer: {
+                AppVersion()
+            }
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// The installed version and build number, small and muted at the very bottom.
+private struct AppVersion: View {
+    private let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+    private let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
+
+    var body: some View {
+        Text("Version \(version) (\(build))")
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity)
     }
 }
 
