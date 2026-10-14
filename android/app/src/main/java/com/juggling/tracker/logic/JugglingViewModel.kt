@@ -74,6 +74,7 @@ class JugglingViewModel(
 
     override fun onCleared() {
         inbox.removeListener(inboxListener)
+        settings.close()
         super.onCleared()
     }
 
