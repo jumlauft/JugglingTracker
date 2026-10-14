@@ -1,6 +1,6 @@
 import Foundation
 
-/// Display strings, identical to what `MainView.mc` and `RecordingView.mc` draw.
+/// Display strings, identical to the Garmin's `Format.mc`.
 public enum Format {
     /// "m:ss", or "h:mm:ss" from one hour on.
     public static func elapsed(_ totalSeconds: Int64) -> String {

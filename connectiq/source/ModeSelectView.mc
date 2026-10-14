@@ -2,20 +2,16 @@ import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.WatchUi;
 
-// Developer-only screen: choose between a normal juggling session or a
-// recording session that captures raw IMU data for algorithm tuning.
-// Customer startup bypasses this while ENABLE_RECORDING_MODE is false.
+// Startup screen choosing between a normal juggling session and a recording
+// session that captures raw IMU data for algorithm tuning. AppNavigator holds
+// the choice; this only draws it. Skipped while
+// AppNavigator.ENABLE_RECORDING_MODE is false.
 class ModeSelectView extends WatchUi.View {
-    public var isRecordMode as Boolean;
+    private var _navigator as AppNavigator;
 
-    public function initialize() {
+    public function initialize(navigator as AppNavigator) {
         WatchUi.View.initialize();
-        isRecordMode = false;
-    }
-
-    public function toggle() as Void {
-        isRecordMode = !isRecordMode;
-        WatchUi.requestUpdate();
+        _navigator = navigator;
     }
 
     public function onUpdate(dc as Dc) as Void {
@@ -37,6 +33,7 @@ class ModeSelectView extends WatchUi.View {
         dc.drawText(cx, y, Graphics.FONT_TINY, "Mode", Graphics.TEXT_JUSTIFY_CENTER);
         y += labelH;
 
+        var isRecordMode = _navigator.isRecordMode;
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         var modeText = isRecordMode ? "Record" : "Juggle";
         dc.drawText(cx, y, Graphics.FONT_MEDIUM, modeText, Graphics.TEXT_JUSTIFY_CENTER);
@@ -48,41 +45,5 @@ class ModeSelectView extends WatchUi.View {
         y += explainH;
 
         dc.drawText(cx, y, Graphics.FONT_XTINY, "Up/Down then Start", Graphics.TEXT_JUSTIFY_CENTER);
-    }
-}
-
-class ModeSelectDelegate extends WatchUi.BehaviorDelegate {
-    private var _view as ModeSelectView;
-
-    public function initialize(view as ModeSelectView) {
-        WatchUi.BehaviorDelegate.initialize();
-        _view = view;
-    }
-
-    public function onNextPage() as Boolean {
-        _view.toggle();
-        return true;
-    }
-
-    public function onPreviousPage() as Boolean {
-        _view.toggle();
-        return true;
-    }
-
-    public function onKey(evt as WatchUi.KeyEvent) as Boolean {
-        var key = evt.getKey();
-        if (key == WatchUi.KEY_UP || key == WatchUi.KEY_DOWN) {
-            _view.toggle();
-            return true;
-        }
-        return false;
-    }
-
-    public function onSelect() as Boolean {
-        var mode = _view.isRecordMode ? :record : :juggle;
-        var ballView = new BallSelectView(mode);
-        ballView.backToModeSelect = true;
-        WatchUi.switchToView(ballView, new BallSelectDelegate(ballView), WatchUi.SLIDE_LEFT);
-        return true;
     }
 }

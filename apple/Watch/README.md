@@ -16,8 +16,8 @@ later.
   shared with the iPhone app.
 - `../WatchLogic/` - everything with behaviour, with no UI, sensor or radio
   types, so `swift test` covers it:
-  - `TrackerSession.swift` - Juggle mode (`MainView.mc`): runs, menus, sync.
-  - `RecordingSession.swift` - Record mode (`RecordingView.mc`).
+  - `TrackerSession.swift` - Juggle mode (Garmin `TrackerSession.mc`): runs, menus, sync.
+  - `RecordingSession.swift` - Record mode (Garmin `RecordingSession.mc`).
   - `AppNavigator.swift` - mode and ball selection, and button routing.
   - `Format.swift` - display strings, identical to what the Garmin draws.
   - `Platform.swift` - the timer, clock, phone link and vibration interfaces.

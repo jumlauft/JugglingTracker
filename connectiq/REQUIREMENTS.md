@@ -34,30 +34,30 @@ starts customers directly on ball selection.
 > to be deliberate. Do not "fix" this by turning it off: that would remove a
 > feature the store listing sells.
 
-*Verified by:* `app1_modeSelectionDefaultsToJuggle`, `test_watch_startup_offers_recording_mode`
+*Verified by:* `app1_modeSelectionDefaultsToJuggle`, `scenario_app_startup_juggle`, `scenario_app_startup_record`
 
 **APP-2.** On the mode screen, UP and DOWN both toggle between the two modes;
 START confirms and moves to ball selection.
-*Verified by:* `app2_toggleFlipsBetweenTheTwoModes`
+*Verified by:* `app2_toggleFlipsBetweenTheTwoModes`, `scenario_app_startup_juggle`
 
 **APP-3.** Ball selection covers **3 to 9**, opens on 3, and wraps in both
 directions: incrementing from 9 gives 3, decrementing from 3 gives 9. UP
 increments, DOWN decrements. The Wear OS and Apple Watch apps stop at 3 and 9
 instead of wrapping, since they scroll with a crown or bezel (a
 hardware-specific difference, see `../CLAUDE.md`).
-*Verified by:* `app3_ballSelectionStartsAtThree`, `app3_incrementWalksUpAndWrapsAtNine`, `app3_decrementWrapsAtThree`
+*Verified by:* `app3_ballSelectionStartsAtThree`, `app3_incrementWalksUpAndWrapsAtNine`, `app3_decrementWrapsAtThree`, `scenario_app_ball_count_wraps`, `scenario_app_startup_juggle`
 
 **APP-4.** START on ball selection opens the tracker for the mode chosen
 earlier — `MainView` for Juggle, `RecordingView` for Record — carrying the
 selected ball count.
-*Verified by:* `app4_ballSelectionRemembersTheChosenMode`
+*Verified by:* `app4_ballSelectionRemembersTheChosenMode`, `scenario_app_startup_juggle`, `scenario_app_startup_record`
 
 **APP-5.** BACK steps back one screen instead of closing the app. On ball
 selection it returns to the mode screen, with the mode chosen there still
 selected. Only BACK on the first screen closes the app: the mode screen, or
 ball selection when `ENABLE_RECORDING_MODE` is `false` and the app starts
 there.
-*Verified by:* `app5_ballSelectionStepsBackOnlyWhenReachedFromModeSelect`, `test_back_steps_back_through_the_selection_screens`
+*Verified by:* `app5_ballSelectionStepsBackOnlyWhenReachedFromModeSelect`, `scenario_app_back_steps_back`
 
 ---
 
@@ -116,7 +116,7 @@ highpass would otherwise amplify.
 **DET-7.** Candidates closer together than the merge window are lobes of one
 catch motion: they cluster into a single **burst**, keeping the strongest peak.
 A burst commits only once no further candidate has arrived within the window.
-*Verified by:* `test_detection_count_per_run`
+*Verified by:* `test_detection_count_per_run` (behavioural, over the corpus)
 
 **DET-8.** Hands alternate, so **only every other committed burst is a catch by
 the watch hand** — odd-numbered bursts count, even ones are the other hand.
@@ -220,13 +220,13 @@ consistency as **Regularity** (SHAPE-4). A failed transfer
 adds a red banner. The touchscreen watches (Wear OS, Apple Watch) show the
 same on three pages, so a stray touch cannot open a menu mid-run: End and
 Discard run (START/STOP and BACK), the count, and the stats.
-*Verified by:* `test_main_view_displays_run_state`, `test_main_view_displays_and_transfers_session_duration`, `test_watch_shows_and_transfers_shape_consistency`
+*Verified by:* `test_watch_shows_and_transfers_shape_consistency`, `jug1_screenTextFormats`, `scenario_jug_runs_and_stats`, `scenario_jug_samples_ignored_under_menu`
 
 **JUG-2.** **START/STOP** opens the session-end menu: *Sync and quit*, *Quit
 without sync*, *Continue*. This is the only way to end a session. The
 session time pauses while the menu is up; *Continue* resumes it from there, so
 time spent in the menu is never counted.
-*Verified by:* not automatically tested — needs a device context.
+*Verified by:* `jug2_menuTimeIsLeftOutOfTheSession`, `scenario_jug_quit_without_sync`, `scenario_jug_session_end_menu`
 
 **JUG-3.** **BACK** never ends the session and never exits. It offers to throw
 away one run, after a confirmation:
@@ -234,36 +234,37 @@ away one run, after a confirmation:
 - otherwise → *Discard last run?* with that run's catch count.
 
 Answering *Keep*, or backing out of the prompt, changes nothing.
-*Verified by:* `test_back_button_confirms_discarding_a_run_instead_of_exiting`
+*Verified by:* `scenario_jug_discard_runs`
 
 **JUG-4.** With nothing recorded yet, BACK is **swallowed**: no prompt, and
 critically no exit — letting it reach the system would close the app and lose
 the session, which is the failure this whole path exists to prevent.
-*Verified by:* `test_back_button_confirms_discarding_a_run_instead_of_exiting`
+*Verified by:* `scenario_jug_back_with_nothing_recorded`
 
 **JUG-5.** The prompt is a `Menu2` with the app's own **English** labels, not a
 `WatchUi.Confirmation`. A Confirmation's yes/no come from the system in the
 *watch's* language, which put German "Ja"/"Nein" into an otherwise English app.
-*Verified by:* `test_back_button_confirms_discarding_a_run_instead_of_exiting`
+*Verified by:* `test_watch_menus_use_the_apps_own_labels`, `scenario_jug_discard_runs`, `scenario_jug_session_end_menu`
 
-**JUG-6.** Backing out of **any** menu over this screen clears the
-pending-decision flag. `Menu2`'s default back pops without telling the view,
-which left the flag set forever and silently turned every later START/STOP
-press into a no-op — with no way left to end or sync the session.
-*Verified by:* `test_menus_over_main_view_clear_the_pending_decision_flag_on_back`
+**JUG-6.** Backing out of **any** menu over this screen is reported to the
+session, which closes the menu and treats it as the harmless choice. `Menu2`'s
+default back pops without telling anyone, which once left the screen waiting
+on a menu that was gone and silently turned every later START/STOP press into
+a no-op — with no way left to end or sync the session.
+*Verified by:* `test_menus_report_backing_out`, `scenario_jug_session_end_menu`
 
 **JUG-7.** The watch vibrates once every 10 watch-hand catches, and the
 vibration counter resets when a run finishes.
-*Verified by:* not automatically tested — needs device hardware.
+*Verified by:* `scenario_jug_vibrate_every_ten`
 
 **JUG-8.** Choosing **Continue** after a failed sync clears the "Sync failed"
-banner, not just the pending-decision flag: nothing is actually failing
+banner, not just the open menu: nothing is actually failing
 anymore once the user is back to juggling instead of retrying. Continue also
 abandons the sync, whether it failed or is still in flight: the pending
 payload is dropped, its timers stop and its generation (SYNC-4) is retired,
 so a late `ack` cannot close the app mid-juggle and a late failure cannot
 open the retry menu over the live screen.
-*Verified by:* `test_continuing_after_a_failed_sync_clears_the_error_banner`, `test_continuing_abandons_the_pending_sync`
+*Verified by:* `scenario_sync_failure_continue`, `scenario_sync_timeout_and_retry`
 
 ---
 
@@ -275,23 +276,23 @@ confirmation) hides them and, on real hardware, drops the sensor listener with
 it. Without re-acquisition the screen froze permanently at whatever was last
 drawn while detection silently stopped — reachable by pressing START/STOP and
 then Continue, or START/STOP mid-run.
-*Verified by:* `test_main_view_reacquires_sensor_after_any_menu`
+*Verified by:* `test_tracking_views_reacquire_the_sensor_after_any_menu`
 
 **SENS-2.** Sensor registration is **idempotent**, so `onShow()` firing right
 after `initialize()` cannot double-register.
-*Verified by:* `test_main_view_reacquires_sensor_after_any_menu`
+*Verified by:* `test_tracking_views_reacquire_the_sensor_after_any_menu`
 
 **SENS-3.** A sample batch that arrives short is padded with nulls. Every null
 sample is skipped, because arithmetic on one throws inside the detector and
 kills the app.
-*Verified by:* not automatically tested — needs a live sensor.
+*Verified by:* `sens3_nullSamplesAreSkipped`
 
 **SENS-4.** If the accelerometer cannot be registered, both tracking screens
 show **"Sensor error"** with **"Restart the app"** under it instead of a count
 that would silently stay at 0. On the record screen START does nothing while
 idle, since there is nothing to record. A later successful registration (on
 the next `onShow()`) clears the error.
-*Verified by:* `test_tracking_views_show_a_sensor_error`
+*Verified by:* `test_tracking_views_show_a_sensor_error`, `sens4_recordStartDoesNothingWithoutTheSensor`
 
 **SENS-5.** Detection works whatever the watch's millisecond timer reads.
 `System.getTimer()` is a 32-bit count since boot and turns **negative** after
@@ -308,29 +309,29 @@ never treats time 0 as "no candidate yet".
 `countMode: "watch_hand"`, `balls`, `timestamp` (epoch **seconds**),
 `durationSeconds`, `runDurationsMillis` and `runs`, plus `shapeConsistency`
 (whole percent) once any run has been scored; before that the key is left out.
-*Verified by:* `test_main_view_displays_and_transfers_session_duration`, `test_watch_transfers_run_durations`, `test_watch_shows_and_transfers_shape_consistency`
+*Verified by:* `test_watch_transfers_run_durations`, `test_watch_shows_and_transfers_shape_consistency`, `sync1_sessionCarriesDurationsAndShapeOnlyOnceScored`, `scenario_sync_session_and_ack`
 
 **SYNC-2.** The app closes **only** on the phone's `ack`, so data is never
 assumed delivered. Failure or a 10 s timeout opens a retry menu instead. The
 phone sends the `ack` only once the session is on disk, and echoes the
 session's `timestamp` in it; an `ack` carrying any other timestamp (a late
 answer to an earlier session) is ignored.
-*Verified by:* not automatically tested — needs a radio.
+*Verified by:* `sync2_failureOrTimeoutOpensTheRetryMenu`, `scenario_sync_session_and_ack`, `scenario_sync_timeout_and_retry`
 
 **SYNC-3.** Syncing a session with no completed runs is skipped and the app
 just exits; there is nothing worth sending.
-*Verified by:* not automatically tested — needs a radio.
+*Verified by:* `scenario_sync_nothing_to_send`
 
 **SYNC-4.** Each transmit attempt carries a generation number, checked before
-`onTransmitError` acts on it. A timed-out attempt still reports back later,
+a failure report acts on it. A timed-out attempt still reports back later,
 and without this check its late failure would land on whichever attempt is
 current by then — aborting a retry that might otherwise have been succeeding.
-*Verified by:* `test_main_view_transmit_callbacks_check_the_sync_generation`
+*Verified by:* `sync4_lateFailureFromAnAbandonedAttemptIsIgnored`
 
 **SYNC-5.** A session keeps one `timestamp`, taken at its first sync. Ending
 again after **Continue** resends the whole session under that timestamp, and
 the phone replaces the copy it already has, so no run is stored twice.
-*Verified by:* `test_main_view_sends_one_timestamp_per_session`
+*Verified by:* `scenario_sync_resend_after_continue`
 
 ---
 
@@ -341,27 +342,25 @@ START drives every transition: it starts a run, stops it, and confirms the
 label. BACK returns to ball selection while idle (REC-11), offers to discard
 while labelling, and offers to quit while recording; during syncing it is
 ignored.
-*Verified by:* not automatically tested — needs a device context.
+*Verified by:* `scenario_rec_back_prompts`, `scenario_rec_record_label_sync`
 
 **REC-2.** A run stops automatically at **3000 samples (120 s)**, or earlier if
 free memory drops below 16 KB. The samples go into one buffer allocated when
 Record mode opens: 6 bytes per sample (three signed 16-bit values), 18 KB for
 the full 3000, reused for every run. The 16 KB floor still guards the
 detector's and the transfer's own allocations.
-*Verified by:* `rec2_sampleBufferRoundTripsAndStopsAtCapacity`, `rec2_sampleBufferClampsAndClears`
-(buffer contents, cap and reuse); the 16 KB floor needs device memory
-statistics and has no automatic test.
+*Verified by:* `rec2_sampleBufferRoundTripsAndStopsAtCapacity`, `rec2_sampleBufferClampsAndClears`, `rec2_runStopsAtTheMemoryFloorAndTheCap`
 
 **REC-3.** After a run the detector's own count is offered as the starting
 label; UP and DOWN adjust it and it never goes below 0. The point is comparing
 the algorithm against ground truth.
-*Verified by:* not automatically tested — needs a device context.
+*Verified by:* `scenario_rec_label_floor`, `scenario_rec_record_label_sync`
 
 **REC-4.** Each confirmed run writes one `RUN_DATA,...` summary line to the
 log (balls, label, detected count, rate, sample count). The samples themselves
 are not logged: they reach the phone (REC-5), and printing them one line each
 delayed the transfer by seconds on the watch.
-*Verified by:* not automatically tested — output is a console side effect.
+*Verified by:* `rec4_confirmLogsOneSummaryLine`
 
 **REC-5.** Runs transfer to the phone in chunks: `rec_start`, then one
 `rec_chunk` per **50 samples**, then `rec_end`. Only `rec_end` is acknowledged,
@@ -369,46 +368,46 @@ after the phone has written the run. 50 is deliberate — per-message cost is
 flat to ~150 integers then climbs steeply, so 100-sample chunks measured ~25%
 slower overall. The Wear OS app sends 1000 samples per chunk instead: a Data
 Layer message carries up to ~100 KB at about the same cost whatever its size.
-*Verified by:* not automatically tested — needs a radio.
+*Verified by:* `rec5_runsGoOverInChunksOfFifty`, `scenario_rec_record_label_sync`
 
 **REC-6.** Each transmit attempt carries a generation number. An abandoned
 attempt still reports back later, and without this its failure would land on
 whichever run is syncing by then and fail it instantly.
-*Verified by:* not automatically tested — needs a radio.
+*Verified by:* `rec6_lateFailureFromAnAbandonedAttemptIsIgnored`, `scenario_rec_send_failure`, `scenario_rec_timeout`
 
 **REC-7.** The next chunk is sent from a timer, never from inside the
 connection callback: transmitting from that callback wedges the single
 outstanding-transmit slot and the call never reports back.
-*Verified by:* not automatically tested — needs a radio.
+*Verified by:* `rec7_nextPartGoesOutFromATimer`
 
 **REC-8.** An ack received while syncing is only accepted if its `timestamp`
-matches the run currently syncing (`_sessionId`). A sync that timed out or was
+matches the run currently syncing (its `id`). A sync that timed out or was
 skipped can still get a delayed ack once the phone finishes processing it
 late; unchecked, that stale ack would land on whichever run is syncing by
 then and mark it delivered before its data was actually sent.
-*Verified by:* `test_recording_view_rejects_a_stale_sync_ack`
+*Verified by:* `scenario_rec_record_label_sync`
 
 **REC-9.** BACK is not merely undocumented while syncing, it is explicitly
-**consumed**: `handleBackButton()` returns `true` and does nothing. An
+**consumed**: it is used and does nothing. An
 unhandled BACK falls through to the system default, which pops the only view
 on the stack and exits the app instantly, silently abandoning a transfer that
 was already in flight.
-*Verified by:* `test_recording_view_swallows_back_while_syncing`
+*Verified by:* `scenario_rec_back_while_syncing`
 
-**REC-10.** Backing out of **any** menu over the record screen clears the
-pending-decision flag. Backing out of the sync-failure menu retries the sync,
+**REC-10.** Backing out of **any** menu over the record screen is reported to
+the session and closes the menu. Backing out of the sync-failure menu retries the sync,
 since that is the only choice that keeps the run; backing out of the quit or
 discard prompt means "Continue". `Menu2`'s default back pops without telling
-the view, which left the flag set and, after a failed sync, left the view
+anyone, which once, after a failed sync, left the screen
 stuck in `SYNCING` with BACK and START both ignored and no way to reopen the
 menu.
-*Verified by:* `test_menus_over_recording_view_clear_the_pending_decision_flag_on_back`
+*Verified by:* `test_menus_report_backing_out`, `rec10_backingOutOfTheSyncMenuRetries`, `scenario_rec_back_prompts`, `scenario_rec_send_failure`
 
 **REC-11.** BACK on the idle *Press Start* screen goes straight back to ball
 selection, keeping Record mode and the ball count, with no quit prompt. Every
 earlier run has already synced or been skipped by then, so nothing is lost.
 The sensor, the timers and the phone-message listener are released first.
-*Verified by:* `test_back_steps_back_through_the_selection_screens`
+*Verified by:* `rec11_backFromIdleReleasesTheSession`, `scenario_app_back_steps_back`
 
 ---
 
@@ -423,8 +422,18 @@ feed it) and `PhoneInputCorpusTest` (m/s² input, as the phone feeds it) in
 `../shared` replay the same recordings through the Kotlin port.
 
 The watch workflows are also written once as JSON scenarios in `scenarios/`
-(see `scenarios/README.md`), which the Wear OS and Apple Watch logic tests
-both replay.
+(see `scenarios/README.md`), which all three watches replay: the Wear OS and
+Apple Watch logic tests read the files, and the Garmin runs
+`test/ScenarioTest.mc`, generated from them by `scenarios/garmin_tests.py`
+(`test_garmin_scenario_tests_are_up_to_date` fails when it is stale). The
+`scenario_*` tests cited above are those generated tests.
+
+The Juggle and Record logic lives in `TrackerSession.mc`, `RecordingSession.mc`
+and `AppNavigator.mc`, which use only the plain interfaces in `Platform.mc`;
+the views draw them and `GarminPlatform.mc` holds the real timers, phone link,
+vibration and menus. That is what lets every requirement above run as a test
+except the few that need a screen or a sensor (SENS-1, SENS-2, part of
+SENS-4), which are checked against the view source instead.
 
 When behaviour changes on purpose, change this document in the same commit as
 the code, and move the requirement's test with it. When a workflow changes,

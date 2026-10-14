@@ -463,86 +463,20 @@ def test_auto_finish_timer_uses_committed_bursts_not_low_level_motion():
     assert "_lastActiveTime = nowMs;" in commit_body
 
 
-def test_main_view_displays_run_state():
-    """The watch face should show whether detection is in or between runs."""
-    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-    detector_path = os.path.join(root, "connectiq", "source", "JugglingDetector.mc")
-    main_view_path = os.path.join(root, "connectiq", "source", "MainView.mc")
-    if not os.path.exists(detector_path) or not os.path.exists(main_view_path):
-        pytest.skip("ConnectIQ source files not found")
-
-    with open(detector_path, "r") as f:
-        detector_source = f.read()
-    with open(main_view_path, "r") as f:
-        main_view_source = f.read()
-
-    assert "public function isRunActive() as Boolean" in detector_source
-    assert "_detector.isRunActive()" in main_view_source
-    assert "RUN ACTIVE" in main_view_source
-    assert "WAITING" in main_view_source
-
-
-def test_main_view_displays_and_transfers_session_duration():
-    """The watch should show and transfer total session duration."""
-    main_view_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "..", "connectiq", "source", "MainView.mc",
-    )
-    if not os.path.exists(main_view_path):
-        pytest.skip("MainView.mc not found")
-
-    with open(main_view_path, "r") as f:
-        source = f.read()
-
-    assert "_sessionStartMs = System.getTimer();" in source
-    assert "_sessionEndMs = System.getTimer();" in source
-    assert "_sessionEndMs = null;" in source
-    assert "Time: $1$" in source
-    assert "private function sessionDurationSeconds() as Number" in source
-    assert '"durationSeconds" => sessionDurationSeconds()' in source
-
-
 def test_watch_transfers_run_durations():
     """The watch should transfer one first-to-last catch duration per run."""
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     detector_path = os.path.join(repo_root, "connectiq", "source", "JugglingDetector.mc")
-    main_view_path = os.path.join(repo_root, "connectiq", "source", "MainView.mc")
-    if not os.path.exists(detector_path) or not os.path.exists(main_view_path):
+    if not os.path.exists(detector_path):
         pytest.skip("watch sources not found")
 
     with open(detector_path, "r") as f:
         detector_source = f.read()
-    with open(main_view_path, "r") as f:
-        main_view_source = f.read()
 
     assert "public function runDurationsMillis() as Array<Number>" in detector_source
     assert "_firstCatchTime = _pendingPeakTime;" in detector_source
     assert "_lastCatchTime = _pendingPeakTime;" in detector_source
     assert "_runDurationsMillis.add(currentRunDurationMillis());" in detector_source
-    assert '"runDurationsMillis" => _detector.runDurationsMillis()' in main_view_source
-
-
-def test_watch_startup_offers_recording_mode():
-    """Startup opens the mode picker so users can contribute raw recordings.
-
-    Recording mode ships enabled: the recordings users capture and send back
-    are what grows the corpus these tests run against. Setting
-    ENABLE_RECORDING_MODE to false must still skip straight to ball select,
-    so both branches have to stay in place.
-    """
-    app_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "..", "connectiq", "source", "JugglingTrackerApp.mc",
-    )
-    if not os.path.exists(app_path):
-        pytest.skip("JugglingTrackerApp.mc not found")
-
-    with open(app_path, "r") as f:
-        source = f.read()
-
-    assert "private const ENABLE_RECORDING_MODE = true;" in source
-    assert "new ModeSelectView()" in source
-    assert "new BallSelectView(:juggle)" in source
 
 
 def _read_source(*rel_parts):
@@ -551,134 +485,6 @@ def _read_source(*rel_parts):
         pytest.skip(f"{os.path.join(*rel_parts)} not found")
     with open(path, "r") as f:
         return f.read()
-
-
-def test_back_button_confirms_discarding_a_run_instead_of_exiting():
-    """BACK during a juggling session must discard a run, never exit.
-
-    Before this fix, MainDelegate had no handler for the back button at all,
-    so it fell through to the system default: pop the only view on the
-    stack, which exits the app and discards whatever had been juggled with no
-    warning. Both onKey(KEY_ESC) and onBack() (different devices route the
-    back gesture through different callbacks) must now prompt instead, and
-    that prompt must be a yes/no confirmation -- the discard is destructive
-    and a single button press away.
-    """
-    source = _read_source("connectiq", "source", "MainView.mc")
-
-    m = re.search(r"class MainDelegate extends WatchUi\.BehaviorDelegate \{(.*)", source, re.DOTALL)
-    assert m, "MainDelegate not found in MainView.mc"
-    delegate_source = m.group(1)
-
-    assert "WatchUi.KEY_ESC" in delegate_source, "MainDelegate.onKey must handle KEY_ESC"
-    assert re.search(r"onKey\(evt as WatchUi\.KeyEvent\) as Boolean \{.*promptDiscardRun\(\)",
-                      delegate_source, re.DOTALL)
-    assert re.search(r"public function onBack\(\) as Boolean \{\s*_view\.promptDiscardRun\(\)",
-                      delegate_source)
-
-    m = re.search(r"public function promptDiscardRun\(\) as Void \{(.*?)\n    \}", source, re.DOTALL)
-    assert m, "promptDiscardRun() not found in MainView.mc"
-    prompt_body = m.group(1)
-
-    # It must ask, not act, and ask with our own labels: WatchUi.Confirmation
-    # renders its yes/no in the watch's system language, which put German
-    # "Ja"/"Nein" in the middle of an otherwise English app.
-    assert "new WatchUi.Confirmation(" not in source, (
-        "WatchUi.Confirmation localises its yes/no labels to the watch language; "
-        "use a Menu2 with our own English labels instead"
-    )
-    assert ":discard_yes" in prompt_body and ":discard_no" in prompt_body, (
-        "back press must offer an explicit discard/keep choice before discarding"
-    )
-    assert "new DiscardRunDelegate(self)" in prompt_body
-
-    # The prompt must name which run is at stake, because the two cases remove
-    # different things: an active run is stopped and dropped, otherwise the
-    # last completed run of the session is removed retroactively.
-    assert "_detector.isRunActive()" in prompt_body
-    assert "_detector.sessionRuns() > 0" in prompt_body
-
-    # Nothing recorded yet means nothing to confirm -- but the press still has
-    # to be swallowed, or it reaches the system and exits the app.
-    assert re.search(r"\} else \{.*?\n\s*return;\n\s*\}", prompt_body, re.DOTALL), (
-        "promptDiscardRun() must return early (not fall through) when there is "
-        "no run to discard"
-    )
-
-    # Only a "yes" may touch session state.
-    m = re.search(
-        r"public function onDiscardResponse\(confirmed as Boolean\) as Void \{(.*?)\n    \}",
-        source, re.DOTALL,
-    )
-    assert m, "onDiscardResponse() not found in MainView.mc"
-    body = m.group(1)
-    guarded = re.search(r"if \(confirmed\) \{(.*?)\n        \}", body, re.DOTALL)
-    assert guarded, "onDiscardResponse() must guard the discard on the answer"
-    assert "_detector.discardLastRun();" in guarded.group(1)
-    assert "_detector.discardLastRun();" not in body.replace(guarded.group(0), ""), (
-        "discardLastRun() must only run inside the if (confirmed) branch"
-    )
-
-    assert re.search(r'MenuItem\("Discard"', prompt_body), "the discard label must be English"
-    assert re.search(r'MenuItem\("Keep"', prompt_body), "the keep label must be English"
-
-
-def test_menus_over_main_view_clear_the_pending_decision_flag_on_back():
-    """Backing out of a menu must not wedge MainView's _awaitingDecision flag.
-
-    Menu2InputDelegate's default onBack pops the menu without telling the
-    view, so _awaitingDecision stayed true forever: every later START/STOP
-    press became a no-op and the session could no longer be ended or synced
-    at all. Both menus pushed over MainView must override onBack and route it
-    to the benign choice.
-    """
-    source = _read_source("connectiq", "source", "MainView.mc")
-
-    for cls, handler in (
-        ("DiscardRunDelegate", "onDiscardResponse(false)"),
-        ("SessionEndDelegate", "onContinueSession()"),
-    ):
-        m = re.search(
-            r"class %s extends WatchUi\.Menu2InputDelegate \{(.*?)\n\}" % cls,
-            source, re.DOTALL,
-        )
-        assert m, f"{cls} not found in MainView.mc"
-        body = m.group(1)
-        back = re.search(r"public function onBack\(\) as Void \{(.*?)\n    \}", body, re.DOTALL)
-        assert back, f"{cls} must override onBack()"
-        # Overriding replaces the default pop, so it has to pop itself.
-        assert "WatchUi.popView" in back.group(1), f"{cls}.onBack must pop the menu itself"
-        assert handler in back.group(1), f"{cls}.onBack must call _view.{handler}"
-
-
-def test_menus_over_recording_view_clear_the_pending_decision_flag_on_back():
-    """Backing out of a menu must not wedge RecordingView's _awaitingDecision.
-
-    Menu2InputDelegate's default onBack pops the menu without telling the
-    view. After a failed sync that left the view in STATE_SYNCING with its
-    timers stopped and _awaitingDecision set: BACK and START are both
-    ignored while syncing, so the Retry/Skip/Quit menu could never reopen.
-    Every menu pushed over RecordingView must override onBack and route it
-    to the choice that keeps the run.
-    """
-    source = _read_source("connectiq", "source", "RecordingView.mc")
-
-    for cls, handler in (
-        ("RecordingSyncDelegate", "onSyncRetry()"),
-        ("RecordingQuitDelegate", "onQuitCancelled()"),
-        ("RecordingDiscardDelegate", "onDiscardCancelled()"),
-    ):
-        m = re.search(
-            r"class %s extends WatchUi\.Menu2InputDelegate \{(.*?)\n\}" % cls,
-            source, re.DOTALL,
-        )
-        assert m, f"{cls} not found in RecordingView.mc"
-        body = m.group(1)
-        back = re.search(r"public function onBack\(\) as Void \{(.*?)\n    \}", body, re.DOTALL)
-        assert back, f"{cls} must override onBack()"
-        # Overriding replaces the default pop, so it has to pop itself.
-        assert "WatchUi.popView" in back.group(1), f"{cls}.onBack must pop the menu itself"
-        assert handler in back.group(1), f"{cls}.onBack must call _view.{handler}"
 
 
 def test_short_runs_are_ignored_as_false_starts():
@@ -722,306 +528,113 @@ def test_short_runs_are_ignored_as_false_starts():
 
 
 
-def test_main_view_reacquires_sensor_after_any_menu():
-    """Pushing a menu over MainView must not permanently freeze the screen.
+def test_watch_menus_use_the_apps_own_labels():
+    """Every Garmin prompt is a Menu2 with the app's English labels (JUG-5).
 
-    On real hardware, pushing any view on top of MainView (the session-end
-    menu, the back-press menu) hides it and drops the accelerometer listener
-    with it. Without re-registering in onShow(), popping back to MainView
-    left the screen frozen forever and detection silently stopped -- whether
-    the menu was reached via Start/Stop with no run active (frozen at
-    "WAITING", count 0) or mid-run (frozen at whatever count it showed).
+    WatchUi.Confirmation renders its yes/no in the watch's system language,
+    which put German "Ja"/"Nein" in the middle of an otherwise English app.
+    The labels themselves are checked by the shared scenarios.
     """
-    source = _read_source("connectiq", "source", "MainView.mc")
+    source_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "connectiq", "source")
+    for name in sorted(os.listdir(source_dir)):
+        if name.endswith(".mc"):
+            source = _read_source("connectiq", "source", name)
+            assert "WatchUi.Confirmation(" not in source, f"{name} uses WatchUi.Confirmation"
+    platform = _read_source("connectiq", "source", "GarminPlatform.mc")
+    assert "new WatchUi.Menu2(" in platform
+    assert "new SessionMenuDelegate(onSelect, onBack)" in platform
 
-    assert re.search(r"public function onShow\(\) as Void \{\s*startSensor\(\);\s*\}", source), (
-        "onShow() must re-acquire the sensor by calling startSensor()"
+
+def test_menus_report_backing_out():
+    """Backing out of a menu over a tracking screen must reach the session.
+
+    Menu2InputDelegate's default onBack pops the menu without telling anyone,
+    which left the screen waiting on a menu that was gone: every later
+    START/STOP was a no-op, and after a failed recording sync BACK and START
+    were both ignored with no way to reopen the menu (JUG-6, REC-10). What
+    the session then does is covered by the shared scenarios.
+    """
+    platform = _read_source("connectiq", "source", "GarminPlatform.mc")
+    m = re.search(
+        r"class SessionMenuDelegate extends WatchUi\.Menu2InputDelegate \{(.*?)\n\}",
+        platform, re.DOTALL,
     )
+    assert m, "SessionMenuDelegate not found in GarminPlatform.mc"
+    back = re.search(r"public function onBack\(\) as Void \{(.*?)\n    \}", m.group(1), re.DOTALL)
+    assert back, "SessionMenuDelegate must override onBack()"
+    # Overriding replaces the default pop, so it has to pop itself.
+    assert "WatchUi.popView" in back.group(1)
+    assert "_onBack.invoke();" in back.group(1)
 
-    m = re.search(r"public function onHide\(\) as Void \{(.*?)\}", source, re.DOTALL)
-    assert m, "onHide() not found in MainView.mc"
-    assert "Sensor.unregisterSensorDataListener();" in m.group(1)
-    assert "_sensorActive = false;" in m.group(1), (
-        "onHide() must clear _sensorActive so the next onShow() re-registers"
-    )
 
-    # startSensor() has to be idempotent: onShow() fires every time the view
-    # is (re-)shown, including right after initialize()'s own call.
-    m = re.search(r"private function startSensor\(\) as Void \{(.*?)\n    \}", source, re.DOTALL)
-    assert m, "startSensor() not found in MainView.mc"
-    assert "if (_sensorActive) {\n            return;" in m.group(1)
+def test_tracking_views_reacquire_the_sensor_after_any_menu():
+    """Pushing a menu over a tracking screen must not freeze it (SENS-1, SENS-2).
+
+    On real hardware, pushing any view over the Juggle or Record screen hides
+    it and drops the accelerometer listener with it. Without re-registering
+    in onShow(), popping back left the screen frozen and detection silently
+    stopped. Registration must be idempotent, as onShow() also fires right
+    after initialize().
+    """
+    for name in ("MainView.mc", "RecordingView.mc"):
+        source = _read_source("connectiq", "source", name)
+        assert re.search(r"public function onShow\(\) as Void \{\s*startSensor\(\);\s*\}", source), (
+            f"onShow() in {name} must re-acquire the sensor"
+        )
+        m = re.search(r"private function startSensor\(\) as Void \{(.*?)\n    \}", source, re.DOTALL)
+        assert m, f"startSensor() not found in {name}"
+        assert "if (_sensorActive) {\n            return;" in m.group(1), f"startSensor() in {name} must be idempotent"
+        assert "_sensorActive = true;" in m.group(1)
+        unregister = source.find("Sensor.unregisterSensorDataListener();")
+        assert unregister != -1, f"{name} must release the sensor"
+        assert "_sensorActive = false;" in source[unregister:unregister + 200], (
+            f"{name} must clear _sensorActive when it releases the sensor, so the next onShow() re-registers"
+        )
+        m = re.search(r"public function onHide\(\) as Void \{(.*?)\n    \}", source, re.DOTALL)
+        assert m and ("Sensor.unregisterSensorDataListener();" in m.group(1) or "stopSensor();" in m.group(1)), (
+            f"onHide() in {name} must release the sensor"
+        )
 
 
 def test_tracking_views_show_a_sensor_error():
     """A failed accelerometer registration must show on screen (SENS-4).
 
     It used to be only printed to the debug log, so the count silently stayed
-    at 0 and the juggler had no idea why.
+    at 0 and the juggler had no idea why. That START then does nothing on the
+    record screen is checked by sens4_recordStartDoesNothingWithoutTheSensor.
     """
     for name in ("MainView.mc", "RecordingView.mc"):
         source = _read_source("connectiq", "source", name)
-
         m = re.search(r"private function startSensor\(\) as Void \{(.*?)\n    \}", source, re.DOTALL)
         assert m, f"startSensor() not found in {name}"
         catch = m.group(1).split("catch (ex)")
         assert len(catch) == 2, f"startSensor() in {name} must catch a registration error"
-        assert "_sensorError = true;" in catch[1], f"{name} must flag a failed registration"
-        assert "_sensorError = false;" in catch[0], f"{name} must clear the flag once registered"
-
+        assert "_session.setSensorError(true);" in catch[1], f"{name} must flag a failed registration"
+        assert "_session.setSensorError(false);" in catch[0], f"{name} must clear the flag once registered"
         m = re.search(r"public function onUpdate\(dc as Dc\) as Void \{(.*?)\n    \}", source, re.DOTALL)
         assert m, f"onUpdate() not found in {name}"
-        assert "_sensorError" in m.group(1) and "drawSensorError(dc);" in m.group(1), (
+        assert "_session.sensorError()" in m.group(1) and "drawSensorError(dc);" in m.group(1), (
             f"onUpdate() in {name} must draw the sensor error"
         )
-        assert '"Sensor error"' in source and '"Restart the app"' in source
-
-    source = _read_source("connectiq", "source", "RecordingView.mc")
-    m = re.search(r"public function handleStartButton\(\) as Boolean \{(.*?)\n    \}", source, re.DOTALL)
-    assert m, "handleStartButton() not found in RecordingView.mc"
-    body = m.group(1)
-    assert 0 <= body.find("if (_sensorError)") < body.find("startRun();"), (
-        "START must not begin a run while the sensor is unavailable"
-    )
+    main_view = _read_source("connectiq", "source", "MainView.mc")
+    assert '"Sensor error"' in main_view and '"Restart the app"' in main_view
 
 
-def test_recording_view_rejects_a_stale_sync_ack():
-    """A sync ack must be checked against the run it actually confirms.
+def test_garmin_scenario_tests_are_up_to_date():
+    """connectiq/test/ScenarioTest.mc must match connectiq/scenarios/*.json.
 
-    RecordingView loops through many runs per session, so a sync that timed
-    out or was skipped can still get a delayed ack once the phone finishes
-    processing it late. Before this fix, onPhoneMessage() accepted any ack
-    received while STATE_SYNCING regardless of which run it was for -- a
-    stale ack could land on a brand-new run and mark it delivered before its
-    data was actually sent, with the UI reporting success.
+    The Garmin replays the shared scenarios as code generated by
+    connectiq/scenarios/garmin_tests.py, and runs it only on a Mac. This
+    catches a scenario changed without regenerating, in CI.
     """
-    source = _read_source("connectiq", "source", "RecordingView.mc")
-
-    m = re.search(
-        r"public function onPhoneMessage\(msg as Communications\.PhoneAppMessage\) as Void \{(.*?)\n    \}",
-        source, re.DOTALL,
-    )
-    assert m, "onPhoneMessage() not found in RecordingView.mc"
-    body = m.group(1)
-
-    state_check = body.find("if (_state != STATE_SYNCING)")
-    assert state_check != -1, "onPhoneMessage must check _state == STATE_SYNCING"
-
-    id_check = body.find('data["timestamp"] != _sessionId')
-    assert id_check != -1, (
-        "onPhoneMessage must reject an ack whose timestamp does not match "
-        "the run currently syncing"
-    )
-    assert state_check < id_check, (
-        "the session-id check must come after the state check so it only "
-        "applies to real sync acks"
-    )
-
-    reset_pos = body.find("_state = STATE_IDLE;")
-    assert id_check < reset_pos, (
-        "the session-id check must run before the run is reset to idle, or "
-        "a stale ack would still advance past a run that was never sent"
-    )
-
-
-def test_main_view_transmit_callbacks_check_the_sync_generation():
-    """A late transmit callback must not act on a newer sync attempt.
-
-    RecordingView already guards its transmit callbacks with a generation
-    number, because an abandoned attempt still reports back later and would
-    otherwise land on whichever run is syncing by then. MainView's retry path
-    had the exact same shape -- a reused CommListener with no way to tell
-    attempts apart -- but never got the equivalent guard: a late onError()
-    from a timed-out attempt could abort a retry that was still in flight.
-    """
-    source = _read_source("connectiq", "source", "MainView.mc")
-
-    m = re.search(
-        r"private function attemptSync\(\) as Void \{(.*?)\n    \}",
-        source, re.DOTALL,
-    )
-    assert m, "attemptSync() not found in MainView.mc"
-    attempt_body = m.group(1)
-    assert "_syncGeneration += 1;" in attempt_body, (
-        "attemptSync() must give each attempt its own generation"
-    )
-    assert "_listener = new CommListener(self, _syncGeneration);" in attempt_body, (
-        "attemptSync() must hand the current generation to a fresh listener"
-    )
-    assert attempt_body.index("_syncGeneration += 1;") < attempt_body.index(
-        "_listener = new CommListener(self, _syncGeneration);"
-    ), "the generation must be bumped before the listener that carries it is built"
-
-    m = re.search(
-        r"public function onTransmitError\(generation as Number\) as Void \{(.*?)\n    \}",
-        source, re.DOTALL,
-    )
-    assert m, "onTransmitError(generation) not found in MainView.mc"
-    error_body = m.group(1)
-    assert "if (generation != _syncGeneration) {\n            return" in error_body, (
-        "onTransmitError must ignore a report from an abandoned generation"
-    )
-
-    m = re.search(
-        r"class CommListener extends Communications\.ConnectionListener \{(.*?)\n\}",
-        source, re.DOTALL,
-    )
-    assert m, "CommListener not found in MainView.mc"
-    listener_body = m.group(1)
-    assert "_view.onTransmitError(_generation);" in listener_body, (
-        "CommListener.onError() must forward the generation it was built with"
-    )
-
-
-def test_recording_view_swallows_back_while_syncing():
-    """BACK during a sync must be consumed, never left to the system default.
-
-    handleBackButton() used to return false for STATE_SYNCING -- "unhandled"
-    -- which falls through to the platform's default BACK behaviour: pop the
-    only view on the stack and exit the app instantly. That silently
-    abandoned a transfer already in flight, with no warning, the exact
-    failure mode every other exit path in this file (promptDiscard,
-    promptQuit) was written to prevent. It must return true and do nothing.
-    """
-    source = _read_source("connectiq", "source", "RecordingView.mc")
-
-    m = re.search(
-        r"public function handleBackButton\(\) as Boolean \{(.*?)\n    \}",
-        source, re.DOTALL,
-    )
-    assert m, "handleBackButton() not found in RecordingView.mc"
-    body = m.group(1)
-
-    m = re.search(
-        r"if \(_state == STATE_SYNCING\) \{(.*?)\n        \}",
-        body, re.DOTALL,
-    )
-    assert m, "handleBackButton() must special-case STATE_SYNCING"
-    branch = m.group(1)
-
-    assert "return false;" not in branch, (
-        "an unhandled BACK during a sync falls through to the system "
-        "default, which exits the app and abandons the transfer"
-    )
-    assert "return true;" in branch, (
-        "BACK while syncing must be consumed (return true), not left "
-        "unhandled"
-    )
-
-
-def test_back_steps_back_through_the_selection_screens():
-    """BACK walks back record screen -> ball selection -> mode screen.
-
-    Before, BACK on ball selection fell through to the system and closed the
-    app, and BACK on the idle record screen offered "Quit app?". Now ball
-    selection steps back to the mode screen (APP-5) when that is where the
-    user came from, and the idle record screen steps back to ball selection
-    (REC-11) after releasing the sensor, its timers and the phone listener.
-    Recording, labelling and syncing keep their own BACK handling.
-    """
-    ball = _read_source("connectiq", "source", "BallSelectView.mc")
-    m = re.search(r"public function onBack\(\) as Boolean \{(.*?)\n    \}", ball, re.DOTALL)
-    assert m, "BallSelectDelegate must handle onBack()"
-    body = m.group(1)
-    assert "_view.backToModeSelect" in body
-    assert "return false;" in body, "without a mode screen behind it, BACK closes the app"
-    assert "new ModeSelectView()" in body and "isRecordMode" in body, (
-        "BACK must reopen the mode screen with the chosen mode kept"
-    )
-
-    mode = _read_source("connectiq", "source", "ModeSelectView.mc")
-    assert "ballView.backToModeSelect = true;" in mode
-
-    rec = _read_source("connectiq", "source", "RecordingView.mc")
-    m = re.search(r"public function handleBackButton\(\) as Boolean \{(.*?)\n    \}", rec, re.DOTALL)
-    assert m, "handleBackButton() not found in RecordingView.mc"
-    m = re.search(r"if \(_state == STATE_IDLE\) \{(.*?)\n        \}", m.group(1), re.DOTALL)
-    assert m, "handleBackButton() must special-case STATE_IDLE"
-    assert "returnToBallSelect();" in m.group(1)
-
-    m = re.search(r"public function returnToBallSelect\(\) as Void \{(.*?)\n    \}", rec, re.DOTALL)
-    assert m, "returnToBallSelect() not found in RecordingView.mc"
-    body = m.group(1)
-    for call in ("stopSensor();", "cancelSyncTimer();", "cancelStatusTimer();",
-                 "cancelNextPartTimer();", "registerForPhoneAppMessages(null)",
-                 "new BallSelectView(:record)", "ballView.ballCount = _ballCount;",
-                 "ballView.backToModeSelect = true;"):
-        assert call in body, f"returnToBallSelect() must include {call}"
-    assert '"Quit app?"' not in rec, "the idle screen no longer offers to quit"
-
-
-def test_continuing_after_a_failed_sync_clears_the_error_banner():
-    """Picking Continue after a failed sync must dismiss the failure banner.
-
-    onContinueSession() reset the session timer but left _errorMsg set, so
-    the red "Sync failed" banner promptRetryOrQuit() raised kept drawing over
-    the live tracker screen for the rest of the session even though nothing
-    was still failing -- the user had explicitly chosen to keep juggling
-    instead of retrying.
-    """
-    source = _read_source("connectiq", "source", "MainView.mc")
-
-    m = re.search(
-        r"public function onContinueSession\(\) as Void \{(.*?)\n    \}",
-        source, re.DOTALL,
-    )
-    assert m, "onContinueSession() not found in MainView.mc"
-    assert "_errorMsg = null;" in m.group(1), (
-        "onContinueSession() must clear _errorMsg, or a stale 'Sync failed' "
-        "banner keeps showing after the user chooses to keep juggling"
-    )
-
-
-
-def test_continuing_abandons_the_pending_sync():
-    """Picking Continue must drop the sync, so its late ack cannot close the app.
-
-    onContinueSession() left _pendingPayload set, and onPhoneMessage() closes
-    the app on any ack while a payload is pending. An ack that arrived after
-    the timeout, once the user was juggling again, quit the app mid-run.
-    Continue picked while a sync was still in flight also left its timer
-    running, which popped "Sync failed" over the live screen.
-    """
-    source = _read_source("connectiq", "source", "MainView.mc")
-
-    m = re.search(
-        r"public function onContinueSession\(\) as Void \{(.*?)\n    \}",
-        source, re.DOTALL,
-    )
-    assert m, "onContinueSession() not found in MainView.mc"
-    body = m.group(1)
-    for line in (
-        "_pendingPayload = null;",
-        "_sending = false;",
-        "cancelSyncTimer();",
-        "cancelStatusTimer();",
-        "_syncGeneration += 1;",
-    ):
-        assert line in body, f"onContinueSession() must abandon the sync: missing {line!r}"
-
-
-def test_main_view_sends_one_timestamp_per_session():
-    """Ending again after Continue must resend under the first sync's timestamp.
-
-    The phone keys a session by its timestamp. doSync() stamped every payload
-    with Time.now(), so a session ended, continued and ended again reached the
-    phone as two sessions, the second repeating the first one's runs.
-    """
-    source = _read_source("connectiq", "source", "MainView.mc")
-
-    m = re.search(
-        r"private function doSync\(\) as Void \{(.*?)\n    \}",
-        source, re.DOTALL,
-    )
-    assert m, "doSync() not found in MainView.mc"
-    body = m.group(1)
-    assert '"timestamp" => _sessionTimestamp,' in body, (
-        "doSync() must send the session's fixed timestamp"
-    )
-    assert "if (_sessionTimestamp == null) {\n            _sessionTimestamp = Time.now().value();" in body, (
-        "doSync() must fix the timestamp on the first sync only"
-    )
-    assert "Time.now()" not in body.replace("_sessionTimestamp = Time.now().value();", ""), (
-        "the payload must not take a fresh Time.now() on later syncs"
+    import importlib.util
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "connectiq", "scenarios", "garmin_tests.py")
+    spec = importlib.util.spec_from_file_location("garmin_tests", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    current = _read_source("connectiq", "test", "ScenarioTest.mc")
+    assert current == module.generate(), (
+        "connectiq/test/ScenarioTest.mc is out of date: run python3 connectiq/scenarios/garmin_tests.py"
     )
 
 
@@ -1214,11 +827,12 @@ def test_shape_constants_match_on_every_watch():
 def test_watch_shows_and_transfers_shape_consistency():
     detector = _read_source("connectiq", "source", "JugglingDetector.mc")
     main_view = _read_source("connectiq", "source", "MainView.mc")
+    session = _read_source("connectiq", "source", "TrackerSession.mc")
     assert "public function shapeConsistencyPercent() as Number" in detector
     assert "_shape.addSample(gxMilliG, gyMilliG, gzMilliG, nowMs," in detector
     assert "_shape.onCatch(_lastCatchTime);" in detector
     assert "_shape.commitRun();" in detector
     assert "_shape.clearRun();" in detector
     assert "_shape.discardLastRun();" in detector
-    assert 'Lang.format("Regularity: $1$", [shapeStr])' in main_view
-    assert 'payload["shapeConsistency"] = shape;' in main_view
+    assert '"Regularity: " + Format.percentOrDash(detector.shapeConsistencyPercent())' in main_view
+    assert 'payload["shapeConsistency"] = shape;' in session

@@ -8,11 +8,12 @@ Juggling tracker with three watch apps and two phone apps: a Garmin watch app, a
 
 - `connectiq/` — Monkey C watch app. Its behaviour is specified in `connectiq/REQUIREMENTS.md`.
   - `JugglingTrackerApp.mc` — app entry point.
-  - `ModeSelectView.mc` / `BallSelectView.mc` — startup flow for Juggle vs Record and ball-count selection.
+  - `AppNavigator.mc` — startup flow for Juggle vs Record and ball-count selection, and button routing (`AppDelegate.mc`); `ModeSelectView.mc` / `BallSelectView.mc` draw it.
   - `JugglingDetector.mc` — watch-hand catch detection algorithm.
   - `ShapeConsistency.mc` — the Regularity score (SHAPE-1..4), fed by the detector.
-  - `MainView.mc` — Juggle mode: tracking UI, sensor listener, sync logic.
-  - `RecordingView.mc` — Record mode: raw accelerometer capture and labeling for tuning data.
+  - `TrackerSession.mc` — Juggle mode: runs, menus, sync logic. `MainView.mc` draws it and feeds it the sensor.
+  - `RecordingSession.mc` — Record mode: raw accelerometer capture and labeling for tuning data. `RecordingView.mc` draws it.
+  - `Platform.mc` / `GarminPlatform.mc` — the plain timer, clock, phone link and effects interfaces the sessions and navigator use, and their Connect IQ versions. The sessions match the Wear OS `logic/` and Apple `WatchLogic` classes of the same names.
 - `wearos/` — Wear OS watch app, a Kotlin/Compose port of the Garmin app. Behaviour lives in plain-Kotlin `logic/` (Juggle and Record sessions, navigation) on top of `shared/` and follows `connectiq/REQUIREMENTS.md`; it talks to the phone over the Wear OS Data Layer with the same payloads as the Garmin app. See `wearos/README.md`.
 - `shared/` — plain-Kotlin module both `android/` and `wearos/` include as `:shared`, the Kotlin twin of `apple/JugglingCore/`: `JugglingDetector.kt` and `ShapeConsistency.kt` (keep them in sync with the Monkey C and Python versions), `WatchProtocol.kt` (Data Layer paths, capability names and the JSON codec), `SampleThrottle.kt` (thins a sensor to 25 Hz), `SessionSummary.kt` (the stored session and reading a watch's `session` payload), `SessionCsv.kt` (history CSV for export, the weekly backup and restore), `RecordingHeader.kt` (the recording CSV header and `Juggler`) and `RecordingTransfer.kt` (puts a run sent as `rec_start` / `rec_chunk` / `rec_end` back together). Anything without Android in it goes here, not in `android/`. Test with `./gradlew :shared:test` from either app.
 - `android/` — Kotlin/Compose Android app.
@@ -32,15 +33,15 @@ Juggling tracker with three watch apps and two phone apps: a Garmin watch app, a
 
 ### Communication flow
 
-Garmin: watch accelerometer (25 Hz) → `JugglingDetector` (burst-clustered watch-hand catch detection) → `MainView` (run/session state) → `Communications.transmit()` → `GarminLink` (Garmin SDK) → `WatchInbox` → `SessionRepository`, with `JugglingViewModel` following the inbox's events. The phone sends an `ack` back only once the session is stored; the watch only exits after receiving it.
+Garmin: watch accelerometer (25 Hz) → `JugglingDetector` (burst-clustered watch-hand catch detection) → `TrackerSession` (run/session state) → `GarminPhoneLink` (`Communications.transmit()`) → `GarminLink` (Garmin SDK) → `WatchInbox` → `SessionRepository`, with `JugglingViewModel` following the inbox's events. The phone sends an `ack` back only once the session is stored; the watch only exits after receiving it.
 
 Wear OS: accelerometer thinned to 25 Hz → `JugglingDetector.kt` (shared) → `TrackerSession` → `DataLayerPhoneLink` (JSON over the Data Layer) → `WatchMessageService` → the same `WatchInbox`. The `ack` goes back over the Data Layer to the sending watch.
 
 Apple Watch: CoreMotion thinned to 25 Hz → `JugglingDetector.swift` (`JugglingCore`) → `TrackerSession` (`WatchLogic`) → `ConnectivityPhoneLink` (WatchConnectivity) → the iPhone's `AppleWatchLink` → its `WatchInbox` → `SessionStore`. The `ack` comes back in the message's reply. A Garmin watch reaches the iPhone through the Connect IQ iOS SDK in `GarminLink.swift`.
 
-Recording mode uses `RecordingView` (Wear OS and Apple Watch: `RecordingSession`) to capture raw accelerometer samples. Start begins and ends each run; Back returns to ball selection while idle, offers to quit while recording, offers to discard while labeling, and is ignored while syncing. The user corrects the detected count to the true watch-hand count, then the run transfers as `rec_start` / `rec_chunk` × N / `rec_end` and the Android app writes it through `RecordingRepository` in the same CSV format as `connectiq/data/`.
+Recording mode uses `RecordingSession` (on all three watches) to capture raw accelerometer samples. Start begins and ends each run; Back returns to ball selection while idle, offers to quit while recording, offers to discard while labeling, and is ignored while syncing. The user corrects the detected count to the true watch-hand count, then the run transfers as `rec_start` / `rec_chunk` × N / `rec_end` and the Android app writes it through `RecordingRepository` in the same CSV format as `connectiq/data/`.
 
-`ENABLE_RECORDING_MODE` in `JugglingTrackerApp.mc` (and `AppNavigator.ENABLE_RECORDING_MODE` on Wear OS, `AppNavigator.enableRecordingMode` on Apple Watch) is `true` in released builds on purpose: Record mode is how the labeled corpus grows, and the Connect IQ store listing advertises it. `test_watch_startup_offers_recording_mode` and the Wear OS `AppNavigatorTest` pin the values, so turning either off has to be deliberate (APP-1).
+`AppNavigator.ENABLE_RECORDING_MODE` (Garmin and Wear OS; `AppNavigator.enableRecordingMode` on Apple Watch) is `true` in released builds on purpose: Record mode is how the labeled corpus grows, and the Connect IQ store listing advertises it. The Garmin `app1_modeSelectionDefaultsToJuggle` and the Wear OS `AppNavigatorTest` pin the values, so turning either off has to be deliberate (APP-1).
 
 ## Build and Test
 

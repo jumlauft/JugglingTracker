@@ -2,7 +2,7 @@ import JugglingCore
 import XCTest
 @testable import WatchLogic
 
-/// Record mode, `RecordingView.mc` and its delegates, the same cases as the
+/// Record mode, the Garmin's `RecordingSession.mc`, the same cases as the
 /// Wear OS `RecordingSessionTest`. Each test names the requirement in
 /// `connectiq/REQUIREMENTS.md` it secures.
 final class RecordingSessionTests: XCTestCase {

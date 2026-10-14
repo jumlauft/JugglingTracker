@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Start-up flow, `JugglingTrackerApp.mc`, `ModeSelectView.mc`, `BallSelectView.mc`. */
+/** Start-up flow, the Garmin's `AppNavigator.mc`. */
 class AppNavigatorTest {
     private val scheduler = FakeScheduler()
     private val effects = FakeEffects()

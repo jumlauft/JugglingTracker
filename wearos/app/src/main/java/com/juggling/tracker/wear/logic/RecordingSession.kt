@@ -30,7 +30,7 @@ data class RecordingUiState(
 
 /**
  * Record mode (developer): the Wear OS counterpart of
- * `connectiq/source/RecordingView.mc`. It captures raw accelerometer runs,
+ * `connectiq/source/RecordingSession.mc`. It captures raw accelerometer runs,
  * lets the user correct the detector's count to the true watch-hand count,
  * and transfers each run to the phone in chunks. Requirement ids refer to
  * `connectiq/REQUIREMENTS.md`.

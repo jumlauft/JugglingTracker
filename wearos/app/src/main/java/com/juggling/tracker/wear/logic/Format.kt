@@ -2,7 +2,7 @@ package com.juggling.tracker.wear.logic
 
 import java.util.Locale
 
-/** Display strings, identical to what `MainView.mc` and `RecordingView.mc` draw. */
+/** Display strings, identical to the Garmin's `Format.mc`. */
 object Format {
     /** "m:ss", or "h:mm:ss" from one hour on. */
     fun elapsed(totalSeconds: Long): String {

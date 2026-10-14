@@ -61,6 +61,8 @@ cd wearos
 ## Garmin Watch Tests
 - `connectiq/test/*.mc` are `(:test)` functions compiled with the real sources through `test.jungle` and run in the Connect IQ simulator by `./connectiq/run_tests.sh` (macOS, needs the SDK and `developer_key.der`). They are not in CI.
 - Every test must back a requirement in `connectiq/REQUIREMENTS.md`, and every requirement must name its tests; `test_detection.py` fails otherwise.
+- `SessionTest.mc` and `SelectionTest.mc` drive `TrackerSession`, `RecordingSession` and `AppNavigator` with the fakes in `Fakes.mc` (fake clock and timers, a phone that records what was sent, effects that count buzzes and exits). Test behaviour there, not by reading the view source.
+- `ScenarioTest.mc` is generated from `connectiq/scenarios/*.json` by `connectiq/scenarios/garmin_tests.py`, and `ScenarioRunner.mc` replays it. Never edit it by hand; regenerate it after changing a scenario, or `test_garmin_scenario_tests_are_up_to_date` fails.
 
 ## Apple Tests
 - `apple/JugglingCore/Tests` replays the same corpus as `shared/` and reads the pinned counts out of `simulation/test_detection.py`; `apple/WatchLogic/Tests` mirrors the Wear OS `logic/` tests; `apple/JugglingTrackerTests` covers the iPhone app. Run the packages with `swift test`, the app tests in Xcode, or all of them on GitHub in `apple.yml`, which runs on every pull request that touches `apple/`.

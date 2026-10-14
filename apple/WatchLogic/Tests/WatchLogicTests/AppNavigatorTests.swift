@@ -1,7 +1,7 @@
 import XCTest
 @testable import WatchLogic
 
-/// Start-up flow, `JugglingTrackerApp.mc`, `ModeSelectView.mc`, `BallSelectView.mc`.
+/// Start-up flow, the Garmin's `AppNavigator.mc`.
 final class AppNavigatorTests: XCTestCase {
     private let scheduler = FakeScheduler()
     private let effects = FakeEffects()

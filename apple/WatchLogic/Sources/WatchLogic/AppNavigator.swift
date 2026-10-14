@@ -35,8 +35,7 @@ public enum Screen: Equatable {
     }
 }
 
-/// The start-up flow of `JugglingTrackerApp.mc`, `ModeSelectView.mc` and
-/// `BallSelectView.mc`, plus routing of the four Garmin buttons to whichever
+/// The start-up flow of `connectiq/source/AppNavigator.mc`, plus routing of the four Garmin buttons to whichever
 /// screen is showing. Ported from `wearos/.../AppNavigator.kt`. UP and DOWN
 /// come from the Digital Crown or the on-screen arrows, START from the
 /// on-screen button, BACK from the back button on the screen's corner.
