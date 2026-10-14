@@ -7,10 +7,12 @@ import com.juggling.tracker.backup.SessionBackup
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.juggling.tracker.model.SessionSummary
-import com.juggling.tracker.model.normalizeRunDurations
-import com.juggling.tracker.model.summarizeSession
-import com.juggling.tracker.data.SessionCsv
+import com.juggling.tracker.shared.Juggler
+import com.juggling.tracker.shared.SessionSummary
+import com.juggling.tracker.shared.normalizeRunDurations
+import com.juggling.tracker.shared.summarizeSession
+import com.juggling.tracker.shared.SampleThrottle
+import com.juggling.tracker.shared.SessionCsv
 import com.juggling.tracker.data.SessionRepository
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.data.SettingsManager
@@ -156,7 +158,7 @@ class JugglingViewModel(
      * recordings are saved with it, and an export tags older runs that have
      * none with it.
      */
-    val currentJuggler: RecordingRepository.Juggler? get() = settings?.currentJuggler
+    val currentJuggler: Juggler? get() = settings?.currentJuggler
 
     /** Remember who juggles, the watch wrist and the first-throw hand for the next recordings. */
     fun setExportDetails(name: String, hand: String, firstThrow: String) {

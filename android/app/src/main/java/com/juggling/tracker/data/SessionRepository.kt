@@ -5,9 +5,10 @@ import android.content.SharedPreferences
 import android.util.Log
 import com.juggling.tracker.util.CrashlyticsUtils
 import androidx.core.content.edit
-import com.juggling.tracker.model.SessionSummary
-import com.juggling.tracker.model.parseShapeConsistency
-import com.juggling.tracker.model.summarizeSession
+import com.juggling.tracker.shared.SessionCsv
+import com.juggling.tracker.shared.SessionSummary
+import com.juggling.tracker.shared.parseShapeConsistency
+import com.juggling.tracker.shared.summarizeSession
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File

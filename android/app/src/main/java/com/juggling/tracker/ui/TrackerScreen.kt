@@ -16,7 +16,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.juggling.tracker.R
 import com.juggling.tracker.logic.JugglingViewModel
-import com.juggling.tracker.model.SessionSummary
+import com.juggling.tracker.shared.SessionSummary
 
 /** The home screen: watch/phone header, ball-count tabs and session history. */
 @OptIn(ExperimentalMaterial3Api::class)

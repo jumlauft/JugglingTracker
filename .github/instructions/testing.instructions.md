@@ -46,7 +46,7 @@ The first Robolectric run downloads a ~170 MB framework jar per SDK level into
 that directory.
 
 ## Wear OS Tests
-- `shared/src/test/` holds the plain JVM tests for the detector, shape consistency and the watch-phone protocol, which both apps use. `DetectorCorpusTest` replays every recording in `connectiq/data` and requires the counts `simulation/test_detection.py` pins, read out of that file; `PhoneInputCorpusTest` replays recordings through the phone's m/s² entry point. Run them with `./gradlew :shared:test` from `android/` or `wearos/`.
+- `shared/src/test/` holds the plain JVM tests for the detector, shape consistency, the watch-phone protocol, the sample throttle, the session summary, the history CSV and the recording header and transfer, which both apps use. `DetectorCorpusTest` replays every recording in `connectiq/data` and requires the counts `simulation/test_detection.py` pins, read out of that file; `PhoneInputCorpusTest` replays recordings through the phone's m/s² entry point. Run them with `./gradlew :shared:test` from `android/` or `wearos/`.
 - `wearos/app/src/test/.../logic/` holds plain JVM tests for the Juggle and Record sessions and navigation, driven by fake clocks, schedulers and links.
 - `wearos/app/src/test/.../ui/` holds the Robolectric Compose tests (`WearAppTest`, `TextFitTest`).
 - `wearos/app/src/androidTest/` runs on a Wear OS emulator (API 30, large round) in `wearos.yml`, which runs on every pull request that touches the Wear OS app, `shared/` or the recordings, and saves the screenshots it uploads.

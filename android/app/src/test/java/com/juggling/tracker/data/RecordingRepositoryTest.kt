@@ -6,6 +6,8 @@ import org.junit.Before
 import org.junit.Test
 import java.io.File
 import kotlin.io.path.createTempDirectory
+import com.juggling.tracker.shared.Juggler
+import com.juggling.tracker.shared.RecordingHeader
 
 class RecordingRepositoryTest {
 
@@ -112,8 +114,8 @@ class RecordingRepositoryTest {
     // ── exportAllZip ────────────────────────────────────────────────────
 
     private fun zipEntries(
-        fallback: RecordingRepository.Juggler? = RecordingRepository.Juggler(
-            "Test Juggler", RecordingRepository.HAND_LEFT, RecordingRepository.HAND_RIGHT,
+        fallback: Juggler? = Juggler(
+            "Test Juggler", RecordingHeader.HAND_LEFT, RecordingHeader.HAND_RIGHT,
         ),
     ): Map<String, String> {
         val out = java.io.ByteArrayOutputStream()
@@ -154,7 +156,7 @@ class RecordingRepositoryTest {
         repository.saveRecording(3, 1, 1, 25, 1L, listOf(10), listOf(20), listOf(30), RecordingRepository.SOURCE_WATCH)
 
         val csv = zipEntries(
-            RecordingRepository.Juggler("Ada Lovelace", RecordingRepository.HAND_RIGHT, RecordingRepository.HAND_LEFT),
+            Juggler("Ada Lovelace", RecordingHeader.HAND_RIGHT, RecordingHeader.HAND_LEFT),
         ).values.single()
         val header = csv.lines().first()
 
@@ -173,7 +175,7 @@ class RecordingRepositoryTest {
         )
 
         val header = zipEntries(
-            RecordingRepository.Juggler("Ada", RecordingRepository.HAND_LEFT, RecordingRepository.HAND_RIGHT),
+            Juggler("Ada", RecordingHeader.HAND_LEFT, RecordingHeader.HAND_RIGHT),
         ).values.single().lines().first()
 
         assertEquals(
@@ -184,13 +186,13 @@ class RecordingRepositoryTest {
 
     @Test
     fun `each run is exported with its own juggler`() {
-        val ada = RecordingRepository.Juggler("Ada", RecordingRepository.HAND_LEFT, RecordingRepository.HAND_RIGHT)
-        val bob = RecordingRepository.Juggler("Bob", RecordingRepository.HAND_RIGHT, RecordingRepository.HAND_LEFT)
+        val ada = Juggler("Ada", RecordingHeader.HAND_LEFT, RecordingHeader.HAND_RIGHT)
+        val bob = Juggler("Bob", RecordingHeader.HAND_RIGHT, RecordingHeader.HAND_LEFT)
         repository.saveRecording(3, 1, 1, 25, 1L, listOf(1), listOf(2), listOf(3), RecordingRepository.SOURCE_WATCH, ada)
         repository.saveRecording(3, 2, 2, 25, 2L, listOf(4), listOf(5), listOf(6), RecordingRepository.SOURCE_WATCH, bob)
 
         val headers = zipEntries(
-            RecordingRepository.Juggler("Carol", RecordingRepository.HAND_LEFT, RecordingRepository.HAND_LEFT),
+            Juggler("Carol", RecordingHeader.HAND_LEFT, RecordingHeader.HAND_LEFT),
         ).toSortedMap().values.map { it.lines().first() }
 
         assertTrue(headers[0], headers[0].endsWith(",juggler=Ada,hand=left,firstThrow=right"))
@@ -208,14 +210,14 @@ class RecordingRepositoryTest {
 
     @Test
     fun `a run saved with a juggler stores and lists it`() {
-        val juggler = RecordingRepository.Juggler("Doe, John", RecordingRepository.HAND_LEFT, RecordingRepository.HAND_RIGHT)
+        val juggler = Juggler("Doe, John", RecordingHeader.HAND_LEFT, RecordingHeader.HAND_RIGHT)
         val file = repository.saveRecording(
             3, 1, 1, 25, 1L, listOf(10), listOf(20), listOf(30), RecordingRepository.SOURCE_WATCH, juggler,
         )!!
 
         assertTrue(file.readLines().first().endsWith(",juggler=Doe John,hand=left,firstThrow=right"))
         assertEquals(
-            RecordingRepository.Juggler("Doe John", RecordingRepository.HAND_LEFT, RecordingRepository.HAND_RIGHT),
+            Juggler("Doe John", RecordingHeader.HAND_LEFT, RecordingHeader.HAND_RIGHT),
             repository.listRecordings().single().juggler,
         )
     }
@@ -225,12 +227,6 @@ class RecordingRepositoryTest {
         repository.saveRecording(3, 1, 1, 25, 1L, listOf(10), listOf(20), listOf(30), RecordingRepository.SOURCE_WATCH)
 
         assertEquals(null, repository.listRecordings().single().juggler)
-    }
-
-    @Test
-    fun `a name cannot break the header format`() {
-        assertEquals("Doe John", RecordingRepository.headerSafe("Doe, John"))
-        assertEquals("a b c", RecordingRepository.headerSafe(" a=b#\nc "))
     }
 
     @Test

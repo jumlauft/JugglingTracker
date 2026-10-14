@@ -5,10 +5,10 @@ import android.util.Log
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.data.SessionRepository
-import com.juggling.tracker.model.SessionSummary
-import com.juggling.tracker.model.normalizeRunDurations
-import com.juggling.tracker.model.parseShapeConsistency
-import com.juggling.tracker.model.summarizeSession
+import com.juggling.tracker.shared.Juggler
+import com.juggling.tracker.shared.RecordingTransfer
+import com.juggling.tracker.shared.SessionSummary
+import com.juggling.tracker.shared.sessionFromWatchPayload
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -30,7 +30,7 @@ class WatchInbox(
     private val recordingRepository: RecordingRepository? = null,
     private val analytics: FirebaseAnalytics? = null,
     /** Who is juggling now; each recorded run is saved with it. */
-    private val currentJuggler: () -> RecordingRepository.Juggler? = { null },
+    private val currentJuggler: () -> Juggler? = { null },
 ) {
     companion object {
         private const val TAG = "WatchInbox"
@@ -118,122 +118,60 @@ class WatchInbox(
     // ── Sessions ────────────────────────────────────────────────────────
 
     /**
-     * Stores one finished session. Payload shape: { type: "session",
-     * countMode: "watch_hand", balls: Int, timestamp: Long (epoch s),
-     * durationSeconds: Long, runDurationsMillis: List<Number>,
-     * runs: List<Number>, shapeConsistency: Number (optional, whole percent) }.
+     * Stores one finished session (payload shape at [sessionFromWatchPayload]).
      * Runs are watch-hand catch counts; the phone only records what it receives.
      *
      * Returns the stored session, or null when the payload holds no session
      * or it could not be written; then no ack may go.
      */
     fun importSession(payload: Map<String, Any>, source: Source): SessionSummary? {
-        val balls = (payload["balls"] as? Number)?.toInt() ?: return null
-        // The watch sends epoch seconds; convert to milliseconds for Java Date APIs.
-        val timestamp = ((payload["timestamp"] as? Number)?.toLong() ?: return null) * 1000L
-        val durationSeconds = ((payload["durationSeconds"] as? Number)?.toLong() ?: 0L).coerceAtLeast(0L)
-        val runsRaw = payload["runs"] as? List<*> ?: return null
-        val runs = runsRaw.mapNotNull { (it as? Number)?.toInt() }
-        if (runs.isEmpty()) return null
+        val parsed = sessionFromWatchPayload(payload) ?: return null
 
         analytics?.logEvent("import_session", Bundle().apply {
-            putInt("ball_count", balls)
-            putInt("run_count", runs.size)
-            putInt("total_throws", runs.sum())
+            putInt("ball_count", parsed.ballCount)
+            putInt("run_count", parsed.runCount)
+            putInt("total_throws", parsed.totalThrows)
             putString("source", source.analyticsName)
         })
 
-        val runDurationsMillis = normalizeRunDurations(runs.size, parseLongList(payload["runDurationsMillis"]))
-        val shapeConsistency = parseShapeConsistency(payload["shapeConsistency"])
-
         val session = if (repository != null) {
-            repository.importSession(balls, timestamp, runs, durationSeconds, runDurationsMillis, shapeConsistency)
-                ?: return null
+            repository.importSession(
+                parsed.ballCount,
+                parsed.timestamp,
+                parsed.runHistory,
+                parsed.durationSeconds,
+                parsed.runDurationsMillis,
+                parsed.shapeConsistency,
+            ) ?: return null
         } else {
-            summarizeSession(timestamp, balls, runs, durationSeconds, runDurationsMillis, shapeConsistency)
+            parsed
         }
         publish(Event.SessionStored(session))
         return session
     }
 
-    private fun parseLongList(value: Any?): List<Long> {
-        val raw = value as? List<*> ?: return emptyList()
-        return raw.mapNotNull { (it as? Number)?.toLong()?.coerceAtLeast(0L) }
-    }
-
     // ── Recorded runs ───────────────────────────────────────────────────
     //
-    // The Garmin cannot send a dictionary holding hundreds of numbers, so a
-    // run arrives as rec_start, a series of rec_chunk parts, then rec_end.
-    // Only rec_end is acknowledged, after the run has been written. A retry
-    // from the watch starts again with rec_start.
+    // A run arrives as rec_start, rec_chunk parts and rec_end, put back
+    // together by the shared RecordingTransfer. Only rec_end is acknowledged,
+    // after the run has been written.
 
-    private class IncomingRecording(
-        val id: Long,
-        val balls: Int,
-        val catches: Int,
-        val detected: Int,
-        val sampleRate: Int,
-        val totalSamples: Int,
-        val totalChunks: Int,
-    ) {
-        val x = mutableListOf<Int>()
-        val y = mutableListOf<Int>()
-        val z = mutableListOf<Int>()
-        var nextChunk = 0
-    }
-
-    private var incoming: IncomingRecording? = null
+    private val transfer = RecordingTransfer()
 
     fun startRecordingTransfer(payload: Map<String, Any>) {
-        val id = (payload["id"] as? Number)?.toLong() ?: return
-        incoming = IncomingRecording(
-            id = id,
-            balls = (payload["balls"] as? Number)?.toInt() ?: return,
-            catches = (payload["catches"] as? Number)?.toInt() ?: return,
-            detected = (payload["detected"] as? Number)?.toInt() ?: 0,
-            sampleRate = (payload["sampleRate"] as? Number)?.toInt() ?: 25,
-            totalSamples = (payload["samples"] as? Number)?.toInt() ?: 0,
-            totalChunks = (payload["chunks"] as? Number)?.toInt() ?: 0,
-        )
+        transfer.start(payload)
     }
 
     fun appendRecordingChunk(payload: Map<String, Any>) {
-        val run = incoming ?: return
-        if ((payload["id"] as? Number)?.toLong() != run.id) return
-
-        val index = (payload["i"] as? Number)?.toInt() ?: return
-        if (index < run.nextChunk) {
-            // Already have this one. The transport can deliver a message more
-            // than once, which must not be mistaken for corruption.
-            return
+        val runId = transfer.runId
+        if (transfer.append(payload) == RecordingTransfer.Chunk.GAP) {
+            Log.w(TAG, "Run $runId: chunk ${payload["i"]} arrived out of order; dropping the run")
         }
-        if (index > run.nextChunk) {
-            // A chunk was lost; the run would be corrupt, so drop it rather
-            // than write bad training data. rec_end then goes unacked and
-            // the watch offers to send the run again.
-            Log.w(TAG, "Run ${run.id}: chunk $index arrived, expected ${run.nextChunk}; dropping the run")
-            incoming = null
-            return
-        }
-
-        val xs = (payload["x"] as? List<*>)?.mapNotNull { (it as? Number)?.toInt() } ?: return
-        val ys = (payload["y"] as? List<*>)?.mapNotNull { (it as? Number)?.toInt() } ?: return
-        val zs = (payload["z"] as? List<*>)?.mapNotNull { (it as? Number)?.toInt() } ?: return
-
-        run.x.addAll(xs)
-        run.y.addAll(ys)
-        run.z.addAll(zs)
-        run.nextChunk = index + 1
     }
 
     /** Returns true when a complete run was written. */
     fun finishRecordingTransfer(payload: Map<String, Any>, source: Source): Boolean {
-        val run = incoming ?: return false
-        incoming = null
-        if ((payload["id"] as? Number)?.toLong() != run.id) return false
-        if (run.nextChunk != run.totalChunks) return false
-        if (run.x.size != run.totalSamples) return false
+        val run = transfer.finish(payload) ?: return false
 
         analytics?.logEvent("import_recording", Bundle().apply {
             putInt("ball_count", run.balls)

@@ -5,8 +5,8 @@ import com.juggling.tracker.shared.JugglingDetector
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.*
-import com.juggling.tracker.data.SessionCsv
-import com.juggling.tracker.model.summarizeSession
+import com.juggling.tracker.shared.SessionCsv
+import com.juggling.tracker.shared.summarizeSession
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule

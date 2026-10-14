@@ -2,12 +2,11 @@ package com.juggling.tracker.data
 
 import android.content.Context
 import android.util.Log
+import com.juggling.tracker.shared.Juggler
+import com.juggling.tracker.shared.RecordingHeader
 import com.juggling.tracker.util.CrashlyticsUtils
 import java.io.File
 import java.io.OutputStream
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -46,60 +45,6 @@ class RecordingRepository(private val recordingsDir: File) {
         private const val DIR_NAME = "recordings"
         const val SOURCE_WATCH = "watch"
         const val SOURCE_PHONE = "phone"
-        const val HAND_LEFT = "left"
-        const val HAND_RIGHT = "right"
-        private val EXPORT_KEYS = setOf("juggler", "hand", "firstThrow")
-
-        /**
-         * The juggler's name as a header value: the characters that separate
-         * header fields and lines are replaced by spaces.
-         */
-        fun headerSafe(name: String): String =
-            name.replace(Regex("[,=#\\r\\n]"), " ").replace(Regex("\\s+"), " ").trim()
-
-        /**
-         * [header] with juggler, hand and firstThrow set, replacing any values
-         * it already carries so a re-export under another name does not leave
-         * both.
-         */
-        fun withJuggler(header: String, juggler: Juggler): String {
-            val kept = header.removePrefix("#").trim()
-                .split(",")
-                .filter { part ->
-                    val key = part.substringBefore("=").trim()
-                    part.isNotBlank() && key !in EXPORT_KEYS
-                }
-            return "# " + (kept + juggler.headerFields()).joinToString(",")
-        }
-
-        /** The header's key=value fields. */
-        private fun headerFields(header: String): Map<String, String> =
-            header.removePrefix("#")
-                .trim()
-                .split(",")
-                .mapNotNull { part ->
-                    val kv = part.split("=", limit = 2)
-                    if (kv.size == 2) kv[0].trim() to kv[1].trim() else null
-                }
-                .toMap()
-
-        /** The juggler a header names, or null unless it carries all three fields. */
-        private fun jugglerOf(fields: Map<String, String>): Juggler? {
-            val name = fields["juggler"]?.takeIf { it.isNotBlank() } ?: return null
-            val hand = fields["hand"]?.takeIf { it == HAND_LEFT || it == HAND_RIGHT } ?: return null
-            val firstThrow = fields["firstThrow"]?.takeIf { it == HAND_LEFT || it == HAND_RIGHT } ?: return null
-            return Juggler(name, hand, firstThrow)
-        }
-    }
-
-    /**
-     * Who juggled a run: their [name], the wrist wearing the watch ([hand]) and
-     * the hand that made the first throw ([firstThrow]), each [HAND_LEFT] or
-     * [HAND_RIGHT].
-     */
-    data class Juggler(val name: String, val hand: String, val firstThrow: String) {
-        fun headerFields(): List<String> =
-            listOf("juggler=${headerSafe(name)}", "hand=$hand", "firstThrow=$firstThrow")
     }
 
     constructor(context: Context) : this(File(context.filesDir, DIR_NAME))
@@ -110,10 +55,6 @@ class RecordingRepository(private val recordingsDir: File) {
     init {
         recordingsDir.mkdirs()
     }
-
-    /** Identifier for a recording, also its file name. Derived from capture time. */
-    private fun runIdFor(timestamp: Long): String =
-        SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date(timestamp * 1000L))
 
     /**
      * Save one recording run to its own CSV file. Catches are watch-hand catches.
@@ -139,17 +80,12 @@ class RecordingRepository(private val recordingsDir: File) {
         if (accelX.isEmpty()) return null
         val n = minOf(accelX.size, accelY.size, accelZ.size)
 
-        val runId = runIdFor(timestamp)
+        val runId = RecordingHeader.runId(timestamp)
         val file = File(recordingsDir, "$runId.csv")
 
         return try {
             file.bufferedWriter().use { w ->
-                w.write(
-                    "# run=$runId,timestamp=$timestamp,balls=$balls,catches=$catches" +
-                        ",sampleRate=$sampleRate,units=milli_g,source=$source" +
-                        ",countMode=watch_hand,detectedAtCapture=$detected" +
-                        (juggler?.headerFields()?.joinToString(",", prefix = ",") ?: "")
-                )
+                w.write(RecordingHeader.line(runId, timestamp, balls, catches, sampleRate, source, detected, juggler))
                 w.newLine()
                 w.write("x,y,z")
                 w.newLine()
@@ -169,7 +105,9 @@ class RecordingRepository(private val recordingsDir: File) {
                 samples = n,
                 source = source,
                 // As a re-read of the header would give it back.
-                juggler = juggler?.let { jugglerOf(headerFields(it.headerFields().joinToString(","))) },
+                juggler = juggler?.let {
+                    RecordingHeader.jugglerOf(RecordingHeader.fields(it.headerFields().joinToString(",")))
+                },
             )
             synchronized(this) { summaryCache[file.name] = summary }
             file
@@ -237,7 +175,7 @@ class RecordingRepository(private val recordingsDir: File) {
                     else -> samples++
                 }
             }
-            val fields = headerFields(header ?: return null)
+            val fields = RecordingHeader.fields(header ?: return null)
 
             RecordingSummary(
                 fileName = file.name,
@@ -256,7 +194,7 @@ class RecordingRepository(private val recordingsDir: File) {
                     } else {
                         SOURCE_PHONE
                     },
-                juggler = jugglerOf(fields),
+                juggler = RecordingHeader.jugglerOf(fields),
             )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to read recording ${file.name}", e)
@@ -287,10 +225,10 @@ class RecordingRepository(private val recordingsDir: File) {
         file.forEachLine { line ->
             if (line.isBlank()) return@forEachLine
             val kept = if (line.startsWith("#")) {
-                val own = jugglerOf(headerFields(line))
+                val own = RecordingHeader.jugglerOf(RecordingHeader.fields(line))
                 when {
-                    own != null -> withJuggler(line, own)
-                    fallback != null -> withJuggler(line, fallback)
+                    own != null -> RecordingHeader.withJuggler(line, own)
+                    fallback != null -> RecordingHeader.withJuggler(line, fallback)
                     else -> line
                 }
             } else {

@@ -1,7 +1,5 @@
-package com.juggling.tracker.data
+package com.juggling.tracker.shared
 
-import com.juggling.tracker.model.SessionSummary
-import com.juggling.tracker.model.summarizeSession
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

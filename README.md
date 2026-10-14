@@ -20,7 +20,7 @@ All five apps are main development streams, and `CLAUDE.md` says how they are ke
   - `manifest.xml`, `monkey.jungle`, `resources/` - Connect IQ configuration and assets.
 - `wearos/` - Wear OS watch app, a Kotlin/Compose port of the Garmin app with the same behaviour. It sends sessions and recordings to the Android app over the Wear OS Data Layer. See `wearos/README.md`.
 - `apple/` - iPhone and Apple Watch apps. `apple/JugglingTracker/` is the iPhone app, `apple/Watch/` the Apple Watch app with its behaviour in the `apple/WatchLogic/` package; see their READMEs. `apple/JugglingCore/` is a Swift package with the same detector, Regularity score, watch message helpers and session history CSV format as `shared/` and the Android app; its tests replay the same corpus and pinned counts. Run them with `swift test` there, or on GitHub in `.github/workflows/apple.yml`.
-- `shared/` - plain-Kotlin module that both `android/` and `wearos/` build in as `:shared`: the catch detector (`JugglingDetector.kt`, a line-for-line port of `JugglingDetector.mc`), the Regularity score (`ShapeConsistency.kt`) and the Wear OS Data Layer paths and JSON codec (`WatchProtocol.kt`). Its tests, including the corpus replays, run with `./gradlew :shared:test` from either app.
+- `shared/` - plain-Kotlin module that both `android/` and `wearos/` build in as `:shared`: the catch detector (`JugglingDetector.kt`, a line-for-line port of `JugglingDetector.mc`), the Regularity score (`ShapeConsistency.kt`), the Wear OS Data Layer paths and JSON codec (`WatchProtocol.kt`), the 25 Hz sample throttle, the session summary, the history CSV, the recording CSV header and the reassembly of a recorded run sent in chunks. It holds the same pieces as `apple/JugglingCore/`. Its tests, including the corpus replays, run with `./gradlew :shared:test` from either app.
 - `android/` - Android companion app in Kotlin and Jetpack Compose.
   - `MainActivity.kt` - permissions, the phone accelerometer listener, and the watch cards' status.
   - `JugglingTrackerApplication.kt` - one repository, inbox and Garmin link per app process, shared by the screens and the Wear OS listener.
@@ -29,13 +29,11 @@ All five apps are main development streams, and `CLAUDE.md` says how they are ke
   - `logic/WatchInbox.kt` - stores what either watch sends and decides whether it gets its `ack`.
   - `logic/JugglingViewModel.kt` - UI/session state, imports, CSV export, voice events.
   - `data/SessionRepository.kt` - the finished-session history, one JSON object per line in `sessions.jsonl` (older builds kept it in SharedPreferences and are moved over on first load).
-  - `data/SessionCsv.kt` - the history CSV that export, the weekly backup and restore share.
   - `backup/SessionBackup.kt` - the weekly backup to a file the user picked, and restore.
   - `data/RecordingRepository.kt` - raw recording CSV persistence and zip export.
   - `data/SettingsManager.kt` - settings: watch type, voice, analytics, the juggler, and the backup file.
   - `sensor/PhoneAccelerometerSource.kt` - the phone accelerometer, batched off the main thread.
   - `ui/` - Compose screens, session cards, charts, tracker/settings UI.
-  - `model/` - session/run data classes.
 - `connectiq/data/` - labeled accelerometer recordings used to tune and verify detection, one run per file named `YYYYMMDD_HHMMSS.csv`.
 - `simulation/` - Python analysis, plotting, tuning, and regression tests; old experiments nothing uses any more are in `simulation/archive/`.
 

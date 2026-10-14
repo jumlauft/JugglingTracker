@@ -20,7 +20,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.juggling.tracker.R
 import com.juggling.tracker.backup.SessionBackup
-import com.juggling.tracker.data.SessionCsv
+import com.juggling.tracker.shared.Juggler
+import com.juggling.tracker.shared.RecordingHeader
+import com.juggling.tracker.shared.SessionCsv
 import com.juggling.tracker.data.WatchType
 import com.juggling.tracker.data.RecordingRepository
 import com.juggling.tracker.logic.JugglingViewModel
@@ -442,10 +444,10 @@ private fun WatchTypeDropdown(selected: WatchType, onSelect: (WatchType) -> Unit
 
 /** Who is juggling, shown as one line; tapping it opens the [JugglerDialog]. */
 @Composable
-private fun JugglerCard(juggler: RecordingRepository.Juggler?, onClick: () -> Unit) {
+private fun JugglerCard(juggler: Juggler?, onClick: () -> Unit) {
     val left = stringResource(R.string.hand_left_lower)
     val right = stringResource(R.string.hand_right_lower)
-    fun handName(hand: String) = if (hand == RecordingRepository.HAND_LEFT) left else right
+    fun handName(hand: String) = if (hand == RecordingHeader.HAND_LEFT) left else right
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -534,8 +536,8 @@ private fun HandChoice(question: String, selected: String?, onSelect: (String) -
         Text(text = question, style = MaterialTheme.typography.bodyMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(
-                RecordingRepository.HAND_LEFT to stringResource(R.string.watch_hand_left),
-                RecordingRepository.HAND_RIGHT to stringResource(R.string.watch_hand_right),
+                RecordingHeader.HAND_LEFT to stringResource(R.string.watch_hand_left),
+                RecordingHeader.HAND_RIGHT to stringResource(R.string.watch_hand_right),
             ).forEach { (value, label) ->
                 FilterChip(
                     selected = selected == value,
@@ -634,7 +636,7 @@ private suspend fun emailRecordings(context: android.content.Context, viewModel:
 
 @Composable
 private fun RecordingsTable(
-    recordings: List<com.juggling.tracker.data.RecordingRepository.RecordingSummary>,
+    recordings: List<RecordingRepository.RecordingSummary>,
 ) {
     if (recordings.isEmpty()) return
 

@@ -3,8 +3,8 @@ package com.juggling.tracker.ui
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import com.juggling.tracker.model.SessionSummary
-import com.juggling.tracker.model.summarizeSession
+import com.juggling.tracker.shared.SessionSummary
+import com.juggling.tracker.shared.summarizeSession
 import com.juggling.tracker.ui.theme.JugglingTrackerTheme
 import org.junit.Rule
 import org.junit.Test

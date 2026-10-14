@@ -1,6 +1,5 @@
-package com.juggling.tracker.data
+package com.juggling.tracker.shared
 
-import com.juggling.tracker.model.summarizeSession
 import org.junit.Assert.*
 import org.junit.Test
 import java.util.TimeZone

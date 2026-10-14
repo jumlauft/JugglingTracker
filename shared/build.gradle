@@ -1,6 +1,8 @@
 // Plain Kotlin code shared by the phone app (../android) and the Wear OS app
-// (../wearos): the catch detector, shape consistency (Regularity) and the
-// watch-phone message format. Both Gradle projects include this directory as
+// (../wearos), and the Kotlin twin of apple/JugglingCore: the catch detector,
+// shape consistency (Regularity), the watch-phone message format, the 25 Hz
+// sample throttle, the session summary and history CSV, and the recording CSV
+// header and chunk reassembly. Both Gradle projects include this directory as
 // their :shared module, so there is one copy to change and test. The Garmin
 // (connectiq/) and Python (simulation/) versions stay separate and are held to
 // the same counts by the corpus tests.

@@ -11,15 +11,15 @@ table below says which test covers each requirement here.
 - `../shared/` - the catch detector (`JugglingDetector.kt`, a line-for-line
   port of `JugglingDetector.mc`), the Regularity score (`ShapeConsistency.kt`,
   a port of `ShapeConsistency.mc`) and the Data Layer paths and JSON payload
-  codec (`WatchProtocol.kt`). The phone app builds in the same module, so both
-  apps run one copy.
+  codec (`WatchProtocol.kt`) and the sample throttle that thins the sensor
+  stream to 25 Hz on a fixed 40 ms grid (`SampleThrottle.kt`). The phone app
+  builds in the same module, so both apps run one copy.
 - `app/src/main/java/com/juggling/tracker/wear/`
   - `logic/` - everything with behaviour, in plain Kotlin with no Android
     types, so it runs as ordinary JVM tests:
     - `TrackerSession.kt` - Juggle mode (`MainView.mc`): runs, menus, sync.
     - `RecordingSession.kt` - Record mode (`RecordingView.mc`).
     - `AppNavigator.kt` - mode and ball selection, and button routing.
-    - `SampleThrottle.kt` - thins the sensor stream to 25 Hz on a fixed 40 ms grid.
     - `Format.kt` - display strings, identical to what the Garmin draws.
     - `Platform.kt` - the interfaces the sessions use for timers, the clock,
       the phone link and vibration, so tests can fake them.

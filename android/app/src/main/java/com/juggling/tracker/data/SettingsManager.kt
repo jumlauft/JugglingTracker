@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.juggling.tracker.shared.Juggler
 
 /** Which watch the user records with; it decides what the home screen's watch card shows. */
 enum class WatchType { GARMIN, WEAR_OS }
@@ -45,10 +46,10 @@ class SettingsManager(context: Context) {
         private set
 
     /** Who is juggling, once a name and both hands have been entered; null until then. */
-    val currentJuggler: RecordingRepository.Juggler?
+    val currentJuggler: Juggler?
         get() {
             val name = jugglerName.takeIf { it.isNotBlank() } ?: return null
-            return RecordingRepository.Juggler(name, watchHand ?: return null, firstThrowHand ?: return null)
+            return Juggler(name, watchHand ?: return null, firstThrowHand ?: return null)
         }
 
     fun updateExportDetails(name: String, hand: String, firstThrow: String) {
