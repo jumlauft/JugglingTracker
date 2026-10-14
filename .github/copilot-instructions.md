@@ -25,7 +25,7 @@ Juggling tracker with three watch apps and two phone apps: a Garmin watch app, a
   - `logic/JugglingViewModel.kt` — Holds the screens' models (`WatchStatusModel`, `HistoryModel`, `PhoneSessionModel`, `RawRecordingModel`, `SettingsModel`) and wires them to the inbox and the voice. The iPhone `TrackerModel` holds the same five.
   - `data/SessionRepository.kt` — Session history: in-memory cache plus `sessions.jsonl`, one JSON object per line, written on a background executor.
   - `data/RecordingRepository.kt` — Raw recording CSV storage and zip export.
-  - `data/SettingsManager.kt` — Settings (watch type, voice, analytics, juggler, backup file).
+  - `data/SettingsManager.kt` — Settings storage (watch type, voice, analytics, juggler, backup file), with no Compose state; `logic/SettingsModel.kt` holds what the Settings screen observes.
   - `ui/` — Compose screens and components.
 - `apple/` — the iPhone app (`JugglingTracker/`) and the Apple Watch app (`Watch/`, behaviour in `WatchLogic/`), sharing `JugglingCore/`, the counterpart of `shared/` with the same files: the Swift detector, Regularity score, watch protocol, sample throttle, session summary, history CSV, recording header and recording transfer. `WatchLogic` is a line-for-line port of the Wear OS `logic/` package. See `apple/Watch/README.md` and `apple/JugglingTracker/README.md`.
 - `connectiq/data/` — Labeled accelerometer CSVs used for detection tuning and regression tests. One run per file, named `YYYYMMDD_HHMMSS.csv` after its run id.

@@ -31,7 +31,7 @@ All five apps are main development streams, and `CLAUDE.md` says how they are ke
   - `data/SessionRepository.kt` - the finished-session history, one JSON object per line in `sessions.jsonl` (older builds kept it in SharedPreferences and are moved over on first load).
   - `backup/SessionBackup.kt` - the weekly backup to a file the user picked, and restore.
   - `data/RecordingRepository.kt` - raw recording CSV persistence and zip export.
-  - `data/SettingsManager.kt` - settings: watch type, voice, analytics, the juggler, and the backup file.
+  - `data/SettingsManager.kt` - settings storage: watch type, voice, analytics, the juggler, and the backup file. No Compose state; `logic/SettingsModel.kt` holds what the screen observes.
   - `sensor/PhoneAccelerometerSource.kt` - the phone accelerometer, batched off the main thread.
   - `ui/` - Compose screens, session cards, charts, tracker/settings UI.
 - `connectiq/data/` - labeled accelerometer recordings used to tune and verify detection, one run per file named `YYYYMMDD_HHMMSS.csv`.

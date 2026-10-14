@@ -9,7 +9,7 @@ applyTo: "android/**/*.kt"
 - Compile/target SDK 36, min SDK 24. `android/app/build.gradle` is the source of truth; check it rather than this line if they ever disagree.
 
 ## State Management
-- Use `mutableStateOf` and `mutableStateListOf` for observable state in ViewModels.
+- Use `mutableStateOf` and `mutableStateListOf` for observable state in the view model's models. The `data/` layer holds no Compose state: `SettingsManager` only stores, and `SettingsModel` keeps the state the screen observes, following every stored change (the backup worker writes too) through `SettingsManager.addListener`.
 - Create ViewModels via `ViewModelProvider.Factory` — never inject the repository directly into constructors without the factory pattern.
 - `JugglingViewModel` holds one model per area and wires them together: `WatchStatusModel` (the watch card: `garminStatus`, `garminMessage`, `wearStatus`), `HistoryModel`, `PhoneSessionModel`, `RawRecordingModel` and `SettingsModel`. Each screen takes the models it shows (`TrackerScreen(watchStatus, history, …)`, `SettingsScreen(settings, recordings)`), never the Application, a repository or `SettingsManager`. `MainActivity` copies the Garmin status from `GarminLink` into `WatchStatusModel` and follows the Wear OS capability for the card. The iPhone app splits `TrackerModel` the same way; keep the two in step.
 - Models hold no user-facing text. A status is an enum (`PhoneSessionStatus`) that the UI turns into a `strings.xml` text (`ui/StatusTexts.kt`); the iPhone app has the same cases and texts in its String Catalog.
