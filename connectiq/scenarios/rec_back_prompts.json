@@ -1,0 +1,95 @@
+{
+  "name": "BACK while recording offers to quit, while labelling to discard; backing out continues",
+  "requirements": [
+    "REC-1",
+    "REC-10"
+  ],
+  "steps": [
+    {
+      "press": "up"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "back"
+    },
+    {
+      "expect": {
+        "menu": "rec_quit",
+        "menuTitle": "Quit? Lose run"
+      }
+    },
+    {
+      "press": "back"
+    },
+    {
+      "expect": {
+        "menu": null,
+        "phase": "recording",
+        "exits": 0
+      }
+    },
+    {
+      "warmup": true
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "back"
+    },
+    {
+      "expect": {
+        "menu": "rec_discard",
+        "menuTitle": "Discard run?",
+        "menuLabels": [
+          "Yes",
+          "Continue"
+        ]
+      }
+    },
+    {
+      "press": "back"
+    },
+    {
+      "expect": {
+        "menu": null,
+        "phase": "labeling"
+      }
+    },
+    {
+      "press": "back"
+    },
+    {
+      "select": "discard_confirm"
+    },
+    {
+      "expect": {
+        "phase": "idle",
+        "runsCompleted": 0,
+        "sentCount": 0
+      }
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "back"
+    },
+    {
+      "select": "quit_confirm"
+    },
+    {
+      "expect": {
+        "exits": 1
+      }
+    }
+  ]
+}

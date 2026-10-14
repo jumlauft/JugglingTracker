@@ -1,0 +1,51 @@
+{
+  "name": "The watch buzzes every tenth catch and starts again with the next run",
+  "requirements": [
+    "JUG-7"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "catches": 9
+    },
+    {
+      "expect": {
+        "count": 9,
+        "vibrations": 0
+      }
+    },
+    {
+      "burst": 2
+    },
+    {
+      "expect": {
+        "count": 10,
+        "vibrations": 1
+      }
+    },
+    {
+      "idle": 60
+    },
+    {
+      "expect": {
+        "vibrations": 1
+      }
+    },
+    {
+      "catches": 10
+    },
+    {
+      "expect": {
+        "vibrations": 2
+      }
+    }
+  ]
+}

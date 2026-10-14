@@ -1,0 +1,33 @@
+{
+  "name": "Start-up flow opens Record mode",
+  "requirements": [
+    "APP-1",
+    "APP-4"
+  ],
+  "steps": [
+    {
+      "press": "up"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "expect": {
+        "screen": "ballSelect",
+        "mode": "record",
+        "balls": 3
+      }
+    },
+    {
+      "press": "start"
+    },
+    {
+      "expect": {
+        "screen": "recording",
+        "balls": 3,
+        "phase": "idle",
+        "runsCompleted": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "name": "Ending again after Continue resends the whole session under its first timestamp",
+  "requirements": [
+    "SYNC-5"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "catches": 3
+    },
+    {
+      "idle": 60
+    },
+    {
+      "press": "start"
+    },
+    {
+      "select": "sync_quit"
+    },
+    {
+      "wait": 10000
+    },
+    {
+      "select": "continue_session"
+    },
+    {
+      "epochAdvance": 120
+    },
+    {
+      "catches": 4
+    },
+    {
+      "idle": 60
+    },
+    {
+      "press": "start"
+    },
+    {
+      "select": "sync_quit"
+    },
+    {
+      "expect": {
+        "sentCount": 2,
+        "lastSent": {
+          "timestamp": 1700000000,
+          "runs": [
+            3,
+            4
+          ]
+        }
+      }
+    },
+    {
+      "phone": {
+        "type": "ack",
+        "timestamp": 1700000000
+      }
+    },
+    {
+      "expect": {
+        "exits": 1
+      }
+    }
+  ]
+}

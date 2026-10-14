@@ -1,0 +1,48 @@
+{
+  "name": "The label starts at the detected count and never goes below zero",
+  "requirements": [
+    "REC-3"
+  ],
+  "steps": [
+    {
+      "press": "up"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "catches": 2
+    },
+    {
+      "press": "start"
+    },
+    {
+      "expect": {
+        "label": 2
+      }
+    },
+    {
+      "press": "down"
+    },
+    {
+      "press": "down"
+    },
+    {
+      "press": "down"
+    },
+    {
+      "expect": {
+        "label": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "name": "Start-up flow opens Juggle mode with the chosen ball count",
+  "requirements": [
+    "APP-1",
+    "APP-2",
+    "APP-3",
+    "APP-4"
+  ],
+  "steps": [
+    {
+      "expect": {
+        "screen": "modeSelect",
+        "recordMode": false
+      }
+    },
+    {
+      "press": "down"
+    },
+    {
+      "expect": {
+        "recordMode": true
+      }
+    },
+    {
+      "press": "up"
+    },
+    {
+      "expect": {
+        "recordMode": false
+      }
+    },
+    {
+      "press": "start"
+    },
+    {
+      "expect": {
+        "screen": "ballSelect",
+        "mode": "juggle",
+        "balls": 3
+      }
+    },
+    {
+      "press": "up"
+    },
+    {
+      "press": "up"
+    },
+    {
+      "expect": {
+        "balls": 5
+      }
+    },
+    {
+      "press": "down"
+    },
+    {
+      "expect": {
+        "balls": 4
+      }
+    },
+    {
+      "press": "start"
+    },
+    {
+      "expect": {
+        "screen": "tracker",
+        "balls": 4,
+        "runs": 0,
+        "runActive": false,
+        "menu": null
+      }
+    }
+  ]
+}

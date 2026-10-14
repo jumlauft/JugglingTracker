@@ -422,5 +422,10 @@ the Python reference, and `DetectorCorpusTest` (milli-g input, as the watches
 feed it) and `PhoneInputCorpusTest` (m/s² input, as the phone feeds it) in
 `../shared` replay the same recordings through the Kotlin port.
 
+The watch workflows are also written once as JSON scenarios in `scenarios/`
+(see `scenarios/README.md`), which the Wear OS and Apple Watch logic tests
+both replay.
+
 When behaviour changes on purpose, change this document in the same commit as
-the code, and move the requirement's test with it.
+the code, and move the requirement's test with it. When a workflow changes,
+change its scenario too.

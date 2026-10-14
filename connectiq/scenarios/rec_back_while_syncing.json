@@ -1,0 +1,40 @@
+{
+  "name": "BACK is ignored while a run syncs",
+  "requirements": [
+    "REC-9"
+  ],
+  "steps": [
+    {
+      "press": "up"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "back"
+    },
+    {
+      "expect": {
+        "screen": "recording",
+        "phase": "syncing",
+        "menu": null,
+        "exits": 0
+      }
+    }
+  ]
+}

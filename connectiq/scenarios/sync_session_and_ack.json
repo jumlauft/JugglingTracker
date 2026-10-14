@@ -1,0 +1,95 @@
+{
+  "name": "Sync and quit sends the session once and closes only on the matching ack",
+  "requirements": [
+    "SYNC-1",
+    "SYNC-2"
+  ],
+  "epochSeconds": 1700000000,
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "catches": 3
+    },
+    {
+      "idle": 60
+    },
+    {
+      "catches": 4
+    },
+    {
+      "press": "start"
+    },
+    {
+      "select": "sync_quit"
+    },
+    {
+      "expect": {
+        "sentTypes": [
+          "session"
+        ],
+        "sentCount": 1,
+        "sending": true,
+        "lastSent": {
+          "type": "session",
+          "countMode": "watch_hand",
+          "balls": 3,
+          "timestamp": 1700000000,
+          "runs": [
+            3,
+            4
+          ]
+        }
+      }
+    },
+    {
+      "deliver": true
+    },
+    {
+      "expect": {
+        "exits": 0,
+        "sending": true
+      }
+    },
+    {
+      "phone": {
+        "type": "ack",
+        "timestamp": 1600000000
+      }
+    },
+    {
+      "expect": {
+        "exits": 0,
+        "sending": true
+      }
+    },
+    {
+      "phone": {
+        "type": "ack"
+      }
+    },
+    {
+      "expect": {
+        "exits": 0
+      }
+    },
+    {
+      "phone": {
+        "type": "ack",
+        "timestamp": 1700000000
+      }
+    },
+    {
+      "expect": {
+        "exits": 1
+      }
+    }
+  ]
+}

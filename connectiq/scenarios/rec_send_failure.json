@@ -1,0 +1,75 @@
+{
+  "name": "A failed send offers Retry, Skip or Quit; Skip loses the run without counting it",
+  "requirements": [
+    "REC-6",
+    "REC-10"
+  ],
+  "steps": [
+    {
+      "press": "up"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "catches": 3
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "deliver": false
+    },
+    {
+      "expect": {
+        "menu": "rec_sync",
+        "menuTitle": "send failed",
+        "menuLabels": [
+          "Retry sync",
+          "Skip (lose data)",
+          "Quit"
+        ],
+        "error": "Sync failed"
+      }
+    },
+    {
+      "select": "sync_retry"
+    },
+    {
+      "wait": 50
+    },
+    {
+      "expect": {
+        "sentTypes": [
+          "rec_start"
+        ],
+        "sentCount": 2
+      }
+    },
+    {
+      "deliver": false
+    },
+    {
+      "select": "sync_skip"
+    },
+    {
+      "expect": {
+        "phase": "idle",
+        "runsCompleted": 0,
+        "menu": null
+      }
+    }
+  ]
+}

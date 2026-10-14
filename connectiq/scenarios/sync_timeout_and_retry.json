@@ -1,0 +1,74 @@
+{
+  "name": "No ack in time opens the retry menu; Retry sends the same session again",
+  "requirements": [
+    "SYNC-2",
+    "JUG-8"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "catches": 3
+    },
+    {
+      "idle": 60
+    },
+    {
+      "press": "start"
+    },
+    {
+      "select": "sync_quit"
+    },
+    {
+      "deliver": true
+    },
+    {
+      "wait": 10000
+    },
+    {
+      "expect": {
+        "sending": false,
+        "menu": "session_end",
+        "menuTitle": "Sync failed",
+        "menuItems": [
+          "sync_retry",
+          "nosync_quit",
+          "continue_session"
+        ],
+        "menuLabels": [
+          "Retry sync",
+          "Quit without sync",
+          "Continue"
+        ]
+      }
+    },
+    {
+      "select": "sync_retry"
+    },
+    {
+      "expect": {
+        "sentCount": 2,
+        "sending": true,
+        "menu": null
+      }
+    },
+    {
+      "phone": {
+        "type": "ack",
+        "timestamp": 1700000000
+      }
+    },
+    {
+      "expect": {
+        "exits": 1
+      }
+    }
+  ]
+}

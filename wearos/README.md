@@ -143,3 +143,7 @@ protocol tests in `../shared/src/test`, the Robolectric UI tests in
 | SENS-4 | `WatchRuntime` passes a failed `AccelerometerSource.start()` to `WearApp`, which shows `SensorErrorScreen` on the tracking screens (`WearAppEmulatorTest`) |
 | SYNC-1..5 | `TrackerSessionTest`, `WearAppTest`, `WearAppEmulatorTest.replayingARealRecordingShowsItsRunsAndSyncsThem` |
 | REC-1..11 | `RecordingSessionTest`, `AppNavigatorTest` (REC-11), `WearAppEmulatorTest.recordModeLabelsARun`. REC-2's free-memory check is Garmin-specific (a 128 KB heap); the 3000-sample cap is kept. REC-4 writes the one-line `RUN_DATA` summary to logcat under the tag `JugglingRecording` |
+
+`ScenarioTest` also replays every workflow in `../connectiq/scenarios`, the
+same files the Apple Watch tests replay, so the two watches cannot drift apart
+without a test failing. Add a scenario there when a workflow changes.

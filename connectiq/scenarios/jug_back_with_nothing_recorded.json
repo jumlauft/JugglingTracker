@@ -1,0 +1,27 @@
+{
+  "name": "BACK with nothing recorded is swallowed and never closes the app",
+  "requirements": [
+    "JUG-4"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "press": "back"
+    },
+    {
+      "expect": {
+        "screen": "tracker",
+        "menu": null,
+        "exits": 0
+      }
+    }
+  ]
+}

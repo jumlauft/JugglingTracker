@@ -1,0 +1,35 @@
+{
+  "name": "Quit without sync closes the app and sends nothing",
+  "requirements": [
+    "JUG-2"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "catches": 3
+    },
+    {
+      "idle": 60
+    },
+    {
+      "press": "start"
+    },
+    {
+      "select": "nosync_quit"
+    },
+    {
+      "expect": {
+        "exits": 1,
+        "sentCount": 0
+      }
+    }
+  ]
+}
