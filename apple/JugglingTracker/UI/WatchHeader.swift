@@ -21,9 +21,11 @@ struct WatchCardState: Equatable {
             return .init(tone: .neutral, title: String(localized: "Record with Garmin watch"), detail: nil, tap: .none)
         case .watchAppMissing:
             return .init(tone: .error, title: String(localized: "Juggling app is not installed on the watch"), detail: nil, tap: .linkHelp)
-        case .connectIQMissing, .disconnected:
+        case .disconnected:
             return .init(tone: .error, title: notLinked, detail: nil, tap: .linkHelp)
-        case .bluetoothDisabled, .noPairedDevices, .sdkError:
+        // A missing Garmin Connect says so, or choosing a watch would look
+        // like it did nothing.
+        case .connectIQMissing, .bluetoothDisabled, .noPairedDevices, .sdkError:
             return .init(tone: .error, title: notLinked, detail: message.isEmpty ? nil : message, tap: .linkHelp)
         }
     }

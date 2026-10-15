@@ -15,6 +15,8 @@ struct RawRecordingState: Equatable {
     var sampleCount = 0
     /// What the detector counts during capture, shown live.
     var liveCount = 0
+    /// The last Start failed because the phone's accelerometer did not start.
+    var sensorUnavailable = false
 }
 
 /// Raw accelerometer recordings for the detection corpus: the record flow
@@ -145,6 +147,14 @@ final class RawRecordingModel {
             refresh()
         }
         cancel()
+    }
+
+    /// Goes back to the ball count with the reason in red, so a Start that
+    /// could not get the sensor does not just close the sheet.
+    func markSensorUnavailable() {
+        state = RawRecordingState(step: .selectBalls, selectedBallCount: state.selectedBallCount, sensorUnavailable: true)
+        clearBuffers()
+        detector = nil
     }
 
     func cancel() {
