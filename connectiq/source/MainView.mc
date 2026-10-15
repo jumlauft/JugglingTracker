@@ -129,12 +129,12 @@ class MainView extends WatchUi.View {
         dc.drawText(rightX, y, Graphics.FONT_XTINY, "Max: " + Format.countOrDash(detector.sessionMax), Graphics.TEXT_JUSTIFY_CENTER);
         y += statsH;
 
-        dc.drawText(cx, y, Graphics.FONT_XTINY, "Time: " + Format.elapsed(_session.elapsedSeconds()), Graphics.TEXT_JUSTIFY_CENTER);
+        // Regularity: the session's shape consistency, how alike each hand
+        // cycle is to the last (SHAPE-4). It sits above Time.
+        dc.drawText(cx, y, Graphics.FONT_XTINY, "Regularity: " + Format.percentOrDash(detector.shapeConsistencyPercent()), Graphics.TEXT_JUSTIFY_CENTER);
         y += statsH;
 
-        // Regularity: the session's shape consistency, how alike each hand
-        // cycle is to the last (SHAPE-4).
-        dc.drawText(cx, y, Graphics.FONT_XTINY, "Regularity: " + Format.percentOrDash(detector.shapeConsistencyPercent()), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, y, Graphics.FONT_XTINY, "Time: " + Format.elapsed(_session.elapsedSeconds()), Graphics.TEXT_JUSTIFY_CENTER);
 
         // Error banner at the bottom if a transfer failed.
         var banner = _session.errorMessage();

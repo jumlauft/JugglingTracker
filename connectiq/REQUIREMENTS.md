@@ -203,7 +203,7 @@ until a window counts. False starts contribute nothing.
 session score; discarding the run in progress drops its pending windows.
 *Verified by:* `shape3_discardRemovesTheRunsScore`, `test_shape_discard_removes_the_runs_score`
 
-**SHAPE-4.** The Juggle screen shows it below Time as `Regularity: 83%`, or
+**SHAPE-4.** The Juggle screen shows it above Time as `Regularity: 83%`, or
 `Regularity: -` before any score, and the phone lists it as Regularity, and the session transfer carries it (SYNC-1).
 On four labelled 3-ball runs in `../simulation/regularity_data` it scores the
 two regular runs 90 and 86 and the two messy runs 51 and 55.
@@ -215,8 +215,8 @@ two regular runs 90 and 86 and the two messy runs 51 and 55.
 
 **JUG-1.** The screen shows: run state (**RUN ACTIVE** green / **WAITING**
 yellow), the live watch-hand count with **Catches per hand** below it, and
-then Prev, Runs, Avg, Max, elapsed session time and the session's shape
-consistency as **Regularity** (SHAPE-4). A failed transfer
+then Prev, Runs, Avg, Max, the session's shape consistency as
+**Regularity** (SHAPE-4) and, last, the elapsed session **Time**. A failed transfer
 adds a red banner. The touchscreen watches (Wear OS, Apple Watch) show the
 same on three pages, so a stray touch cannot open a menu mid-run: End and
 Discard run (START/STOP and BACK), the count, and the stats.

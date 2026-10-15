@@ -333,8 +333,8 @@ private fun TrackerStatsPage(state: TrackerUiState) {
         StatRow("Runs", state.runs.toString(), Tags.RUNS)
         StatRow("Avg", Format.averageOrDash(state.average), Tags.AVG)
         StatRow("Max", Format.countOrDash(state.max), Tags.MAX)
-        StatRow("Time", Format.elapsed(state.elapsedSeconds), Tags.TIME)
         StatRow("Regularity", Format.percentOrDash(state.shapeConsistency), Tags.REGULARITY)
+        StatRow("Time", Format.elapsed(state.elapsedSeconds), Tags.TIME)
     }
 }
 
