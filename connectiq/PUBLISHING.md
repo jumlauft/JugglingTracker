@@ -60,3 +60,4 @@ field. Newest first.
 - Juggle mode no longer closes early when the phone confirms an older session; it waits for the confirmation of the session it just sent.
 - Record mode: a run you skip after a failed sync is no longer counted under Runs.
 - Internal clean-up for reliability, including freeing memory when you leave Record mode.
+- Now available on 13 more watches, including the Forerunner 645, 645 Music and 935, fēnix 5, 5S, 5X and Chronos, D2 Delta and D2 Air, Descent Mk1 and Venu Mercedes-Benz.
