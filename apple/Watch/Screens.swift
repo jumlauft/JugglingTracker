@@ -335,8 +335,8 @@ private struct TrackerStatsPage: View {
             row("Runs", String(state.runs))
             row("Avg", Format.averageOrDash(state.average))
             row("Max", Format.countOrDash(state.max))
-            row("Time", Format.elapsed(state.elapsedSeconds))
             row("Regularity", Format.percentOrDash(state.shapeConsistency))
+            row("Time", Format.elapsed(state.elapsedSeconds))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, 4)
