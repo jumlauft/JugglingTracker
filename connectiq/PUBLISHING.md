@@ -54,7 +54,7 @@ Source Code URL (Optional): https://github.com/jumlauft/JugglingTracker
 Paste the entry for the version being uploaded into the store's "What's New"
 field. Newest first.
 
-### 1.3.0
+### 1.3.1
 - Now available on 13 more watches, including the Forerunner 645, 645 Music and 935, fēnix 5, 5S, 5X and Chronos, D2 Delta and D2 Air, Descent Mk1 and Venu Mercedes-Benz.
 - The Juggle screen now shows Regularity above Time, so Time is the bottom line.
 - The session clock now pauses while the end-session menu is open, so time spent in the menu no longer counts toward your session.
