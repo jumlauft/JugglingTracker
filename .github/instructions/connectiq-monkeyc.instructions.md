@@ -72,3 +72,9 @@ applyTo: "connectiq/**/*.mc"
 - The sessions keep their state in `_sending`, `_pendingPayload` and the open `_menu` (a `MenuSpec`, or null). A menu the session opens is shown by `WatchEffects.showMenu`; when the session closes one itself (an ack arrived while it was up) it calls `closeMenu`.
 - Only one sync attempt or menu at a time.
 - Monkey C counts references and never collects cycles. A session holds its phone link, and the link holds the session's listener until `setMessageListener(null)`: every way out of a session (exit, BACK to ball selection) has to clear it, or the session and its 18 KB sample buffer stay in memory.
+
+## Store Screenshots
+- Store screenshots live in `connectiq/resources/images/` (`screenshot_*.png`, 240×240, taken on the FR245 simulator) and are listed in `connectiq/PUBLISHING.md`. Refresh them whenever a screen they show changes.
+- Take them from a scratch copy of the app, never from committed code: replace the sensor listener with a replay of a real recording from `connectiq/data/` and drive the buttons from a timer.
+- For a Juggle-screen shot, replay a short recording: three runs of 20–30 catches each, with a pause of a few seconds between them so they count as separate runs, is enough (Jonas, 2026-10-15). Do not loop one long recording; it takes minutes and makes Prev, Avg and Max look suspiciously even.
+- Shut the simulator down (`pkill -f ConnectIQ.app`) as soon as the screenshots are captured.
