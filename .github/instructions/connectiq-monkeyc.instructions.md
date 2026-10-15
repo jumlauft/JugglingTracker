@@ -5,8 +5,8 @@ applyTo: "connectiq/**/*.mc"
 # ConnectIQ Watch App Conventions
 
 ## Language
-- Monkey C targeting Connect IQ SDK 4.3+, min API 3.3.0.
-- Target devices: All devices with API Level 3.3 or higher (e.g., FR245, Fenix 6, Venu, etc.).
+- Monkey C targeting Connect IQ SDK 4.3+, min API 3.1.0.
+- Target devices: The devices listed in `connectiq/manifest.xml` (API level 3.1 or higher, e.g. FR245, FR645, Fenix 5, Venu). Before adding one, check it has the accelerometer API and at least 128 KB for watch apps (Record peaks near 88 KB).
 
 ## App Structure
 - Watch classes are split by feature under `connectiq/source/`.
