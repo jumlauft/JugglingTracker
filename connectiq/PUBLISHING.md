@@ -48,3 +48,17 @@ Source Code URL (Optional): https://github.com/jumlauft/JugglingTracker
     * **Screenshots**: Found in `connectiq/resources/images/`
 
 
+
+## 3. Release Notes ("What's New")
+
+Paste the entry for the version being uploaded into the store's "What's New"
+field. Newest first.
+
+### 1.3.1
+- Now available on 13 more watches, including the Forerunner 645, 645 Music and 935, fēnix 5, 5S, 5X and Chronos, D2 Delta and D2 Air, Descent Mk1 and Venu Mercedes-Benz.
+- The Juggle screen now shows Regularity above Time, so Time is the bottom line.
+- The session clock now pauses while the end-session menu is open, so time spent in the menu no longer counts toward your session.
+- Better counting for 7 balls and more: the wind-up before a run and gathering the balls after a drop no longer start or stretch a run, so back-to-back runs split cleanly.
+- Juggle mode no longer closes early when the phone confirms an older session; it waits for the confirmation of the session it just sent.
+- Record mode: a run you skip after a failed sync is no longer counted under Runs.
+- Internal clean-up for reliability, including freeing memory when you leave Record mode.
