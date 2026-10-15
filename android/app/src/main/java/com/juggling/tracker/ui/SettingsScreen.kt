@@ -18,6 +18,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.core.content.pm.PackageInfoCompat
 import com.juggling.tracker.R
 import com.juggling.tracker.backup.SessionBackup
 import com.juggling.tracker.shared.Juggler
@@ -258,7 +259,23 @@ fun SettingsScreen(settings: SettingsModel, recordings: RawRecordingModel) {
                 Text(stringResource(R.string.action_clear_recordings))
             }
         }
+
+        AppVersion()
     }
+}
+
+/** The installed version and build number, small and muted at the very bottom. */
+@Composable
+private fun AppVersion() {
+    val context = LocalContext.current
+    val info = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
+    Text(
+        text = stringResource(R.string.format_app_version, info.versionName ?: "", PackageInfoCompat.getLongVersionCode(info)),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 /**
