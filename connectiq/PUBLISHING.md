@@ -55,6 +55,8 @@ Paste the entry for the version being uploaded into the store's "What's New"
 field. Newest first.
 
 ### 1.3.0
+- Now available on 13 more watches, including Forerunner 645 and 935, fēnix 5, 5S, 5X and Chronos, D2 Delta, Descent Mk1 and D2 Air.
+- The Juggle screen now shows Regularity above Time, so Time is the bottom line.
 - The session clock now pauses while the end-session menu is open, so time spent in the menu no longer counts toward your session.
 - Better counting for 7 balls and more: the wind-up before a run and gathering the balls after a drop no longer start or stretch a run, so back-to-back runs split cleanly.
 - Juggle mode no longer closes early when the phone confirms an older session; it waits for the confirmation of the session it just sent.
