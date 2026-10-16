@@ -3,8 +3,9 @@ import WatchLogic
 
 /// Promo videos and demos in the simulator, which has no accelerometer.
 /// Launched with `-replay <path to a recording .csv>`, the app feeds that
-/// recording to the session at 25 Hz in one-second batches, as `MotionSource`
-/// would, instead of the sensor. With `-replayBalls <n>` as well, the app
+/// recording to the session at 25 Hz instead of the sensor, in batches of
+/// five samples every 0.2 s rather than `MotionSource`'s one-second batches,
+/// so the count on screen goes up one catch at a time. With `-replayBalls <n>` as well, the app
 /// steps through Juggle, n balls and Start by itself, a second apart, so the
 /// whole flow can be filmed without touching the screen.
 final class ReplaySource {
@@ -22,6 +23,7 @@ final class ReplaySource {
 
     private let samples: [AccelSample]
     private let onBatch: ([AccelSample]) -> Void
+    private static let batchSize = 5
     private var timer: Timer?
     private var next = 0
 
@@ -44,7 +46,7 @@ final class ReplaySource {
     func start() {
         guard timer == nil else { return }
         next = 0
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.feed() }
+        timer = Timer.scheduledTimer(withTimeInterval: Double(Self.batchSize) / 25, repeats: true) { [weak self] _ in self?.feed() }
     }
 
     func stop() {
@@ -54,7 +56,7 @@ final class ReplaySource {
 
     private func feed() {
         guard next < samples.count else { return stop() }
-        let end = min(next + MotionSource.batchSize, samples.count)
+        let end = min(next + Self.batchSize, samples.count)
         onBatch(Array(samples[next..<end]))
         next = end
     }
