@@ -5,7 +5,7 @@
 set -e
 REPO=${0:A:h:h}
 BUILD=$PWD
-SAMPLES=${1:-182}
+SAMPLES=${1:-240}
 [ -x frames ] || swiftc -O $REPO/promo/frames.swift -o frames
 python3 $REPO/promo/make_replay.py $REPO/connectiq/data/20260924_170352.csv $SAMPLES replay.csv
 W=$(xcrun simctl list devices | grep "Promo Watch" | grep -o "[0-9A-F-]\{36\}" | head -1 || true)

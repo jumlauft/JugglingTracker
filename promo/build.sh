@@ -7,7 +7,7 @@ REPO=${0:A:h:h}
 PY=${PY:-python3}
 TTS_PY=${TTS_PY:-python3}
 export PYTHONPATH=$REPO/promo
-EXAGGERATION=${EXAGGERATION:-0.6} CFG=${CFG:-0.4} $TTS_PY $REPO/promo/tts_local.py $REPO/promo/script.txt ${VOICE:--} narration
+EXAGGERATION=${EXAGGERATION:-0.6} CFG=${CFG:-0.3} $TTS_PY $REPO/promo/tts_local.py $REPO/promo/script.txt ${VOICE:--} narration
 [ -x encode ] || swiftc -O $REPO/promo/encode.swift -o encode
 rm -rf frames_out
 $PY $REPO/promo/render.py audio

@@ -45,7 +45,7 @@ orange on a dark box. The real app screens keep their own colours.
 | File | What it does |
 |---|---|
 | `script.txt` | The narration, one scene per line. |
-| `tts_local.py` | Speaks the script with [Chatterbox](https://github.com/resemble-ai/chatterbox) (MIT-licensed, runs locally). `-` uses its built-in voice; a WAV sample clones that voice. Writes `narration.wav` and `narration.json` (each line's start and end). |
+| `tts_local.py` | Speaks the script sentence by sentence (8% slowed, with pauses) with [Chatterbox](https://github.com/resemble-ai/chatterbox) (MIT-licensed, runs locally). `-` uses its built-in voice; a WAV sample clones that voice. Writes `narration.wav` and `narration.json` (each line's start and end). |
 | `capture_watch.sh` | Builds the watch app, cuts the replay recording, films the watch simulator replaying it (`-replay`, `-replayBalls 5`), extracts frames (`fr_watch/`) and finds the count steps (`counts.txt`). |
 | `make_replay.py`, `count_steps.py` | Helpers of `capture_watch.sh`. |
 | `capture_phone.sh` | Builds the iPhone app and takes `shot_overview5.png` and `shot_details.png` with its screenshot mode. |
@@ -62,7 +62,7 @@ at 25 Hz in 0.2 s batches, so the count rises one catch at a time, and
 `-replayBalls 5` steps through Juggle → 5 balls → Start by itself. The source is
 Jonas's 5-ball run `connectiq/data/20260924_170352.csv`. `make_replay.py`
 keeps only its first N samples and appends a still wrist, so the run stops and
-the app ends it about two seconds later. N = 182 gives 7 catches (the current narration), 212 gives 9, 255 gives 12.
+the app ends it about two seconds later. N = 240 gives 10 catches (the current narration), 212 gives 9, 182 gives 7.
 Pick N so the last catch lands near "When you stop juggling" (slower narration
 needs more catches).
 
@@ -84,7 +84,7 @@ brew install python@3.11
 ~/promo-tts/bin/pip install chatterbox-tts "setuptools<81"
 
 mkdir -p promo/build && cd promo/build
-../capture_watch.sh 182
+../capture_watch.sh 240
 ../capture_phone.sh
 TTS_PY=~/promo-tts/bin/python ../build.sh
 ```

@@ -17,7 +17,12 @@ for i in range(200, n):
         if not changes or i - changes[-1] > 3:
             changes.append(i)
     prev = a
-# The first change is the tracker opening, the last one the run ending.
-steps, end = changes[1:-1], changes[-1]
+# Before the count starts the tracker shows "0" for a while: the first catch
+# is the first change that follows a still stretch of 1.5 s or more and is
+# followed by another change within 1.5 s (the screens before it change
+# slowly). The last change is the run ending.
+start = next(k for k in range(1, len(changes) - 1)
+             if changes[k] - changes[k - 1] >= 45 and changes[k + 1] - changes[k] < 45)
+steps, end = changes[start:-1], changes[-1]
 open("counts.txt", "w").write("".join(f"{f} {k + 1}\n" for k, f in enumerate(steps)))
 print(f"{len(steps)} catches, run ends at frame {end}")
