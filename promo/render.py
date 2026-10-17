@@ -310,6 +310,34 @@ def scene_title(t, start, end_card=False):
 
 
 JUGGLER_BOX = (245, 250, 590, 640)
+WATCH_TOP = 960
+CREAM = (255, 236, 200)
+
+
+def watch_link(img, t, phase):
+    """Before the juggling starts: zoom lines from the small watch on the
+    juggler's wrist to the big watch below, so it reads as a close-up of it.
+    They fade in with the scene and fade out as the first throw begins."""
+    k = ease((t - T_SETUP - 0.3) / 0.5) * (1 - ease((phase + juggler.DWELL + 0.3) / 0.3))
+    if k <= 0:
+        return
+    bx, by, w, h = JUGGLER_BOX
+    x0, y0, x1, y1 = juggler.watch_box(phase, w, h)
+    x0, x1, y0, y1 = bx + x0, bx + x1, by + y0, by + y1
+    sw = int(416 * WATCH_SCALE)
+    wx0, wx1 = W // 2 - sw // 2 - 34, W // 2 + sw // 2 + 34
+    wy = WATCH_TOP
+    ov = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    o = ImageDraw.Draw(ov)
+    a = int(255 * k)
+    o.polygon([(x0, y1), (x1, y1), (wx1 - 40, wy + 6), (wx0 + 40, wy + 6)], fill=CREAM + (int(45 * k),))
+    o.line([(x0, y1), (wx0 + 40, wy + 6)], fill=CREAM + (a,), width=6)
+    o.line([(x1, y1), (wx1 - 40, wy + 6)], fill=CREAM + (a,), width=6)
+    # A soft ring around the small watch.
+    r = 26 + 4 * math.sin(t * 6)
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    o.ellipse([cx - r, cy - r, cx + r, cy + r], outline=CREAM + (a,), width=4)
+    img.alpha_composite(ov)
 
 
 def scene_watch(t):
@@ -317,8 +345,10 @@ def scene_watch(t):
     d = ImageDraw.Draw(img)
     head = "Wear it while you juggle" if t < T_COUNT else "Juggle. It counts."
     centered(d, 90, head, F_HEAD, ORANGE)
-    paste_juggler(img, juggle_phase(t), JUGGLER_BOX, LAST_THROW)
+    phase = juggle_phase(t)
+    paste_juggler(img, phase, JUGGLER_BOX, LAST_THROW)
     draw_watch(img, src_of(t), W // 2, 960)
+    watch_link(img, t, phase)
     return img
 
 

@@ -117,6 +117,15 @@ def holding_hand(side, t, W, H, last_throw):
     return a
 
 
+def watch_box(t, W, H, last_throw=None, scale=2):
+    """Where draw() puts the watch on the wrist: (x0, y0, x1, y1) in the W x H image."""
+    w, h = W * scale, H * scale
+    _, hands = state(t, w, h, last_throw)
+    lw = int(w * 0.03)
+    hx, hy = hands[1]
+    return tuple(v / scale for v in (hx - lw * 1.1, hy - lw * 2.6, hx + lw * 1.1, hy - lw * 1.0))
+
+
 def draw(t, W, H, fg=ORANGE, scale=2, last_throw=None, watch=(255, 236, 200), drop=False, face=None):
     """RGBA image W x H of the juggler at time t in beats (supersampled)."""
     w, h = W * scale, H * scale
