@@ -43,6 +43,10 @@ private struct RawRecordingSheet: View {
                 case .selectBalls:
                     Text("Select the number of balls, mount the phone to your wrist/forearm, and press start to initiate a juggling session.")
                     BallCountPicker(selection: $balls)
+                    if recording.state.sensorUnavailable {
+                        Text("Phone accelerometer unavailable")
+                            .foregroundStyle(.red)
+                    }
                     Button("Start") { _ = services.startRawRecording(ballCount: balls) }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)

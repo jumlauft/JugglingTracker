@@ -136,6 +136,9 @@ struct SessionDetailsView: View {
                         }
                     }
                     .chartXAxis(.hidden)
+                    // Half a run of room on each side, so the first and last
+                    // bars sit inside the plot instead of under the axis labels.
+                    .chartXScale(domain: 0.5...(Double(session.runHistory.count) + 0.5))
                     .chartYScale(domain: 0...Double(max(session.runHistory.max() ?? 1, 10)))
                     .frame(height: 140)
 

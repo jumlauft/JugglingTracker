@@ -47,6 +47,7 @@ final class WatchRuntime: ObservableObject {
         restart = { [weak self] in self?.navigator.restart() }
         motion = MotionSource { [weak self] batch in self?.onSamples(batch) }
         navigator.onChange = { [weak self] in self?.screenChanged() }
+        workout.requestAccess()
     }
 
     var screen: Screen { navigator.screen }

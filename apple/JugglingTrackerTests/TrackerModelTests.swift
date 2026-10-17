@@ -158,6 +158,19 @@ final class TrackerModelTests: XCTestCase {
         XCTAssertEqual(model.rawRecording.state.liveCount, 0)
     }
 
+    func testARawRecordingWithoutTheSensorGoesBackToTheBallCountWithTheError() {
+        model.rawRecording.startFlow()
+        model.rawRecording.confirmBalls(5)
+        model.rawRecording.markSensorUnavailable()
+        XCTAssertEqual(model.rawRecording.state.step, .selectBalls)
+        XCTAssertEqual(model.rawRecording.state.selectedBallCount, 5)
+        XCTAssertTrue(model.rawRecording.state.sensorUnavailable)
+        XCTAssertEqual(model.phoneSession.state, PhoneSessionState())
+        // Starting over clears the error.
+        model.rawRecording.confirmBalls(5)
+        XCTAssertFalse(model.rawRecording.state.sensorUnavailable)
+    }
+
     func testMeasuredSampleRateFallsBackToTheRequestedRate() {
         XCTAssertEqual(RawRecordingModel.measuredSampleRate(count: 1, firstNanos: 0, lastNanos: 0), 100)
         XCTAssertEqual(RawRecordingModel.measuredSampleRate(count: 51, firstNanos: 0, lastNanos: 1_000_000_000), 50)
