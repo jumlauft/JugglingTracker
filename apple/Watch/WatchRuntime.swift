@@ -22,6 +22,7 @@ final class WatchRuntime: ObservableObject {
     private let link: PhoneLink
     private let workout = WorkoutKeeper()
     private var motion: MotionSource!
+    private var replay: ReplaySource?
     private var clockTick: WatchLogic.Cancellable?
 
     init() {
@@ -46,7 +47,20 @@ final class WatchRuntime: ObservableObject {
         )
         restart = { [weak self] in self?.navigator.restart() }
         motion = MotionSource { [weak self] batch in self?.onSamples(batch) }
+        if let path = ReplaySource.path {
+            replay = ReplaySource(path: path) { [weak self] batch in self?.onSamples(batch) }
+        }
         navigator.onChange = { [weak self] in self?.screenChanged() }
+        if replay != nil, let balls = ReplaySource.ballCount { driveReplay(to: balls) }
+    }
+
+    /// `-replayBalls`: START on Juggle, UP to the ball count, START.
+    private func driveReplay(to balls: Int) {
+        let presses = max(0, balls - Screen.minBalls)
+        let steps: [() -> Void] = [navigator.onStart] + Array(repeating: navigator.onUp, count: presses) + [navigator.onStart]
+        for (i, step) in steps.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5 + Double(i)) { step() }
+        }
     }
 
     var screen: Screen { navigator.screen }
@@ -65,11 +79,16 @@ final class WatchRuntime: ObservableObject {
         // The sensor, the workout session and the clock run exactly while a
         // session is open.
         if navigator.screen.isTracking {
-            sensorFailed = !motion.start()
+            if let replay {
+                replay.start()
+            } else {
+                sensorFailed = !motion.start()
+            }
             workout.start()
             startClockTick()
         } else {
             motion.stop()
+            replay?.stop()
             workout.stop()
             clockTick?.cancel()
             clockTick = nil
