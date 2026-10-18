@@ -63,6 +63,10 @@ targets:
       path: JugglingTracker/App/Info.plist
       properties:
         CFBundleDisplayName: Juggling Tracker
+        # XcodeGen writes fixed numbers here otherwise; the release workflow
+        # sets both through the build settings, like the watch app's Info.plist.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
