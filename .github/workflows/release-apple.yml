@@ -69,8 +69,9 @@ jobs:
           echo "ASC_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
 
       - name: Archive
-        # Automatic signing through the API key: Xcode creates the
-        # certificates and profiles in the team's account as needed.
+        # Signed ad hoc, with the entitlements (HealthKit) embedded, so that no
+        # development profile is needed: those need a registered device, and
+        # the team has none. The export below re-signs it for the App Store.
         working-directory: apple
         run: |
           set -o pipefail
@@ -83,22 +84,31 @@ jobs:
             -derivedDataPath build \
             -skipPackagePluginValidation \
             -skipMacroValidation \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$ASC_KEY_PATH" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
-            CODE_SIGN_IDENTITY="Apple Development" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="-" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=NO \
+            PROVISIONING_PROFILE_SPECIFIER="" \
             MARKETING_VERSION="$MARKETING_VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             | tee archive.log | grep -E "error:|\*\* ARCHIVE" || true
           grep -q "\*\* ARCHIVE SUCCEEDED \*\*" archive.log
 
+      - name: Check the watch app keeps HealthKit
+        run: |
+          watch="$RUNNER_TEMP/JugglingTracker.xcarchive/Products/Applications/JugglingTracker.app/Watch/JugglingTrackerWatch.app"
+          codesign -d --entitlements - --xml "$watch" > "$RUNNER_TEMP/watch-entitlements.plist"
+          plutil -p "$RUNNER_TEMP/watch-entitlements.plist"
+          grep -q "com.apple.developer.healthkit" "$RUNNER_TEMP/watch-entitlements.plist"
+
       - name: Check the archive
         run: .github/scripts/check-apple-archive.sh "$RUNNER_TEMP/JugglingTracker.xcarchive"
 
       - name: Upload to App Store Connect
+        # Signs for the App Store with automatic signing through the API key:
+        # Xcode creates the App Store profiles (which need no devices) and uses
+        # a cloud-managed distribution certificate.
         run: |
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
