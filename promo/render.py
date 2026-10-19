@@ -429,7 +429,8 @@ def frame(t):
     k = min(1.0, t / 0.4, (END - t) / 0.5)
     if k < 1:
         img = Image.blend(Image.new("RGBA", img.size, (0, 0, 0, 255)), img, max(0.0, k))
-    caption(img, t)
+    if os.environ.get("CAPTIONS") == "1":  # off by default (Jonas, 2026-10-19)
+        caption(img, t)
     return img.convert("RGB")
 
 

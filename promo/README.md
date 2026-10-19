@@ -21,7 +21,8 @@ spoken narration decides when each scene starts (see "Timing" below).
 | 6 | "And on those days when you feel stuck on a plateau, the numbers show what you can't feel." | Heading crossfades to "Progress you can see"; the sheet slides back down, an orange frame highlights the 5-ball trend graph and an orange arrow draws across it. |
 | 7 | "Juggling Tracker. Counts your catches, accelerates your progress." | End card: "Juggling Tracker" at the top, the juggler, the trend line with its arrow, "Counts your catches / Accelerates your progress", then "Android · iPhone" and "Garmin · Wear OS · Apple Watch". |
 
-Every line is also shown as a caption at the bottom (sentence-sized pieces).
+There are no subtitles (`CAPTIONS=1` brings back sentence-sized captions at
+the bottom).
 The video fades in from and out to black.
 
 Rules that came out of review:
@@ -52,6 +53,7 @@ orange on a dark box. The real app screens keep their own colours.
 | `juggler.py` | The stick-figure juggler and its 5-ball cascade (positions in beats). |
 | `render.py` | Draws every frame and mixes the narration track. |
 | `frames.swift`, `encode.swift` | AVFoundation tools: movie → JPEG frames; frames + audio → H.264/AAC MP4 (no ffmpeg needed). |
+| `studio.py` | Studio voice-over sound for the narration: rumble filter, EQ, compression, gate, loudness about -16 LUFS. |
 | `build.sh` | Narration, frames and the MP4. |
 
 ## Watch footage
@@ -90,6 +92,6 @@ TTS_PY=~/promo-tts/bin/python ../build.sh
 ```
 
 The first Chatterbox run downloads its model (a few GB). Generating the
-narration takes several minutes on an M1. To use a recorded voice instead of
-the built-in one, pass `VOICE=sample.wav` (15 s of clean speech is enough).
+narration takes several minutes on an M1. The current video clones Jonas's voice: pass `VOICE=sample.wav` (15 s of clean
+speech is enough) and `TEMPO=1`, since his voice is slower than the built-in one.
 `promo/build/` is ignored by git.
