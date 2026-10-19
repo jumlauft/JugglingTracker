@@ -325,7 +325,7 @@ function scenario_rec_timeout(logger as Logger) as Boolean {
     return r.passed(logger);
 }
 
-// Continue after a failed sync clears the banner and a late ack cannot close the app (JUG-8)
+// Continue after a failed sync clears the banner and a late ack cannot close the app (JUG-8, SYNC-6)
 (:test)
 function scenario_sync_failure_continue(logger as Logger) as Boolean {
     var r = new ScenarioRunner(1700000000);
@@ -337,6 +337,7 @@ function scenario_sync_failure_continue(logger as Logger) as Boolean {
     r.press("start");
     r.select("sync_quit");
     r.deliver(false);
+    r.wait(10000);
     r.expect({ "error" => "Sync failed", "menuTitle" => "Sync failed" });
     r.select("continue_session");
     r.expect({ "error" => null, "menu" => null });
@@ -378,6 +379,35 @@ function scenario_sync_resend_after_continue(logger as Logger) as Boolean {
     r.press("start");
     r.select("sync_quit");
     r.expect({ "sentCount" => 2, "lastSent" => { "timestamp" => 1700000000, "runs" => [3, 4] } });
+    r.phone({ "type" => "ack", "timestamp" => 1700000000 });
+    r.expect({ "exits" => 1 });
+    return r.passed(logger);
+}
+
+// A send that fails at once is sent again each second until the timeout; Retry starts a real attempt (SYNC-2, SYNC-6)
+(:test)
+function scenario_sync_send_failure_retries(logger as Logger) as Boolean {
+    var r = new ScenarioRunner(1700000000);
+    r.press("start");
+    r.press("start");
+    r.warmup();
+    r.catches(3);
+    r.idle(60);
+    r.press("start");
+    r.select("sync_quit");
+    r.deliver(false);
+    r.expect({ "sending" => true, "menu" => null, "error" => null, "sentCount" => 1 });
+    r.wait(1000);
+    r.expect({ "sending" => true, "menu" => null, "sentCount" => 2 });
+    r.deliver(false);
+    r.wait(9000);
+    r.expect({ "sending" => false, "menuTitle" => "Sync failed", "error" => "Sync failed", "sentCount" => 3 });
+    r.select("sync_retry");
+    r.expect({ "sending" => true, "menu" => null, "error" => null, "sentCount" => 4 });
+    r.deliver(false);
+    r.expect({ "sending" => true, "menu" => null });
+    r.wait(1000);
+    r.expect({ "sending" => true, "menu" => null, "sentCount" => 5 });
     r.phone({ "type" => "ack", "timestamp" => 1700000000 });
     r.expect({ "exits" => 1 });
     return r.passed(logger);

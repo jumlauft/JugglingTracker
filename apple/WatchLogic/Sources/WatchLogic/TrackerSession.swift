@@ -70,6 +70,9 @@ public final class TrackerSession {
     // Bumped on every transmit attempt so a late report from an abandoned
     // attempt cannot land on the current one (SYNC-4).
     private var syncGeneration = 0
+    // A send of the current attempt failed; the next status tick sends again
+    // (SYNC-6).
+    private var resendDue = false
     private var syncTimer: Cancellable?
     private var statusTimer: Cancellable?
     private var syncDots = 0
@@ -236,6 +239,7 @@ public final class TrackerSession {
         // payload kept it would close the session mid-juggle. Ending again
         // sends the whole session afresh under the same timestamp.
         sending = false
+        resendDue = false
         cancelSyncTimer()
         cancelStatusTimer()
         pendingPayload = nil
@@ -279,36 +283,46 @@ public final class TrackerSession {
         attemptSync()
     }
 
+    /// Start (or retry) a sync attempt: arm the timeout and send.
     private func attemptSync() {
-        guard let payload = pendingPayload else { return }
+        guard pendingPayload != nil else { return }
         errorMessage = nil
-        syncGeneration += 1
-        let generation = syncGeneration
-
         sending = true
         startSyncTimer()
         startStatusTimer()
+        transmit()
+        publish()
+    }
+
+    /// One send of the pending session. Each send gets its own id, so a late
+    /// report from one that was abandoned or timed out cannot be mistaken for
+    /// the current one (SYNC-4).
+    private func transmit() {
+        guard let payload = pendingPayload else { return }
+        resendDue = false
+        syncGeneration += 1
+        let generation = syncGeneration
         link.send(payload) { [weak self] delivered in
             // Delivery alone closes nothing: only the phone's ack does.
             if !delivered { self?.onTransmitError(generation) }
         }
-        publish()
     }
 
+    /// SYNC-6: a failed send does not end the attempt. With the phone out of
+    /// reach the failure comes back at once, and reopening the menu then made
+    /// Retry look dead: the same menu came straight back, with no sync shown.
+    /// The next status tick sends again, until the ack or the timeout.
     private func onTransmitError(_ generation: Int) {
-        if generation != syncGeneration { return } // late report from an abandoned attempt
+        if generation != syncGeneration { return } // late report from an abandoned send
         if !sending { return }
-        sending = false
-        cancelSyncTimer()
-        cancelStatusTimer()
-        promptRetryOrQuit()
-        publish()
+        resendDue = true
     }
 
     private func onSyncTimeout() {
         syncTimer = nil
         if sending {
             sending = false
+            resendDue = false
             cancelStatusTimer()
             promptRetryOrQuit()
             publish()
@@ -347,7 +361,8 @@ public final class TrackerSession {
         syncTimer = nil
     }
 
-    // Animates "Sync to phone..." with one more dot each second.
+    // Animates "Sync to phone..." with one more dot each second, and sends
+    // again after a failed send.
     private func startStatusTimer() {
         cancelStatusTimer()
         syncDots = 1
@@ -359,6 +374,7 @@ public final class TrackerSession {
             guard let self else { return }
             syncDots = (syncDots % 3) + 1
             scheduleStatusTick()
+            if sending && resendDue { transmit() }
             publish()
         }
     }

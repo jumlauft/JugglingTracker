@@ -1,0 +1,106 @@
+{
+  "name": "A send that fails at once is sent again each second until the timeout; Retry starts a real attempt",
+  "requirements": [
+    "SYNC-2",
+    "SYNC-6"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "catches": 3
+    },
+    {
+      "idle": 60
+    },
+    {
+      "press": "start"
+    },
+    {
+      "select": "sync_quit"
+    },
+    {
+      "deliver": false
+    },
+    {
+      "expect": {
+        "sending": true,
+        "menu": null,
+        "error": null,
+        "sentCount": 1
+      }
+    },
+    {
+      "wait": 1000
+    },
+    {
+      "expect": {
+        "sending": true,
+        "menu": null,
+        "sentCount": 2
+      }
+    },
+    {
+      "deliver": false
+    },
+    {
+      "wait": 9000
+    },
+    {
+      "expect": {
+        "sending": false,
+        "menuTitle": "Sync failed",
+        "error": "Sync failed",
+        "sentCount": 3
+      }
+    },
+    {
+      "select": "sync_retry"
+    },
+    {
+      "expect": {
+        "sending": true,
+        "menu": null,
+        "error": null,
+        "sentCount": 4
+      }
+    },
+    {
+      "deliver": false
+    },
+    {
+      "expect": {
+        "sending": true,
+        "menu": null
+      }
+    },
+    {
+      "wait": 1000
+    },
+    {
+      "expect": {
+        "sending": true,
+        "menu": null,
+        "sentCount": 5
+      }
+    },
+    {
+      "phone": {
+        "type": "ack",
+        "timestamp": 1700000000
+      }
+    },
+    {
+      "expect": {
+        "exits": 1
+      }
+    }
+  ]
+}

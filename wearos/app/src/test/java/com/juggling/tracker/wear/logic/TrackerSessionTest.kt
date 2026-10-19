@@ -210,6 +210,7 @@ class TrackerSessionTest {
         session.onStartStop()
         select(TrackerSession.ITEM_SYNC_QUIT)
         link.complete(false)
+        scheduler.advance(TrackerSession.SYNC_TIMEOUT_MS)
         assertEquals("Sync failed", state.errorMessage)
         assertEquals("Sync failed", state.menu!!.title)
         select(TrackerSession.ITEM_CONTINUE)
@@ -396,6 +397,41 @@ class TrackerSessionTest {
         link.complete(false, index = 0) // the first attempt reports back late
         assertTrue("the retry is still in flight", state.sending)
         assertNull(state.menu)
+    }
+
+    // ── SYNC-6 ────────────────────────────────────────────────────────
+
+    @Test
+    fun `SYNC-6 a send that fails at once is sent again until the timeout, and Retry does the same`() {
+        warmUp()
+        completedRun(3)
+        session.onStartStop()
+        link.autoResult = false // the phone is out of reach: every send fails at once
+        select(TrackerSession.ITEM_SYNC_QUIT)
+        assertTrue("the sync screen stays up", state.sending)
+        assertNull("no menu straight away", state.menu)
+        assertEquals(1, link.sent.size)
+
+        scheduler.advance(TrackerSession.STATUS_TICK_MS)
+        assertEquals("sent again on the next tick", 2, link.sent.size)
+        assertNull(state.menu)
+
+        scheduler.advance(TrackerSession.SYNC_TIMEOUT_MS - TrackerSession.STATUS_TICK_MS)
+        assertFalse(state.sending)
+        assertEquals("Sync failed", state.menu!!.title)
+        val sentBeforeRetry = link.sent.size
+
+        // Retry runs a real attempt: the sync screen, not the same menu again.
+        select(TrackerSession.ITEM_SYNC_RETRY)
+        assertTrue(state.sending)
+        assertNull(state.menu)
+        assertEquals(sentBeforeRetry + 1, link.sent.size)
+
+        // The phone comes back: the next send gets through and the ack closes the app.
+        link.autoResult = null
+        scheduler.advance(TrackerSession.STATUS_TICK_MS)
+        link.ack(1_700_000_000L)
+        assertEquals(1, effects.exits)
     }
 
     // ── SYNC-5 ────────────────────────────────────────────────────────

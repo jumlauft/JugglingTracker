@@ -81,6 +81,9 @@ class TrackerSession(
     // Bumped on every transmit attempt so a late report from an abandoned
     // attempt cannot land on the current one (SYNC-4).
     private var syncGeneration = 0
+    // A send of the current attempt failed; the next status tick sends again
+    // (SYNC-6).
+    private var resendDue = false
     private var syncTimer: Cancellable? = null
     private var statusTimer: Cancellable? = null
     private var syncDots = 0
@@ -229,6 +232,7 @@ class TrackerSession(
         // payload kept it would close the app mid-juggle. Ending again sends
         // the whole session afresh under the same timestamp.
         sending = false
+        resendDue = false
         cancelSyncTimer()
         cancelStatusTimer()
         pendingPayload = null
@@ -271,43 +275,54 @@ class TrackerSession(
         attemptSync()
     }
 
+    /** Start (or retry) a sync attempt: arm the timeout and send. */
     private fun attemptSync() {
-        val payload = pendingPayload ?: return
+        if (pendingPayload == null) return
         errorMessage = null
-        syncGeneration += 1
-        val generation = syncGeneration
-
         sending = true
         startSyncTimer()
         startStatusTimer()
+        transmit()
+        publish()
+    }
+
+    /**
+     * One send of the pending session. Each send gets its own id, so a late
+     * report from one that was abandoned or timed out cannot be mistaken for
+     * the current one (SYNC-4).
+     */
+    private fun transmit() {
+        val payload = pendingPayload ?: return
+        resendDue = false
+        syncGeneration += 1
+        val generation = syncGeneration
         try {
             link.send(payload) { delivered ->
                 if (!delivered) onTransmitError(generation)
                 // Delivery alone closes nothing: only the phone's ack does.
             }
         } catch (e: RuntimeException) {
-            sending = false
-            cancelSyncTimer()
-            cancelStatusTimer()
-            promptRetryOrQuit()
+            resendDue = true
         }
-        publish()
     }
 
+    /**
+     * SYNC-6: a failed send does not end the attempt. With the phone out of
+     * reach the failure comes back at once, and reopening the menu then made
+     * Retry look dead: the same menu came straight back, with no sync shown.
+     * The next status tick sends again, until the ack or the timeout.
+     */
     private fun onTransmitError(generation: Int) {
-        if (generation != syncGeneration) return // late report from an abandoned attempt
+        if (generation != syncGeneration) return // late report from an abandoned send
         if (!sending) return
-        sending = false
-        cancelSyncTimer()
-        cancelStatusTimer()
-        promptRetryOrQuit()
-        publish()
+        resendDue = true
     }
 
     private fun onSyncTimeout() {
         syncTimer = null
         if (sending) {
             sending = false
+            resendDue = false
             cancelStatusTimer()
             promptRetryOrQuit()
             publish()
@@ -347,7 +362,8 @@ class TrackerSession(
         syncTimer = null
     }
 
-    // Animates "Sync to phone..." with one more dot each second.
+    // Animates "Sync to phone..." with one more dot each second, and sends
+    // again after a failed send.
     private fun startStatusTimer() {
         cancelStatusTimer()
         syncDots = 1
@@ -358,6 +374,7 @@ class TrackerSession(
         statusTimer = scheduler.schedule(STATUS_TICK_MS) {
             syncDots = (syncDots % 3) + 1
             scheduleStatusTick()
+            if (sending && resendDue) transmit()
             publish()
         }
     }

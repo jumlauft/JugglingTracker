@@ -312,7 +312,8 @@ never treats time 0 as "no candidate yet".
 *Verified by:* `test_watch_transfers_run_durations`, `test_watch_shows_and_transfers_shape_consistency`, `sync1_sessionCarriesDurationsAndShapeOnlyOnceScored`, `scenario_sync_session_and_ack`
 
 **SYNC-2.** The app closes **only** on the phone's `ack`, so data is never
-assumed delivered. Failure or a 10 s timeout opens a retry menu instead. The
+assumed delivered. No `ack` within 10 s opens a retry menu instead (a failed
+send is first tried again, SYNC-6). The
 phone sends the `ack` only once the session is on disk, and echoes the
 session's `timestamp` in it; an `ack` carrying any other timestamp (a late
 answer to an earlier session) is ignored.
@@ -332,6 +333,15 @@ current by then — aborting a retry that might otherwise have been succeeding.
 again after **Continue** resends the whole session under that timestamp, and
 the phone replaces the copy it already has, so no run is stored twice.
 *Verified by:* `scenario_sync_resend_after_continue`
+
+**SYNC-6.** A failed send does not end the sync attempt. The watch keeps
+showing *Sync to phone…* and sends the session again on the next status tick
+(once a second, never from inside the send's own callback, REC-7) until the
+`ack` arrives or the 10 s timeout opens the retry menu. With the phone out of
+reach every send fails at once, and opening the menu on that failure brought
+the same *Sync failed* menu straight back after *Retry sync*: on a Forerunner
+245 it looked as if START did nothing and no sync was tried.
+*Verified by:* `sync6_failedSendIsSentAgainUntilTheTimeout`, `scenario_sync_send_failure_retries`, `scenario_sync_failure_continue`
 
 ---
 

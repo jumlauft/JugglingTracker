@@ -1,7 +1,8 @@
 {
   "name": "Continue after a failed sync clears the banner and a late ack cannot close the app",
   "requirements": [
-    "JUG-8"
+    "JUG-8",
+    "SYNC-6"
   ],
   "steps": [
     {
@@ -27,6 +28,9 @@
     },
     {
       "deliver": false
+    },
+    {
+      "wait": 10000
     },
     {
       "expect": {

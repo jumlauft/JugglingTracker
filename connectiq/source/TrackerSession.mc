@@ -52,6 +52,9 @@ class TrackerSession {
     // still report back late; without checking this, its callback would land
     // on whichever attempt is current by then instead of being ignored (SYNC-4).
     private var _syncGeneration as Number;
+    // A send of the current attempt failed; the next status tick sends again
+    // (SYNC-6).
+    private var _resendDue as Boolean;
     private var _syncTimer as Cancellable?;
     private var _statusTimer as Cancellable?;
     private var _syncDots as Number;
@@ -77,6 +80,7 @@ class TrackerSession {
         _errorMsg = null;
         _pendingPayload = null;
         _syncGeneration = 0;
+        _resendDue = false;
         _syncTimer = null;
         _statusTimer = null;
         _syncDots = 0;
@@ -301,6 +305,7 @@ class TrackerSession {
         // payload kept it would close the app mid-juggle. Ending again sends
         // the whole session afresh under the same timestamp.
         _sending = false;
+        _resendDue = false;
         cancelSyncTimer();
         cancelStatusTimer();
         _pendingPayload = null;
@@ -350,48 +355,54 @@ class TrackerSession {
         attemptSync();
     }
 
-    // Start (or retry) a transmit attempt and arm the timeout.
+    // Start (or retry) a sync attempt: arm the timeout and send.
     private function attemptSync() as Void {
+        if (_pendingPayload == null) {
+            return;
+        }
+        _errorMsg = null;
+        _sending = true;
+        startSyncTimer();
+        startStatusTimer();
+        transmit();
+        _effects.update();
+    }
+
+    // One send of the pending session. Each send gets its own id, so a late
+    // callback from one that was abandoned or timed out cannot be mistaken
+    // for the current one (SYNC-4).
+    private function transmit() as Void {
         var payload = _pendingPayload;
         if (payload == null) {
             return;
         }
-        _errorMsg = null;
-        // Each attempt gets its own id, so a late callback from an attempt
-        // that already timed out cannot be mistaken for this one.
+        _resendDue = false;
         _syncGeneration += 1;
-
-        _sending = true;
-        startSyncTimer();
-        startStatusTimer();
         try {
             _link.send(payload, method(:onTransmitResult), _syncGeneration);
         } catch (ex) {
             _effects.log("Transmission error: " + ex.getErrorMessage());
-            _sending = false;
-            cancelSyncTimer();
-            cancelStatusTimer();
-            promptRetryOrQuit();
+            _resendDue = true;
         }
-        _effects.update();
     }
 
     // Delivery alone closes nothing: only the phone's ack does (SYNC-2).
+    // SYNC-6: a failed send does not end the attempt. With the phone out of
+    // reach the failure comes back at once, and reopening the menu then made
+    // Retry look dead: the same menu came straight back, with no sync shown.
+    // The next status tick sends again, never this callback (REC-7), until
+    // the ack or the timeout.
     public function onTransmitResult(generation as Number, delivered as Boolean) as Void {
         if (delivered) {
             return;
         }
         if (generation != _syncGeneration) {
-            return;   // late report from an abandoned attempt
+            return;   // late report from an abandoned send
         }
         if (!_sending) {
             return;
         }
-        _sending = false;
-        cancelSyncTimer();
-        cancelStatusTimer();
-        promptRetryOrQuit();
-        _effects.update();
+        _resendDue = true;
     }
 
     // Fired after SYNC_TIMEOUT_MS. No ack by now counts as a failure.
@@ -399,6 +410,7 @@ class TrackerSession {
         _syncTimer = null;
         if (_sending) {
             _sending = false;
+            _resendDue = false;
             cancelStatusTimer();
             promptRetryOrQuit();
             _effects.update();
@@ -466,9 +478,12 @@ class TrackerSession {
         _syncDots = 0;
     }
 
-    // Cycles the dots 1 -> 2 -> 3 -> 1.
+    // Cycles the dots 1 -> 2 -> 3 -> 1, and sends again after a failed send.
     public function onStatusTick() as Void {
         _syncDots = (_syncDots % 3) + 1;
+        if (_sending && _resendDue) {
+            transmit();
+        }
         _effects.update();
     }
 

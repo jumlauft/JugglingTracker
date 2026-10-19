@@ -168,7 +168,9 @@ function sync2_failureOrTimeoutOpensTheRetryMenu(logger as Logger) as Boolean {
 
     tracker.onMenuSelect(TrackerSession.ITEM_SYNC_RETRY);
     host.link.complete(false);
-    Test.assertEqualMessage((tracker.menu() as MenuSpec).title, "Sync failed", "a failed send opens it too");
+    Test.assertMessage(tracker.isSending() && tracker.menu() == null, "a failed send keeps trying (SYNC-6)");
+    host.scheduler.advance(TrackerSession.SYNC_TIMEOUT_MS);
+    Test.assertEqualMessage((tracker.menu() as MenuSpec).title, "Sync failed", "until the timeout opens the menu");
     return true;
 }
 
@@ -186,7 +188,43 @@ function sync4_lateFailureFromAnAbandonedAttemptIsIgnored(logger as Logger) as B
     Test.assertMessage(tracker.isSending(), "the retry is still in flight");
     Test.assertMessage(tracker.menu() == null, "no retry menu over it");
     host.link.completeAt(false, 1);
-    Test.assertMessage(tracker.menu() != null, "the retry's own failure still counts");
+    Test.assertMessage(tracker.isSending() && tracker.menu() == null, "the retry's own failure sends again");
+    host.scheduler.advance(TrackerSession.STATUS_TICK_MS);
+    Test.assertEqualMessage(host.link.sent.size(), 3, "on the next tick");
+    return true;
+}
+
+// SYNC-6: with the phone out of reach every send fails at once. That must not
+// bounce straight back to the menu, which made Retry look dead on the
+// Forerunner: the sync screen stays up, the session is sent again each tick
+// until the timeout, and Retry starts a real attempt.
+(:test)
+function sync6_failedSendIsSentAgainUntilTheTimeout(logger as Logger) as Boolean {
+    var host = new FakeHost(1700000000);
+    var tracker = trackerWithRun(host, 3);
+    tracker.onStartStop();
+    host.link.autoResult = false;
+    tracker.onMenuSelect(TrackerSession.ITEM_SYNC_QUIT);
+    Test.assertMessage(tracker.isSending() && tracker.menu() == null, "the sync screen stays up");
+    Test.assertEqualMessage(host.link.sent.size(), 1, "one send so far");
+
+    host.scheduler.advance(TrackerSession.STATUS_TICK_MS);
+    Test.assertEqualMessage(host.link.sent.size(), 2, "sent again on the next tick");
+    Test.assertMessage(tracker.menu() == null, "still no menu");
+
+    host.scheduler.advance(TrackerSession.SYNC_TIMEOUT_MS - TrackerSession.STATUS_TICK_MS);
+    Test.assertMessage(!tracker.isSending(), "the attempt ends at the timeout");
+    Test.assertEqualMessage((tracker.menu() as MenuSpec).title, "Sync failed", "and the retry menu opens");
+    var sentBeforeRetry = host.link.sent.size();
+
+    tracker.onMenuSelect(TrackerSession.ITEM_SYNC_RETRY);
+    Test.assertMessage(tracker.isSending() && tracker.menu() == null, "Retry shows the sync, not the menu again");
+    Test.assertEqualMessage(host.link.sent.size(), sentBeforeRetry + 1, "Retry sends");
+
+    host.link.autoResult = null;
+    host.scheduler.advance(TrackerSession.STATUS_TICK_MS);
+    host.link.ack(1700000000);
+    Test.assertEqualMessage(host.effects.exits, 1, "the ack closes the app");
     return true;
 }
 

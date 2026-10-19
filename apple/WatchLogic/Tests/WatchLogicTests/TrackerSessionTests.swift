@@ -191,6 +191,7 @@ final class TrackerSessionTests: XCTestCase {
         session.onStartStop()
         select(TrackerSession.itemSyncQuit)
         link.complete(false)
+        scheduler.advance(TrackerSession.syncTimeoutMs)
         XCTAssertEqual(state.errorMessage, "Sync failed")
         XCTAssertEqual(state.menu?.title, "Sync failed")
         select(TrackerSession.itemContinue)
@@ -369,6 +370,40 @@ final class TrackerSessionTests: XCTestCase {
         link.complete(false, index: 0) // the first attempt reports back late
         XCTAssertTrue(state.sending, "the retry is still in flight")
         XCTAssertNil(state.menu)
+    }
+
+    // MARK: SYNC-6
+
+    func testSYNC6ASendThatFailsAtOnceIsSentAgainUntilTheTimeoutAndRetryDoesTheSame() {
+        warmUp()
+        completedRun(3)
+        session.onStartStop()
+        link.autoResult = false // the phone is out of reach: every send fails at once
+        select(TrackerSession.itemSyncQuit)
+        XCTAssertTrue(state.sending, "the sync screen stays up")
+        XCTAssertNil(state.menu, "no menu straight away")
+        XCTAssertEqual(link.sent.count, 1)
+
+        scheduler.advance(TrackerSession.statusTickMs)
+        XCTAssertEqual(link.sent.count, 2, "sent again on the next tick")
+        XCTAssertNil(state.menu)
+
+        scheduler.advance(TrackerSession.syncTimeoutMs - TrackerSession.statusTickMs)
+        XCTAssertFalse(state.sending)
+        XCTAssertEqual(state.menu?.title, "Sync failed")
+        let sentBeforeRetry = link.sent.count
+
+        // Retry runs a real attempt: the sync screen, not the same menu again.
+        select(TrackerSession.itemSyncRetry)
+        XCTAssertTrue(state.sending)
+        XCTAssertNil(state.menu)
+        XCTAssertEqual(link.sent.count, sentBeforeRetry + 1)
+
+        // The phone comes back: the next send gets through and the ack closes the session.
+        link.autoResult = nil
+        scheduler.advance(TrackerSession.statusTickMs)
+        link.ack(1_700_000_000)
+        XCTAssertEqual(effects.exits, 1)
     }
 
     // MARK: SYNC-5
