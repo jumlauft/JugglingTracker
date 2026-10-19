@@ -182,6 +182,8 @@ final class ConnectivityPhoneLinkTests: XCTestCase {
         session.onStartStop()
         session.onMenuSelect(TrackerSession.itemSyncQuit)
         connectivity.fail()
+        // SYNC-6: a failed send is tried again until the timeout.
+        scheduler.advance(TrackerSession.syncTimeoutMs)
 
         XCTAssertEqual(session.state.errorMessage, "Sync failed")
         let items = session.state.menu?.items.map(\.id) ?? []

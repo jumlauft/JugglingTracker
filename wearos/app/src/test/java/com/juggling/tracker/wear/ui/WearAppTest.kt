@@ -203,7 +203,11 @@ class WearAppTest {
         juggle(3)
         endSession()
         click(Tags.menuItem(TrackerSession.ITEM_SYNC_QUIT))
-        compose.runOnUiThread { link.complete(false) }
+        compose.runOnUiThread {
+            link.complete(false)
+            // SYNC-6: a failed send is tried again until the timeout.
+            scheduler.advance(TrackerSession.SYNC_TIMEOUT_MS)
+        }
         compose.onNodeWithText("Retry sync").assertIsDisplayed()
         click(Tags.menuItem(TrackerSession.ITEM_CONTINUE))
         compose.onNodeWithTag(Tags.COUNT).assertIsDisplayed()
