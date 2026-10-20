@@ -14,6 +14,14 @@ final class WorkoutKeeper: NSObject, HKWorkoutSessionDelegate {
     private var session: HKWorkoutSession?
     private var wanted = false
 
+    /// Asks for Health permission up front, so the prompt shows on the mode
+    /// screen at launch rather than over a session that has just started.
+    /// watchOS shows it only once; later calls return at once.
+    func requestAccess() {
+        guard HKHealthStore.isHealthDataAvailable() else { return }
+        store.requestAuthorization(toShare: [HKObjectType.workoutType()], read: []) { _, _ in }
+    }
+
     func start() {
         wanted = true
         guard session == nil, HKHealthStore.isHealthDataAvailable() else { return }

@@ -51,6 +51,7 @@ final class WatchRuntime: ObservableObject {
             replay = ReplaySource(path: path) { [weak self] batch in self?.onSamples(batch) }
         }
         navigator.onChange = { [weak self] in self?.screenChanged() }
+        workout.requestAccess()
         if replay != nil, let balls = ReplaySource.ballCount { driveReplay(to: balls) }
     }
 

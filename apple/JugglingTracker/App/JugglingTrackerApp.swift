@@ -98,7 +98,9 @@ final class AppServices {
     /// Starts sampling for a phone session. Returns false when the phone has no accelerometer.
     func startPhoneSession(ballCount: Int) -> Bool {
         model.phoneSession.start(ballCount: ballCount)
-        return startSensor()
+        let started = startSensor()
+        if !started { model.phoneSession.markSensorUnavailable() }
+        return started
     }
 
     func stopPhoneSession() -> Bool {
@@ -113,7 +115,9 @@ final class AppServices {
 
     func startRawRecording(ballCount: Int) -> Bool {
         model.rawRecording.confirmBalls(ballCount)
-        return startSensor()
+        let started = startSensor()
+        if !started { model.rawRecording.markSensorUnavailable() }
+        return started
     }
 
     func stopRawRecording() {
@@ -137,10 +141,6 @@ final class AppServices {
                 // listening then rather than at full rate until it is left.
                 if !model.isUsingPhoneSensor { accelerometer.stop() }
             }
-        }
-        if !started {
-            model.phoneSession.markSensorUnavailable()
-            if model.rawRecording.state.step == .recording { model.rawRecording.cancel() }
         }
         return started
     }
