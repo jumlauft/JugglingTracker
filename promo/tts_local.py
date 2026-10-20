@@ -24,6 +24,8 @@ SENTENCE_PAUSE = float(os.environ.get("SENTENCE_PAUSE", "0.45"))
 LINE_PAUSE = float(os.environ.get("LINE_PAUSE", "0.8"))
 # Below 1 slows the speech itself down a little (pitch stays the same).
 TEMPO = float(os.environ.get("TEMPO", "0.92"))
+# Semitones to shift the voice; negative is deeper.
+PITCH = float(os.environ.get("PITCH", "0"))
 
 
 def device():
@@ -56,6 +58,8 @@ def main():
             loud = np.where(np.abs(data) > 0.01)[0]
             if len(loud):
                 data = data[max(0, loud[0] - int(0.03 * sr)) : loud[-1] + int(0.08 * sr)]
+            if PITCH:
+                data = librosa.effects.pitch_shift(data, sr=sr, n_steps=PITCH).astype(np.float32)
             if TEMPO != 1:
                 data = librosa.effects.time_stretch(data, rate=TEMPO).astype(np.float32)
             audio.append(data)
