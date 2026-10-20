@@ -15,7 +15,7 @@ enum WatchColors {
 ///
 /// | Garmin | Apple Watch |
 /// |---|---|
-/// | UP / DOWN | turn the Digital Crown, or tap ▲ / ▼ |
+/// | UP / DOWN | swipe the mode and ball wheels or turn the Digital Crown; ▲ / ▼ for the Record label |
 /// | START / STOP | the green button on screen (Start, Stop, Confirm); End on the Juggle controls page |
 /// | BACK | the button in the top corner; Discard run on the Juggle controls page |
 struct RootView: View {
@@ -206,6 +206,31 @@ private struct ArrowStepper<Value: View>: View {
 
 // MARK: Start-up screens
 
+/// A vertical wheel of choices, picked by swiping up or down or by turning
+/// the Digital Crown, the way the Workout app picks a goal. Each value the
+/// wheel lands on is handed to `onSelect`, which steps the navigator there
+/// with UP and DOWN, so the navigator stays the one place that decides.
+private struct WheelPicker<Item: Hashable, Row: View>: View {
+    let items: [Item]
+    let selected: Item
+    let onSelect: (Item) -> Void
+    @ViewBuilder let row: (Item) -> Row
+    // Focused from the start, so the crown turns the wheel without a tap first.
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        Picker("", selection: Binding(get: { selected }, set: onSelect)) {
+            ForEach(items, id: \.self) { item in
+                row(item).tag(item)
+            }
+        }
+        .pickerStyle(.wheel)
+        .labelsHidden()
+        .focused($focused)
+        .onAppear { focused = true }
+    }
+}
+
 /// `ModeSelectView.mc`: Juggle or Record.
 struct ModeSelectScreen: View {
     let isRecordMode: Bool
@@ -216,9 +241,13 @@ struct ModeSelectScreen: View {
     var body: some View {
         CenteredColumn(button: "Start", onStart: onStart) {
             WatchText("Mode", WatchColors.green, 14)
-            ArrowStepper(onDown: onDown, onUp: onUp) {
-                WatchText(isRecordMode ? "Record" : "Juggle", WatchColors.white, 18, weight: .bold)
+            WheelPicker(items: [false, true], selected: isRecordMode, onSelect: { record in
+                // UP and DOWN both toggle the mode (APP-2).
+                if record != isRecordMode { onUp() }
+            }) { record in
+                WatchText(record ? "Record" : "Juggle", WatchColors.white, 20, weight: .bold)
             }
+            .frame(height: 64)
             WatchText(isRecordMode ? "Save raw sensor data" : "Track catches live", WatchColors.lightGray, 11)
         }
     }
@@ -234,9 +263,19 @@ struct BallSelectScreen: View {
     var body: some View {
         CenteredColumn(button: "Start", onStart: onStart) {
             WatchText("Balls", WatchColors.green, 14)
-            ArrowStepper(onDown: onDown, onUp: onUp) {
-                WatchText(String(ballCount), WatchColors.green, 40, weight: .bold)
+            // The wheel ends at 3 and 9; it does not wrap round as the
+            // Garmin's buttons do.
+            WheelPicker(
+                items: Array(Screen.minBalls...Screen.maxBalls),
+                selected: ballCount,
+                onSelect: { balls in
+                    for _ in 0..<max(balls - ballCount, 0) { onUp() }
+                    for _ in 0..<max(ballCount - balls, 0) { onDown() }
+                }
+            ) { balls in
+                WatchText(String(balls), WatchColors.green, 40, weight: .bold)
             }
+            .frame(height: 84)
         }
     }
 }
