@@ -7,7 +7,8 @@ REPO=${0:A:h:h}
 PY=${PY:-python3}
 TTS_PY=${TTS_PY:-python3}
 export PYTHONPATH=$REPO/promo
-EXAGGERATION=${EXAGGERATION:-0.6} CFG=${CFG:-0.3} $TTS_PY $REPO/promo/tts_local.py $REPO/promo/script.txt ${VOICE:--} narration
+# The checked-in video: built-in voice, calm, 4% slower like a slowed tape.
+VARISPEED=${VARISPEED:-0.96} TEMPO=${TEMPO:-1} EXAGGERATION=${EXAGGERATION:-0.45} CFG=${CFG:-0.3} $TTS_PY $REPO/promo/tts_local.py $REPO/promo/script.txt ${VOICE:--} narration
 $TTS_PY $REPO/promo/studio.py narration.wav
 [ -x encode ] || swiftc -O $REPO/promo/encode.swift -o encode
 rm -rf frames_out

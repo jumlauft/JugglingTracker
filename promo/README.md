@@ -1,5 +1,7 @@
 # Promo video
 
+The finished video: [JugglingTracker_promo.mp4](JugglingTracker_promo.mp4).
+
 A vertical (1080 × 1920, 30 fps) social-media video of about 45 seconds: a
 problem, the app as the solution, the watch counting a real 5-ball run in step
 with an animated juggler, the phone statistics, and an end card. Everything
@@ -46,7 +48,7 @@ orange on a dark box. The real app screens keep their own colours.
 | File | What it does |
 |---|---|
 | `script.txt` | The narration, one scene per line. |
-| `tts_local.py` | Speaks the script sentence by sentence (8% slowed, with pauses) with [Chatterbox](https://github.com/resemble-ai/chatterbox) (MIT-licensed, runs locally). `-` uses its built-in voice; a WAV sample clones that voice. Writes `narration.wav` and `narration.json` (each line's start and end). |
+| `tts_local.py` | Speaks the script sentence by sentence, with pauses, with [Chatterbox](https://github.com/resemble-ai/chatterbox) (MIT-licensed, runs locally). `-` uses its built-in voice; a WAV sample clones that voice. Writes `narration.wav` and `narration.json` (each line's start and end). |
 | `capture_watch.sh` | Builds the watch app, cuts the replay recording, films the watch simulator replaying it (`-replay`, `-replayBalls 5`), extracts frames (`fr_watch/`) and finds the count steps (`counts.txt`). |
 | `make_replay.py`, `count_steps.py` | Helpers of `capture_watch.sh`. |
 | `capture_phone.sh` | Builds the iPhone app and takes `shot_overview5.png` and `shot_details.png` with its screenshot mode. |
@@ -92,6 +94,9 @@ TTS_PY=~/promo-tts/bin/python ../build.sh
 ```
 
 The first Chatterbox run downloads its model (a few GB). Generating the
-narration takes several minutes on an M1. The current video clones Jonas's voice: pass `VOICE=sample.wav` (15 s of clean
-speech is enough) and `TEMPO=1`, since his voice is slower than the built-in one.
+narration takes several minutes on an M1. The checked-in video uses the built-in voice with
+`VARISPEED=0.96 TEMPO=1 EXAGGERATION=0.45 CFG=0.3` (the defaults in `build.sh`):
+calm, 4% slower and slightly deeper, like a slowed tape. Avoid `PITCH` and
+`TEMPO` below 1 for large changes; they sound echoey. To clone a voice, pass
+`VOICE=sample.wav` (15 s of clean speech) from someone who agreed to it.
 `promo/build/` is ignored by git.
