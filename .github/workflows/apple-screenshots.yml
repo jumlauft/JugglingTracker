@@ -40,12 +40,15 @@ jobs:
 
       - name: Pick the simulators
         run: |
-          # The App Store's largest sizes: an iPhone Pro Max (1320 x 2868) and
-          # the biggest Apple Watch, from the newest runtimes on the runner.
+          # The sizes App Store Connect asks for: the medium iPhone with
+          # Dynamic Island, an iPhone Pro (1206 x 2622; not the Pro Max, whose
+          # 1320 x 2868 the required slot refuses), and the biggest Apple
+          # Watch, from the newest runtimes on the runner. Each preferred name
+          # is a regular expression.
           xcrun simctl list devices available --json > devices.json
           pick() {
             python3 - "$1" "$2" <<'PY'
-          import json, sys
+          import json, re, sys
           platform, preferred = sys.argv[1], sys.argv[2].split(",")
           devices = json.load(open("devices.json"))["devices"]
           runtimes = sorted(
@@ -55,13 +58,13 @@ jobs:
           for runtime in reversed(runtimes):
               for word in preferred:
                   for d in devices[runtime]:
-                      if word in d["name"]:
+                      if re.search(word, d["name"]):
                           print(d["udid"], d["name"], sep="\t")
                           sys.exit(0)
           sys.exit(f"no {platform} simulator found")
           PY
           }
-          IFS=$'\t' read -r PHONE PHONE_NAME < <(pick iOS "Pro Max,Plus,iPhone")
+          IFS=$'\t' read -r PHONE PHONE_NAME < <(pick iOS "Pro$")
           IFS=$'\t' read -r WATCH WATCH_NAME < <(pick watchOS "Ultra,46mm,45mm,Apple Watch")
           echo "iPhone: $PHONE_NAME ($PHONE)"
           echo "Watch: $WATCH_NAME ($WATCH)"
@@ -119,16 +122,30 @@ jobs:
           shoot "$PHONE" $app "$RUNNER_TEMP/warm-up-iphone.png" 25 -screenshots
           shoot "$WATCH" $watch "$RUNNER_TEMP/warm-up-watch.png" 25 -screenshot mode
 
+          rm -f "$out"/iphone/*.png
           shoot "$PHONE" $app "$out/iphone/1-history-3-balls.png" 8 -screenshots -screenshotBalls 3
-          shoot "$PHONE" $app "$out/iphone/2-history-4-balls.png" 8 -screenshots -screenshotBalls 4
-          shoot "$PHONE" $app "$out/iphone/3-history-5-balls.png" 8 -screenshots -screenshotBalls 5
-          shoot "$PHONE" $app "$out/iphone/4-session-details.png" 8 -screenshots -screenshotBalls 3 -screenshotDetails
-          shoot "$PHONE" $app "$out/iphone/5-apple-watch-card.png" 8 -screenshots -screenshotBalls 4 -screenshotWatch apple
+          shoot "$PHONE" $app "$out/iphone/2-session-details.png" 8 -screenshots -screenshotBalls 3 -screenshotDetails
+          shoot "$PHONE" $app "$out/iphone/3-apple-watch-card.png" 8 -screenshots -screenshotBalls 4 -screenshotWatch apple
+          shoot "$PHONE" $app "$out/iphone/4-settings.png" 8 -screenshots -screenshotSettings
 
           shoot "$WATCH" $watch "$out/watch/1-count.png" 8 -screenshot count
           shoot "$WATCH" $watch "$out/watch/2-stats.png" 8 -screenshot stats
           shoot "$WATCH" $watch "$out/watch/3-balls.png" 8 -screenshot balls
           shoot "$WATCH" $watch "$out/watch/4-mode.png" 8 -screenshot mode
+
+      - name: Check the sizes
+        run: |
+          # The sizes App Store Connect accepts for these two slots.
+          failed=0
+          for f in apple/store_assets/iphone/*.png apple/store_assets/watch/*.png; do
+            size=$(sips -g pixelWidth -g pixelHeight "$f" | tail -2 | awk '{print $2}' | paste -sd x -)
+            case "$f:$size" in
+              */iphone/*:1206x2622|*/iphone/*:1179x2556) echo "ok    $f $size" ;;
+              */watch/*:422x514|*/watch/*:410x502|*/watch/*:416x496) echo "ok    $f $size" ;;
+              *) echo "::error::$f is $size, which App Store Connect refuses"; failed=1 ;;
+            esac
+          done
+          exit "$failed"
 
       - name: Keep the screenshots
         uses: actions/upload-artifact@v4

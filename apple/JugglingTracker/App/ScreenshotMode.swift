@@ -10,12 +10,15 @@ import JugglingCore
 /// - `-screenshotBalls N` selects the N-balls chip.
 /// - `-screenshotDetails` opens the newest session of that ball count.
 /// - `-screenshotWatch apple` shows the Apple Watch card instead of Garmin's.
+/// - `-screenshotSettings` opens Settings.
 enum ScreenshotMode {
     static var isOn: Bool { arguments.contains("-screenshots") }
 
     static var ballCount: Int? { value(after: "-screenshotBalls").flatMap(Int.init) }
 
     static var showsDetails: Bool { arguments.contains("-screenshotDetails") }
+
+    static var showsSettings: Bool { arguments.contains("-screenshotSettings") }
 
     static var watchType: WatchType { value(after: "-screenshotWatch") == "apple" ? .appleWatch : .garmin }
 

@@ -11,7 +11,7 @@ enum Screen: Hashable {
 /// short message banner). Counterpart of the Android `JugglingTrackerApp`.
 struct RootView: View {
     @Environment(TrackerModel.self) private var model
-    @State private var path: [Screen] = []
+    @State private var path: [Screen] = ScreenshotMode.isOn && ScreenshotMode.showsSettings ? [.settings] : []
 
     var body: some View {
         NavigationStack(path: $path) {

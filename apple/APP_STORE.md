@@ -83,16 +83,17 @@ Required sizes (App Store Connect scales the rest down):
 
 | Device | Size (portrait) | Count |
 | --- | --- | --- |
-| iPhone 6.9" (iPhone 16 Pro Max) | 1320 x 2868 | 3 to 10 |
+| iPhone with Dynamic Island, medium display (iPhone 16/17 Pro) | 1206 x 2622 (or 1179 x 2556) | 3 to 10 |
 | Apple Watch (Series 10 46 mm) | 416 x 496 | 1 to 10 |
 
 The screenshots are in `store_assets/iphone` and `store_assets/watch`. They
 are taken in the simulators by `.github/workflows/apple-screenshots.yml`
 (add the `apple-screenshots` label to a pull request, or run it from the
 Actions tab), with a made-up history of 3, 4 and 5 balls so the trend graph
-shows progress for each. The iPhone shots are the history for each ball count,
-a session's details and the Apple Watch card; the watch shots are the live
-count, the session stats, the ball selection and the mode selection.
+shows progress. The iPhone shots are the 3-ball history, a session's details,
+the Apple Watch card and Settings; the watch shots are the live count, the
+session stats, the ball selection and the mode selection. App Store Connect
+refuses the Pro Max size (1320 x 2868) in the required iPhone slot.
 
 ## App Privacy answers
 
