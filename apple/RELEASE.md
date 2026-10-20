@@ -26,7 +26,8 @@ The project is release ready as far as it can be without a paid account:
    com.juggling.tracker.watchkitapp with the HealthKit capability), SKU
    `juggling-tracker-ios`.
 3. In App Store Connect > Users and Access > Integrations > App Store Connect
-   API, create a team key with the App Manager role. Download the .p8 file
+   API, create a team key with the Admin role (App Manager may not use the
+   cloud-managed distribution certificate the upload signs with). Download the .p8 file
    (only possible once) and note the Key ID and Issuer ID.
 4. Add these repository secrets (GitHub > Settings > Secrets and variables >
    Actions):
