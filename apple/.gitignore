@@ -5,3 +5,8 @@ DerivedData/
 /build/
 # Written by XcodeGen from the info: block in project.yml.
 JugglingTracker/App/Info.plist
+# Secrets: the App Store Connect API key and the Firebase config. The
+# release workflow gets both from GitHub secrets.
+AuthKey_*.p8
+*.p8
+GoogleService-Info.plist
