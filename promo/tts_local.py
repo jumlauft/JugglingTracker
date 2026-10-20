@@ -24,8 +24,12 @@ SENTENCE_PAUSE = float(os.environ.get("SENTENCE_PAUSE", "0.45"))
 LINE_PAUSE = float(os.environ.get("LINE_PAUSE", "0.8"))
 # Below 1 slows the speech itself down a little (pitch stays the same).
 TEMPO = float(os.environ.get("TEMPO", "0.92"))
-# Semitones to shift the voice; negative is deeper.
+# Semitones to shift the voice; negative is deeper. Phase-vocoder based, so
+# large shifts sound echoey; prefer VARISPEED.
 PITCH = float(os.environ.get("PITCH", "0"))
+# Below 1 plays the voice slower and deeper together, like a slowed tape
+# (0.95: 5% slower, about one semitone lower). Clean, no echo.
+VARISPEED = float(os.environ.get("VARISPEED", "1"))
 
 
 def device():
@@ -60,6 +64,8 @@ def main():
                 data = data[max(0, loud[0] - int(0.03 * sr)) : loud[-1] + int(0.08 * sr)]
             if PITCH:
                 data = librosa.effects.pitch_shift(data, sr=sr, n_steps=PITCH).astype(np.float32)
+            if VARISPEED != 1:
+                data = librosa.resample(data, orig_sr=sr * VARISPEED, target_sr=sr).astype(np.float32)
             if TEMPO != 1:
                 data = librosa.effects.time_stretch(data, rate=TEMPO).astype(np.float32)
             audio.append(data)
