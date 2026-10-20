@@ -33,7 +33,8 @@ built several times over, and the copies must not drift apart.
   - Input: Garmin has physical UP/DOWN/START/BACK buttons; Wear OS uses the
     rotary input, on-screen arrows and buttons and the edge swipe; Apple Watch
     uses the Digital Crown, on-screen arrows and buttons and a back button in
-    the corner.
+    the corner; its mode and ball-count screens are swipeable wheels, as in
+    the Workout app, where the other watches step one value at a time.
   - Scrolling: the ball count wraps around (9 → 3 and 3 → 9) on the Garmin,
     which steps with buttons; on Wear OS and Apple Watch, which scroll with a
     crown or bezel, it stops at 3 and 9 (Jonas, 2026-10-12).
