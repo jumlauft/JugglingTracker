@@ -241,6 +241,8 @@ struct ModeSelectScreen: View {
     var body: some View {
         CenteredColumn(button: "Start", onStart: onStart) {
             WatchText("Mode", WatchColors.green, 14)
+                // Full size: the wheel takes the space it gives up instead.
+                .fixedSize()
             WheelPicker(items: [false, true], selected: isRecordMode, onSelect: { record in
                 // UP and DOWN both toggle the mode (APP-2).
                 if record != isRecordMode { onUp() }
@@ -263,6 +265,8 @@ struct BallSelectScreen: View {
     var body: some View {
         CenteredColumn(button: "Start", onStart: onStart) {
             WatchText("Balls", WatchColors.green, 14)
+                // Full size: the wheel takes the space it gives up instead.
+                .fixedSize()
             // The wheel ends at 3 and 9; it does not wrap round as the
             // Garmin's buttons do.
             WheelPicker(

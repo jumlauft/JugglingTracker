@@ -61,7 +61,8 @@ private struct WatchScreenshotView: View {
             case .mode:
                 ModeSelectScreen(isRecordMode: false, onUp: {}, onDown: {}, onStart: {})
             case .balls:
-                BallSelectScreen(ballCount: 3, onUp: {}, onDown: {}, onStart: {})
+                // 5, so the wheel shows a value either side of the chosen one.
+                BallSelectScreen(ballCount: 5, onUp: {}, onDown: {}, onStart: {})
                     .toolbar { ToolbarItem(placement: .topBarLeading) { Image(systemName: "chevron.backward") } }
             case .count:
                 TrackerScreen(state: WatchScreenshot.juggling, onEnd: {}, onDiscard: {})
