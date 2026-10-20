@@ -5,3 +5,7 @@ DerivedData/
 /build/
 # Written by XcodeGen from the info: block in project.yml.
 JugglingTracker/App/Info.plist
+# Secrets — never commit. CI writes GoogleService-Info.plist from a secret;
+# the App Store Connect API key (AuthKey_*.p8) stays on the Mac.
+GoogleService-Info.plist
+*.p8
