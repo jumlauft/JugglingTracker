@@ -175,9 +175,18 @@ def juggle_phase(t):
     return float(np.interp(t, _CT, _PH))
 
 
+# The simulator's status bar clock (top right, as fractions of the screen) is
+# not part of the app; it is painted out with the black background.
+CLOCK_BOX = (0.55, 0.0, 1.0, 0.17)
+
+
 def watch_frame(src_index):
     src_index = max(0, min(WATCH_LAST, int(src_index)))
-    return Image.open(f"{WATCH_FRAMES}/{src_index:05d}.jpg").convert("RGB")
+    scr = Image.open(f"{WATCH_FRAMES}/{src_index:05d}.jpg").convert("RGB")
+    x0, y0, x1, y1 = CLOCK_BOX
+    w, h = scr.size
+    ImageDraw.Draw(scr).rectangle([int(x0 * w), int(y0 * h), int(x1 * w), int(y1 * h)], fill=(0, 0, 0))
+    return scr
 
 
 def draw_watch(img, src_index, cx, top):

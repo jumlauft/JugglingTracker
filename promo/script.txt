@@ -1,4 +1,4 @@
-Are you a juggler trying to get better, but you're never quite sure if you're actually making progress?
+Are you pushing hard to improve your juggling skills, but you're not really sure if you're making progress?
 Meet Juggling Tracker: the app that makes your juggling progress visible.
 Strap on your smartwatch and start juggling.
 The watch's motion sensor detects the start of a run and counts your catches live, right on your wrist. No buttons to press, no counting in your head. When you stop juggling, the run ends by itself, and the next one starts when you do.
