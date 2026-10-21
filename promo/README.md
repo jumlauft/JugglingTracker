@@ -15,9 +15,9 @@ spoken narration decides when each scene starts (see "Timing" below).
 
 | # | Narration (script.txt) | Picture |
 |---|---|---|
-| 1 | "Are you a juggler trying to get better, but you're never quite sure if you're actually making progress?" | Heading "Trying to get / better at juggling?". The juggler (no watch yet) is already juggling 5 balls with a smile; after about two seconds one throw goes wide and falls to the floor, the juggler stops holding the other four, the face turns sad and an orange "?" pulses beside it. |
+| 1 | "Are you pushing hard to improve your juggling skills, but you're not really sure if you're making progress?" | Heading "Trying to get / better at juggling?". The juggler (no watch yet) is already juggling 5 balls with a smile; after about two seconds one throw goes wide and falls to the floor, the juggler stops holding the other four, the face turns sad and an orange "?" pulses beside it. |
 | 2 | "Meet Juggling Tracker: the app that makes your juggling progress visible." | Title card: "Juggling Tracker" at the top, the juggler standing (now with a watch) exactly where it stands in the next scene, the brown zig-zag trend line drawing itself below the juggler; its arrowhead appears only when the line is complete. |
-| 3 | "Strap on your smartwatch and start juggling." | The trend line fades out and the watch fades in under the unmoving juggler. Heading "Wear it while you juggle". The watch shows the app's Juggle screen, "Waiting", count 0. Until the juggling starts, cream zoom lines run from the small watch on the juggler's wrist (with a pulsing ring) to the big watch, so the screen reads as its close-up. |
+| 3 | "Strap on your smartwatch and start juggling." | The trend line fades out and the watch fades in under the unmoving juggler. Heading "Wear it while you juggle". The watch shows the app's Juggle screen, "Waiting", count 0 (the simulator's clock is painted out, see "Watch footage"). Until the juggling starts, cream zoom lines run from the small watch on the juggler's wrist (with a pulsing ring) to the big watch, so the screen reads as its close-up. |
 | 4 | "The watch's motion sensor detects the start of a run and counts your catches live, right on your wrist. No buttons to press, no counting in your head. When you stop juggling, the run ends by itself, and the next one starts when you do." | Heading "Juggle. It counts.". The juggler starts juggling; every catch of the watch hand lands on the frame where the watch count goes up by one (real speed, no fast-forward). The juggler stops around "When you stop juggling", holds the balls, and the watch ends the run by itself and goes back to "Waiting". |
 | 5 | "Once you finish your session, transfer it to your phone, where you keep track of all your statistics, including a regularity index measuring how clean your pattern is." | Heading "Every run, every stat". The phone slides up once from the bottom and then stays at rest, showing the 5-ball history; after about 2 s the screen dims and the Session Details sheet (5 balls) slides up. |
 | 6 | "And on those days when you feel stuck on a plateau, the numbers show what you can't feel." | Heading crossfades to "Progress you can see"; the sheet slides back down, an orange frame highlights the 5-ball trend graph and an orange arrow draws across it. |
@@ -69,6 +69,10 @@ keeps only its first N samples and appends a still wrist, so the run stops and
 the app ends it about two seconds later. N = 240 gives 10 catches (the current narration), 212 gives 9, 182 gives 7.
 Pick N so the last catch lands near "When you stop juggling" (slower narration
 needs more catches).
+
+The simulator shows the time in the top right corner. It says nothing about
+the app, so `render.py` paints that corner black on every watch frame
+(`CLOCK_BOX`); the rest of the screen stays as filmed.
 
 ## Timing
 
