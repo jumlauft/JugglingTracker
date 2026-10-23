@@ -29,6 +29,17 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Index of the graph point nearest to [x]. Points sit at i * width / (count - 1),
+ * so each point's touch area is centred on it and the newest point on the right
+ * edge is as easy to hit as the others.
+ */
+internal fun nearestPointIndex(x: Float, width: Float, count: Int): Int {
+    if (count <= 1 || width <= 0f) return 0
+    val stepX = width / (count - 1)
+    return Math.round(x / stepX).coerceIn(0, count - 1)
+}
+
 @Composable
 fun SessionHistoryGraph(sessions: List<SessionSummary>, modifier: Modifier = Modifier) {
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
@@ -82,9 +93,7 @@ fun SessionHistoryGraph(sessions: List<SessionSummary>, modifier: Modifier = Mod
                                 },
                             ) { offset ->
                                 if (displaySessions.isNotEmpty()) {
-                                    val count = displaySessions.size
-                                    val stepX = if (count > 1) size.width / (count - 1) else size.width
-                                    selectedIndex = (offset.x / stepX).toInt().coerceIn(0, count - 1)
+                                    selectedIndex = nearestPointIndex(offset.x, size.width.toFloat(), displaySessions.size)
                                 }
                             }
                         }
@@ -92,18 +101,14 @@ fun SessionHistoryGraph(sessions: List<SessionSummary>, modifier: Modifier = Mod
                             detectDragGestures(
                                 onDragStart = { offset ->
                                     if (displaySessions.isNotEmpty()) {
-                                        val count = displaySessions.size
-                                        val stepX = if (count > 1) size.width / (count - 1) else size.width
-                                        selectedIndex = (offset.x / stepX).toInt().coerceIn(0, count - 1)
+                                        selectedIndex = nearestPointIndex(offset.x, size.width.toFloat(), displaySessions.size)
                                     }
                                 },
                                 onDragEnd = { selectedIndex = null },
                                 onDragCancel = { selectedIndex = null },
                             ) { change, _ ->
                                 if (displaySessions.isNotEmpty()) {
-                                    val count = displaySessions.size
-                                    val stepX = if (count > 1) size.width / (count - 1) else size.width
-                                    selectedIndex = (change.position.x / stepX).toInt().coerceIn(0, count - 1)
+                                    selectedIndex = nearestPointIndex(change.position.x, size.width.toFloat(), displaySessions.size)
                                 }
                             }
                         }
