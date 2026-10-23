@@ -10,13 +10,28 @@ private func shortDate(_ timestamp: Int64) -> String {
         .formatted(.dateTime.month(.abbreviated).day(.twoDigits).hour().minute())
 }
 
+/// Index of the graph point nearest to the x value `x`, with points at 0, 1, ...
+/// `count - 1`, so each point's touch area is centred on it.
+func nearestPointIndex(_ x: Double, count: Int) -> Int {
+    guard count > 1 else { return 0 }
+    return min(max(Int(x.rounded()), 0), count - 1)
+}
+
 /// Best and average run of each session, oldest to newest, with the spread
 /// of the runs shaded around the average. Touch to see one session's numbers.
 struct SessionHistoryGraph: View {
     let sessions: [SessionSummary]
-    @State private var selectedIndex: Int?
+    /// Where the finger is on the x axis. Swift Charts truncates a touch to an
+    /// Int x value, which made each point's touch area run from that point to the
+    /// next and left the newest point on the right edge nearly unreachable, so
+    /// the selection is kept as a Double and rounded to the nearest point.
+    @State private var rawSelection: Double?
 
     private var ordered: [SessionSummary] { sessions.reversed() }
+
+    private var selectedIndex: Int? {
+        rawSelection.map { nearestPointIndex($0, count: sessions.count) }
+    }
 
     var body: some View {
         let points = Array(ordered.enumerated())
@@ -37,33 +52,33 @@ struct SessionHistoryGraph: View {
             Chart {
                 ForEach(points, id: \.offset) { index, s in
                     AreaMark(
-                        x: .value("Session", index),
+                        x: .value("Session", Double(index)),
                         yStart: .value("Low", max(s.avgThrows - s.stdDevThrows, 0)),
                         yEnd: .value("High", s.avgThrows + s.stdDevThrows)
                     )
                     .foregroundStyle(averageColor.opacity(0.2))
                 }
                 ForEach(points, id: \.offset) { index, s in
-                    LineMark(x: .value("Session", index), y: .value("Catches", Double(s.bestRun)), series: .value("Series", "Best"))
+                    LineMark(x: .value("Session", Double(index)), y: .value("Catches", Double(s.bestRun)), series: .value("Series", "Best"))
                         .foregroundStyle(bestColor.opacity(0.5))
-                    PointMark(x: .value("Session", index), y: .value("Catches", Double(s.bestRun)))
+                    PointMark(x: .value("Session", Double(index)), y: .value("Catches", Double(s.bestRun)))
                         .foregroundStyle(bestColor)
                         .symbolSize(selectedIndex == index ? 80 : 30)
-                    LineMark(x: .value("Session", index), y: .value("Catches", s.avgThrows), series: .value("Series", "Average"))
+                    LineMark(x: .value("Session", Double(index)), y: .value("Catches", s.avgThrows), series: .value("Series", "Average"))
                         .foregroundStyle(averageColor.opacity(0.5))
-                    PointMark(x: .value("Session", index), y: .value("Catches", s.avgThrows))
+                    PointMark(x: .value("Session", Double(index)), y: .value("Catches", s.avgThrows))
                         .foregroundStyle(averageColor)
                         .symbolSize(selectedIndex == index ? 80 : 30)
                 }
                 if let selectedIndex {
-                    RuleMark(x: .value("Session", selectedIndex))
+                    RuleMark(x: .value("Session", Double(selectedIndex)))
                         .foregroundStyle(.gray.opacity(0.5))
                 }
             }
             .chartXAxis(.hidden)
             .chartYAxisLabel("# of catches", position: .leading)
             .chartYScale(domain: 0...(Double(max(sessions.map(\.bestRun).max() ?? 10, 10)) * 1.2))
-            .chartXSelection(value: $selectedIndex)
+            .chartXSelection(value: $rawSelection)
         }
         .padding(12)
         .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
