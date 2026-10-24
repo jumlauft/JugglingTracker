@@ -1,0 +1,32 @@
+name: Play screenshots
+
+# Replaces the phone screenshots of the Google Play listing with the PNGs in
+# android/store_assets/phone/ (see android/PUBLISHING.md for how they are
+# taken). Start it one of two ways:
+#
+# - Add the label `play-screenshots` to a pull request: uploads that pull
+#   request's screenshots.
+# - Actions tab > Play screenshots > Run workflow, once this file is on main.
+# Uses the same PLAY_SERVICE_ACCOUNT_JSON secret as release-android.yml.
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  upload:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'play-screenshots'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+
+      - name: Install Google auth
+        run: pip install google-auth requests
+
+      - name: Upload phone screenshots
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: python .github/scripts/upload_play_screenshots.py com.juggling.tracker android/store_assets/phone
