@@ -21,7 +21,7 @@ struct SettingsScreen: View {
                 Toggle("Enable Voice", isOn: $settings.isVoiceEnabled)
                 if settings.isVoiceEnabled {
                     Picker("Announcement Interval", selection: $settings.voiceInterval) {
-                        ForEach([1, 2, 5, 10, 20, 50, 100], id: \.self) { Text("\($0) catches").tag($0) }
+                        ForEach([1, 2, 5, 10, 20, 50, 100], id: \.self) { Text($0 == 1 ? "1 catch" : "\($0) catches").tag($0) }
                     }
                 }
             }

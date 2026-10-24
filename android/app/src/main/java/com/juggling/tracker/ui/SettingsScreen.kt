@@ -2,7 +2,6 @@ package com.juggling.tracker.ui
 
 import android.util.Log
 import android.widget.Toast
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
@@ -34,6 +33,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Settings, plus the recordings table and the export it offers. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(settings: SettingsModel, recordings: RawRecordingModel) {
     val context = LocalContext.current
@@ -164,17 +164,17 @@ fun SettingsScreen(settings: SettingsModel, recordings: RawRecordingModel) {
                     text = stringResource(R.string.label_voice_interval),
                     style = MaterialTheme.typography.bodyMedium
                 )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
+                // Wraps onto a second line rather than scrolling, so no chip
+                // is cut off at the screen edge.
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     listOf(1, 2, 5, 10, 20, 50, 100).forEach { interval ->
                         FilterChip(
                             selected = settings.voiceInterval == interval,
                             onClick = { settings.setVoiceInterval(interval) },
-                            label = { Text(stringResource(R.string.format_voice_interval, interval)) }
+                            label = { Text(pluralStringResource(R.plurals.format_voice_interval, interval, interval)) }
                         )
                     }
                 }
