@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Labels for the fields each Garmin Connect activity carries (ACT-1),
+     matched to source/GarminPlatform.mc GarminActivityRecorder by id. -->
+<resources>
+    <fitContributions>
+        <fitField id="0" displayInChart="false" displayInActivitySummary="true" sortOrder="0" precision="0"
+            dataLabel="@Strings.fit_balls_label" unitLabel="@Strings.fit_balls_unit" />
+        <fitField id="1" displayInChart="false" displayInActivitySummary="true" sortOrder="1" precision="1"
+            dataLabel="@Strings.fit_average_label" unitLabel="@Strings.fit_average_unit" />
+    </fitContributions>
+</resources>

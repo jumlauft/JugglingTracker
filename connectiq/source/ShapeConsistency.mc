@@ -198,6 +198,16 @@ class ShapeConsistency {
         }
     }
 
+    // Each completed run's window score sum and window count.
+    public function runs() as Array<Array> {
+        return [_runSums, _runCounts] as Array<Array>;
+    }
+
+    public function restoreRuns(sums as Array<Float>, counts as Array<Number>) as Void {
+        _runSums = sums;
+        _runCounts = counts;
+    }
+
     // Whole percentage over the session, or -1 before any window counts.
     public function sessionPercent() as Number {
         var sum = 0.0f;

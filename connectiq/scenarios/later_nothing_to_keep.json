@@ -1,0 +1,46 @@
+{
+  "name": "Continue later with no completed run keeps nothing and saves no activity",
+  "requirements": [
+    "JUG-9",
+    "ACT-2"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "catches": 2
+    },
+    {
+      "idle": 60
+    },
+    {
+      "press": "start"
+    },
+    {
+      "select": "continue_later"
+    },
+    {
+      "expect": {
+        "exits": 1,
+        "stored": false,
+        "activitiesSaved": 0,
+        "activityState": "none"
+      }
+    },
+    {
+      "relaunch": true
+    },
+    {
+      "expect": {
+        "screen": "modeSelect"
+      }
+    }
+  ]
+}

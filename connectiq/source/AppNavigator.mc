@@ -42,6 +42,26 @@ class AppNavigator {
         ballCount = MIN_BALLS;
         tracker = null;
         recording = null;
+
+        // LATER-1: a session kept with Continue later comes first. The app
+        // opens on it, with its Previous session menu up, and no new session
+        // can start until that is answered.
+        var resumed = host.resumeTracker();
+        if (resumed != null) {
+            resumed.setDiscardListener(method(:onResumeDiscarded));
+            tracker = resumed;
+            screen = SCREEN_TRACKER;
+        }
+    }
+
+    // LATER-4: the Previous session was discarded; start afresh.
+    public function onResumeDiscarded() as Void {
+        tracker = null;
+        screen = _enableRecordingMode ? SCREEN_MODE_SELECT : SCREEN_BALL_SELECT;
+        isRecordMode = false;
+        mode = :juggle;
+        ballCount = MIN_BALLS;
+        _host.show(self, false);
     }
 
     // UP. On the mode screen UP and DOWN both toggle (APP-2).

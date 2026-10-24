@@ -16,11 +16,14 @@ class TrackerSession {
 
     public static const MENU_SESSION_END = "session_end";
     public static const MENU_DISCARD = "discard_run";
+    public static const MENU_RESUME = "resume_session";
 
     public static const ITEM_SYNC_QUIT = "sync_quit";
     public static const ITEM_SYNC_RETRY = "sync_retry";
     public static const ITEM_NOSYNC_QUIT = "nosync_quit";
     public static const ITEM_CONTINUE = "continue_session";
+    public static const ITEM_CONTINUE_LATER = "continue_later";
+    public static const ITEM_DISCARD_SESSION = "discard_session";
     public static const ITEM_DISCARD_YES = "discard_yes";
     public static const ITEM_DISCARD_NO = "discard_no";
 
@@ -30,6 +33,8 @@ class TrackerSession {
     private var _scheduler as Scheduler;
     private var _clock as Clock;
     private var _effects as WatchEffects;
+    private var _recorder as ActivityRecorder;
+    private var _store as SessionStore;
 
     private var _detector as JugglingDetector;
     private var _sessionStartMs as Number;
@@ -43,6 +48,22 @@ class TrackerSession {
     // after Continue resends the whole session under the same id, so the
     // phone replaces its first copy instead of storing the runs twice (SYNC-5).
     private var _sessionTimestamp as Number?;
+    // Session time from before the app was last closed with Continue later.
+    private var _priorSeconds as Number;
+    // The watch's activity for this stretch of juggling (ACT-1, ACT-2): one
+    // per time the app is open, since Connect IQ cannot reopen an activity
+    // once the app has closed.
+    private var _activityStarted as Boolean;
+    private var _activityEnded as Boolean;
+    // Runs completed before this stretch began; the activity's stats cover
+    // only the runs after them.
+    private var _stretchFirstRun as Number;
+    // Told when the Previous session is discarded, so the navigator can show
+    // the first screen (LATER-4).
+    private var _discardListener as Method?;
+    // Garmin only: a menu opened before the view is on screen (the Previous
+    // session menu at launch) is pushed once the view shows.
+    private var _menuPending as Boolean;
 
     private var _sending as Boolean;
     private var _errorMsg as String?;
@@ -62,17 +83,36 @@ class TrackerSession {
     // True when the accelerometer could not be registered (SENS-4).
     private var _sensorError as Boolean;
 
-    public function initialize(ballCount as Number, link as PhoneLink, scheduler as Scheduler,
-            clock as Clock, effects as WatchEffects) {
+    // A new session for `ballCount` balls, or with `saved` the session kept
+    // with Continue later, reopened with its Previous session menu up
+    // (LATER-1); its ball count then comes from `saved`.
+    public function initialize(ballCount as Number, saved as Dictionary?, link as PhoneLink,
+            scheduler as Scheduler, clock as Clock, effects as WatchEffects,
+            recorder as ActivityRecorder, store as SessionStore) {
         _link = link;
         _scheduler = scheduler;
         _clock = clock;
         _effects = effects;
-        _detector = new JugglingDetector(ballCount);
+        _recorder = recorder;
+        _store = store;
+        var balls = ballCount;
+        if (saved != null) {
+            var keptBalls = saved["balls"];
+            if (keptBalls instanceof Number) {
+                balls = keptBalls;
+            }
+        }
+        _detector = new JugglingDetector(balls);
         _sessionStartMs = clock.nowMs();
         _sessionEndMs = null;
         _pausedMs = 0;
         _sessionTimestamp = null;
+        _priorSeconds = 0;
+        _activityStarted = false;
+        _activityEnded = false;
+        _stretchFirstRun = 0;
+        _discardListener = null;
+        _menuPending = false;
         _sending = false;
         _errorMsg = null;
         _pendingPayload = null;
@@ -87,6 +127,12 @@ class TrackerSession {
 
         // Listen for the phone's acknowledgement that a session was stored.
         _link.setMessageListener(method(:onPhoneMessage));
+
+        if (saved != null) {
+            restore(saved);
+        } else {
+            startActivity();
+        }
     }
 
     // ── What the screen shows (JUG-1) ─────────────────────────────────
@@ -137,7 +183,21 @@ class TrackerSession {
         if (elapsedMs < 0) {
             elapsedMs = 0;
         }
-        return elapsedMs / 1000;
+        return _priorSeconds + elapsedMs / 1000;
+    }
+
+    // The navigator's callback for LATER-4, called with no arguments.
+    public function setDiscardListener(listener as Method?) as Void {
+        _discardListener = listener;
+    }
+
+    // The view is on screen: push a menu that was opened before it was.
+    public function onShown() as Void {
+        var spec = _menu;
+        if (_menuPending && spec != null) {
+            _menuPending = false;
+            _effects.showMenu(spec, method(:onMenuSelect), method(:onMenuBack));
+        }
     }
 
     // ── Samples ───────────────────────────────────────────────────────
@@ -193,6 +253,10 @@ class TrackerSession {
         }
         if (!isRetry && _sessionEndMs == null) {
             _sessionEndMs = _clock.nowMs();
+            // ACT-2: the activity's timer stands still with the session clock.
+            if (_activityStarted && !_activityEnded) {
+                _recorder.pause();
+            }
         }
         var items = [] as Array<MenuItemSpec>;
         if (isRetry) {
@@ -201,6 +265,7 @@ class TrackerSession {
             items.add(new MenuItemSpec(ITEM_SYNC_QUIT, "Sync and quit", null));
         }
         items.add(new MenuItemSpec(ITEM_NOSYNC_QUIT, "Quit without sync", null));
+        items.add(new MenuItemSpec(ITEM_CONTINUE_LATER, "Continue later", null));
         items.add(new MenuItemSpec(ITEM_CONTINUE, "Continue", null));
         openMenu(new MenuSpec(MENU_SESSION_END, isRetry ? SYNC_FAILED : "End session?", items));
     }
@@ -248,6 +313,7 @@ class TrackerSession {
             return;
         }
         _menu = null;
+        _menuPending = false;
         if (open.kind.equals(MENU_DISCARD)) {
             onDiscardResponse(ITEM_DISCARD_YES.equals(itemId));
         } else if (ITEM_SYNC_QUIT.equals(itemId)) {
@@ -258,6 +324,10 @@ class TrackerSession {
         } else if (ITEM_NOSYNC_QUIT.equals(itemId)) {
             cancelSyncTimer();
             exit();
+        } else if (ITEM_CONTINUE_LATER.equals(itemId)) {
+            continueLater();
+        } else if (ITEM_DISCARD_SESSION.equals(itemId)) {
+            discardSession();
         } else if (ITEM_CONTINUE.equals(itemId)) {
             onContinueSession();
         }
@@ -272,8 +342,13 @@ class TrackerSession {
             return;
         }
         _menu = null;
+        _menuPending = false;
         if (open.kind.equals(MENU_DISCARD)) {
             onDiscardResponse(false);
+        } else if (open.kind.equals(MENU_RESUME)) {
+            // LATER-5: the session stays kept, as it was, and the app closes.
+            cancelSyncTimer();
+            exitKeeping();
         } else {
             onContinueSession();
         }
@@ -295,6 +370,12 @@ class TrackerSession {
             _pausedMs += _clock.nowMs() - endMs;
         }
         _sessionEndMs = null;
+        // ACT-2: the activity runs on, or starts for a Previous session.
+        if (!_activityStarted) {
+            startActivity();
+        } else if (!_activityEnded) {
+            _recorder.resume();
+        }
         // JUG-8: nothing is failing any more once the user is juggling again.
         _errorMsg = null;
         // JUG-8: abandon the sync. Its ack can still arrive late, and with the
@@ -472,7 +553,157 @@ class TrackerSession {
         _effects.update();
     }
 
+    // ── Continue later (LATER-1..6) and the activity (ACT-1, ACT-2) ───
+
+    // JUG-9: keeps the session on the watch and closes the app. With no run
+    // completed there is nothing worth keeping, and it just closes.
+    private function continueLater() as Void {
+        cancelSyncTimer();
+        if (keepForLater()) {
+            exitKeeping();
+        } else {
+            exit();
+        }
+    }
+
+    // LATER-6: the system is closing the app (AppBase.onStop on the Garmin)
+    // with the session still open. It is kept as with Continue later, and its
+    // activity saved, so neither is lost. A Previous session nobody answered
+    // stays kept as it was.
+    public function onAppStop() as Void {
+        if (_exited) {
+            return;
+        }
+        var open = _menu;
+        if (open != null && open.kind.equals(MENU_RESUME)) {
+            exitQuietly();
+            return;
+        }
+        if (!keepForLater()) {
+            _store.clear();
+        }
+        exitQuietly();
+    }
+
+    // Writes the session to the store; false when it has no completed run.
+    private function keepForLater() as Boolean {
+        _detector.finishCurrentRun();
+        if (_sessionEndMs == null) {
+            _sessionEndMs = _clock.nowMs();
+        }
+        var runs = _detector.runCatches();
+        if (runs.size() == 0) {
+            return false;
+        }
+        var shape = _detector.shapeRuns();
+        var saved = {
+            "balls" => _detector.ballCount,
+            "elapsedSeconds" => elapsedSeconds(),
+            "runs" => runs,
+            "runDurationsMillis" => _detector.runDurationsMillis(),
+            "shapeSums" => shape[0],
+            "shapeCounts" => shape[1]
+        };
+        if (_sessionTimestamp != null) {
+            saved["timestamp"] = _sessionTimestamp;
+        }
+        _store.save(saved);
+        return true;
+    }
+
+    // Reopens a kept session (LATER-1): its runs, time and phone timestamp,
+    // with the clock stopped and the Previous session menu up until answered.
+    private function restore(saved as Dictionary) as Void {
+        var runs = numbers(saved["runs"]);
+        var durations = numbers(saved["runDurationsMillis"]);
+        var sums = saved["shapeSums"];
+        var counts = numbers(saved["shapeCounts"]);
+        if (!(sums instanceof Array) || (sums as Array).size() != runs.size() || counts.size() != runs.size()) {
+            sums = [] as Array<Float>;
+            counts = [] as Array<Number>;
+            for (var i = 0; i < runs.size(); i++) {
+                sums.add(0.0f);
+                counts.add(0);
+            }
+        }
+        while (durations.size() < runs.size()) {
+            durations.add(0);
+        }
+        _detector.restoreRuns(runs, durations, sums as Array<Float>, counts);
+        _stretchFirstRun = runs.size();
+        var prior = saved["elapsedSeconds"];
+        _priorSeconds = prior instanceof Number ? prior : 0;
+        var timestamp = saved["timestamp"];
+        _sessionTimestamp = timestamp instanceof Number ? timestamp : null;
+        _sessionEndMs = _clock.nowMs();
+
+        var n = runs.size();
+        var detail = _detector.ballCount.toString() + " balls, " + n.toString() + (n == 1 ? " run" : " runs");
+        _menu = new MenuSpec(MENU_RESUME, "Previous session", [
+            new MenuItemSpec(ITEM_CONTINUE, "Continue", detail),
+            new MenuItemSpec(ITEM_SYNC_QUIT, "Sync and quit", null),
+            new MenuItemSpec(ITEM_DISCARD_SESSION, "Discard", null)
+        ] as Array<MenuItemSpec>);
+        _menuPending = true;
+    }
+
+    // LATER-4: throws the kept session away and goes to the first screen.
+    private function discardSession() as Void {
+        _store.clear();
+        exitQuietly();
+        var listener = _discardListener;
+        if (listener != null) {
+            listener.invoke();
+        }
+    }
+
+    private function startActivity() as Void {
+        _activityStarted = true;
+        _stretchFirstRun = _detector.sessionRuns();
+        _recorder.start();
+    }
+
+    // ACT-2: saved with this stretch's stats when it has a run, else
+    // discarded so an empty activity never reaches Garmin Connect.
+    private function endActivity() as Void {
+        if (!_activityStarted || _activityEnded) {
+            return;
+        }
+        _activityEnded = true;
+        var runs = _detector.runCatches();
+        var first = _stretchFirstRun < runs.size() ? _stretchFirstRun : runs.size();
+        var count = runs.size() - first;
+        if (count == 0) {
+            _recorder.discard();
+            return;
+        }
+        var total = 0;
+        for (var i = first; i < runs.size(); i++) {
+            total += runs[i];
+        }
+        _recorder.save(_detector.ballCount, total.toFloat() / count);
+    }
+
+    // Closes the app with the session finished: nothing stays kept.
     private function exit() as Void {
+        if (_exited) {
+            return;
+        }
+        _store.clear();
+        exitKeeping();
+    }
+
+    // Closes the app, leaving the store as it is.
+    private function exitKeeping() as Void {
+        if (_exited) {
+            return;
+        }
+        exitQuietly();
+        _effects.exit();
+    }
+
+    // Ends the session without closing the app.
+    private function exitQuietly() as Void {
         if (_exited) {
             return;
         }
@@ -480,8 +711,24 @@ class TrackerSession {
         cancelSyncTimer();
         cancelStatusTimer();
         _link.setMessageListener(null);
-        _effects.exit();
+        endActivity();
     }
+}
+
+// The whole numbers of a stored array, or an empty array.
+function numbers(value as Object?) as Array<Number> {
+    var out = [] as Array<Number>;
+    if (value instanceof Array) {
+        for (var i = 0; i < value.size(); i++) {
+            var v = value[i];
+            if (v instanceof Number) {
+                out.add(v);
+            } else if (v instanceof Long || v instanceof Float || v instanceof Double) {
+                out.add(v.toNumber());
+            }
+        }
+    }
+    return out;
 }
 
 // How many samples of a batch can be read: the shortest of the three axes.

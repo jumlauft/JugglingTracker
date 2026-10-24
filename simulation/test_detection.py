@@ -578,7 +578,7 @@ def test_tracking_views_reacquire_the_sensor_after_any_menu():
     """
     for name in ("MainView.mc", "RecordingView.mc"):
         source = _read_source("connectiq", "source", name)
-        assert re.search(r"public function onShow\(\) as Void \{\s*startSensor\(\);\s*\}", source), (
+        assert re.search(r"public function onShow\(\) as Void \{\s*startSensor\(\);", source), (
             f"onShow() in {name} must re-acquire the sensor"
         )
         m = re.search(r"private function startSensor\(\) as Void \{(.*?)\n    \}", source, re.DOTALL)
@@ -652,7 +652,7 @@ def _requirement_verifications():
     found = {}
     current = None
     for line in doc.splitlines():
-        m = re.match(r"\*\*((?:APP|DET|RUN|SHAPE|JUG|SENS|SYNC|REC)-\d+)\.\*\*", line)
+        m = re.match(r"\*\*((?:APP|DET|RUN|SHAPE|JUG|LATER|ACT|SENS|SYNC|REC)-\d+)\.\*\*", line)
         if m:
             current = m.group(1)
             found.setdefault(current, [])

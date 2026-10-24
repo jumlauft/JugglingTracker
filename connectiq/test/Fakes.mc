@@ -239,12 +239,84 @@ class FakeEffects extends WatchEffects {
     }
 }
 
+// The watch's activity: what state it is in and what was saved.
+class FakeActivityRecorder extends ActivityRecorder {
+    public static const IDLE = "none";
+    public static const RECORDING = "recording";
+    public static const PAUSED = "paused";
+
+    public var state as String;
+    // The average catches per run of every activity saved, in order.
+    public var savedAverages as Array<Float>;
+    public var savedBalls as Array<Number>;
+    public var discarded as Number;
+
+    public function initialize() {
+        ActivityRecorder.initialize();
+        state = IDLE;
+        savedAverages = [] as Array<Float>;
+        savedBalls = [] as Array<Number>;
+        discarded = 0;
+    }
+
+    public function start() as Void {
+        state = RECORDING;
+    }
+
+    public function pause() as Void {
+        if (state.equals(RECORDING)) {
+            state = PAUSED;
+        }
+    }
+
+    public function resume() as Void {
+        if (state.equals(PAUSED)) {
+            state = RECORDING;
+        }
+    }
+
+    public function save(balls as Number, average as Float) as Void {
+        state = IDLE;
+        savedBalls.add(balls);
+        savedAverages.add(average);
+    }
+
+    public function discard() as Void {
+        state = IDLE;
+        discarded += 1;
+    }
+}
+
+// Application.Storage as one field, kept across relaunches of the app.
+class FakeSessionStore extends SessionStore {
+    public var value as Dictionary?;
+
+    public function initialize() {
+        SessionStore.initialize();
+        value = null;
+    }
+
+    public function load() as Dictionary? {
+        return value;
+    }
+
+    public function save(session as Dictionary) as Void {
+        value = session;
+    }
+
+    public function clear() as Void {
+        value = null;
+    }
+}
+
 // Makes sessions on the shared fakes and counts the screens shown.
 class FakeHost extends AppHost {
     public var scheduler as FakeScheduler;
     public var clock as FakeClock;
     public var link as FakePhoneLink;
     public var effects as FakeEffects;
+    public var recorder as FakeActivityRecorder;
+    public var store as FakeSessionStore;
     public var shows as Number;
 
     public function initialize(epochSeconds as Number) {
@@ -253,11 +325,21 @@ class FakeHost extends AppHost {
         clock = new FakeClock(scheduler, epochSeconds);
         link = new FakePhoneLink();
         effects = new FakeEffects();
+        recorder = new FakeActivityRecorder();
+        store = new FakeSessionStore();
         shows = 0;
     }
 
     public function newTracker(balls as Number) as TrackerSession? {
-        return new TrackerSession(balls, link, scheduler, clock, effects);
+        return new TrackerSession(balls, null, link, scheduler, clock, effects, recorder, store);
+    }
+
+    public function resumeTracker() as TrackerSession? {
+        var saved = store.load();
+        if (saved == null) {
+            return null;
+        }
+        return new TrackerSession(AppNavigator.MIN_BALLS, saved, link, scheduler, clock, effects, recorder, store);
     }
 
     public function newRecording(balls as Number) as RecordingSession? {

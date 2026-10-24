@@ -50,6 +50,9 @@ class MainView extends WatchUi.View {
 
     public function onShow() as Void {
         startSensor();
+        // The Previous session menu at launch (LATER-1) can only be pushed
+        // once this view is on screen.
+        _session.onShown();
     }
 
     public function onHide() as Void {

@@ -45,6 +45,7 @@ Each step is an object with one key.
 | `{"epochAdvance": s}` | Moves the wall clock on. |
 | `{"deliver": true \| false}` | Reports the latest message as delivered or failed (`"index": i` for an earlier one). |
 | `{"deliverAll": true}` | Delivers this and every later message, and lets time run until the session or the run's `rec_end` is out. |
+| `{"relaunch": true}` | The app closes, if it has not closed itself, and opens again on the same watch: kept sessions and the clock carry over. |
 | `{"phone": {...}}` | A message from the phone, usually `{"type": "ack", "timestamp": ...}`. |
 | `{"expect": {...}}` | Checks the state; every key given must match. |
 
@@ -63,5 +64,9 @@ Samples are milli-g at 25 Hz with gravity on Z, as the sensor delivers them.
 | `error` | The error banner, or `null`. |
 | `exits`, `vibrations` | How often the app closed itself and buzzed. |
 | `sentTypes` | The `type` of every message sent, with repeats in a row folded into one, so chunk sizes do not matter. |
+| `stored` | Whether a session is kept for later (LATER-1). |
+| `activityState` | The watch's activity: `none`, `recording` or `paused` (ACT-2). |
+| `activitiesSaved`, `activityAverages` | How many activities were saved, and the average catches per run each was saved with. |
+| `elapsed` | The Juggle screen's session time in seconds. |
 | `sentCount` | How many messages were sent. Avoid it where chunk counts differ between watches. |
 | `firstSent`, `lastSent` | Fields the first or last message sent must carry; `null` means the field must be absent. |

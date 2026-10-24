@@ -1,0 +1,61 @@
+{
+  "name": "A continued session's time carries on from where Continue later stopped it",
+  "requirements": [
+    "LATER-2",
+    "SYNC-1"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "catches": 3
+    },
+    {
+      "idle": 60
+    },
+    {
+      "wait": 30000
+    },
+    {
+      "press": "start"
+    },
+    {
+      "select": "continue_later"
+    },
+    {
+      "relaunch": true
+    },
+    {
+      "wait": 600000
+    },
+    {
+      "select": "continue_session"
+    },
+    {
+      "wait": 20000
+    },
+    {
+      "press": "start"
+    },
+    {
+      "select": "sync_quit"
+    },
+    {
+      "expect": {
+        "lastSent": {
+          "durationSeconds": 50,
+          "runs": [
+            3
+          ]
+        }
+      }
+    }
+  ]
+}

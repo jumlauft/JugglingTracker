@@ -135,6 +135,17 @@ class ScenarioRunner {
         }
     }
 
+    // The app closes, if it has not closed itself, and opens again: a new
+    // navigator on the same watch, with the same storage and clock.
+    public function relaunch() as Void {
+        if (!begin()) { return; }
+        var juggle = _navigator.tracker;
+        if (_navigator.screen == AppNavigator.SCREEN_TRACKER && juggle != null) {
+            juggle.onAppStop();
+        }
+        _navigator = new AppNavigator(_host, AppNavigator.ENABLE_RECORDING_MODE);
+    }
+
     public function phone(data as Dictionary) as Void {
         if (!begin()) { return; }
         _host.link.phone(data);
@@ -259,6 +270,11 @@ class ScenarioRunner {
         if (key.equals("vibrations")) { return effects.vibrations; }
         if (key.equals("sentTypes")) { return collapsed(_host.link.types()); }
         if (key.equals("sentCount")) { return _host.link.sent.size(); }
+        if (key.equals("stored")) { return _host.store.value != null; }
+        if (key.equals("activityState")) { return _host.recorder.state; }
+        if (key.equals("activitiesSaved")) { return _host.recorder.savedAverages.size(); }
+        if (key.equals("activityAverages")) { return _host.recorder.savedAverages; }
+        if (key.equals("elapsed")) { return juggle == null ? null : juggle.elapsedSeconds(); }
         if (isKnownKey(key)) {
             return null;   // a screen-specific key while another screen shows
         }
@@ -267,7 +283,7 @@ class ScenarioRunner {
     }
 
     private function isKnownKey(key as String) as Boolean {
-        var known = ["runActive", "previous", "runs", "max", "sending",
+        var known = ["runActive", "previous", "runs", "max", "sending", "elapsed",
             "phase", "runsCompleted", "detected", "label", "recordedSamples"];
         for (var i = 0; i < known.size(); i++) {
             if (known[i].equals(key)) {

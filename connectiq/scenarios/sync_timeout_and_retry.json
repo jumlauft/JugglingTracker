@@ -1,8 +1,9 @@
 {
   "name": "No ack in time opens the retry menu; Retry sends the same session again",
   "requirements": [
-    "SYNC-2",
-    "JUG-8"
+    "JUG-8",
+    "JUG-9",
+    "SYNC-2"
   ],
   "steps": [
     {
@@ -40,11 +41,13 @@
         "menuItems": [
           "sync_retry",
           "nosync_quit",
+          "continue_later",
           "continue_session"
         ],
         "menuLabels": [
           "Retry sync",
           "Quit without sync",
+          "Continue later",
           "Continue"
         ]
       }

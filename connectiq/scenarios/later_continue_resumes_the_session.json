@@ -1,0 +1,162 @@
+{
+  "name": "Continue later keeps the session; reopening offers it first and Continue carries on where it stopped",
+  "requirements": [
+    "JUG-9",
+    "LATER-1",
+    "LATER-2",
+    "ACT-2",
+    "ACT-3"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "expect": {
+        "activityState": "recording",
+        "stored": false
+      }
+    },
+    {
+      "catches": 3
+    },
+    {
+      "idle": 60
+    },
+    {
+      "catches": 4
+    },
+    {
+      "idle": 60
+    },
+    {
+      "press": "start"
+    },
+    {
+      "expect": {
+        "menu": "session_end",
+        "activityState": "paused"
+      }
+    },
+    {
+      "select": "continue_later"
+    },
+    {
+      "expect": {
+        "exits": 1,
+        "stored": true,
+        "activitiesSaved": 1,
+        "activityAverages": [
+          3.5
+        ],
+        "activityState": "none"
+      }
+    },
+    {
+      "relaunch": true
+    },
+    {
+      "expect": {
+        "screen": "tracker",
+        "menu": "resume_session",
+        "menuTitle": "Previous session",
+        "menuItems": [
+          "continue_session",
+          "sync_quit",
+          "discard_session"
+        ],
+        "menuLabels": [
+          "Continue",
+          "Sync and quit",
+          "Discard"
+        ],
+        "menuSubLabels": [
+          "3 balls, 2 runs",
+          null,
+          null
+        ],
+        "balls": 3,
+        "runs": 2,
+        "previous": 4,
+        "max": 4,
+        "activityState": "none"
+      }
+    },
+    {
+      "press": "start"
+    },
+    {
+      "expect": {
+        "menu": "resume_session"
+      }
+    },
+    {
+      "select": "continue_session"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "expect": {
+        "menu": null,
+        "activityState": "recording",
+        "runs": 2
+      }
+    },
+    {
+      "catches": 5
+    },
+    {
+      "idle": 60
+    },
+    {
+      "expect": {
+        "runs": 3,
+        "previous": 5,
+        "max": 5
+      }
+    },
+    {
+      "press": "start"
+    },
+    {
+      "select": "sync_quit"
+    },
+    {
+      "expect": {
+        "lastSent": {
+          "type": "session",
+          "balls": 3,
+          "runs": [
+            3,
+            4,
+            5
+          ]
+        }
+      }
+    },
+    {
+      "phone": {
+        "type": "ack",
+        "timestamp": 1700000000
+      }
+    },
+    {
+      "expect": {
+        "exits": 2,
+        "stored": false,
+        "activitiesSaved": 2,
+        "activityAverages": [
+          3.5,
+          5.0
+        ]
+      }
+    }
+  ]
+}

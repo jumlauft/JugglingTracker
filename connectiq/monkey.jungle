@@ -1,1 +1,8 @@
 project.manifest = manifest.xml
+
+# ACT-4: the Garmin Connect activity (GarminActivityRecorder) is left out of
+# the watches with too little memory for it; they keep everything else.
+base.excludeAnnotations = no_activity_recorder
+instinct2.excludeAnnotations = activity_recorder
+instinct2s.excludeAnnotations = activity_recorder
+descentg1.excludeAnnotations = activity_recorder

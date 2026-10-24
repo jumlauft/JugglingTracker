@@ -1,5 +1,8 @@
+import Toybox.ActivityRecording;
+import Toybox.Application;
 import Toybox.Attention;
 import Toybox.Communications;
+import Toybox.FitContributor;
 import Toybox.Lang;
 import Toybox.System;
 import Toybox.Time;
@@ -185,8 +188,18 @@ class GarminAppHost extends AppHost {
     }
 
     public function newTracker(balls as Number) as TrackerSession? {
-        return new TrackerSession(balls, new GarminPhoneLink(), new GarminScheduler(),
-            new GarminClock(), new GarminEffects());
+        return new TrackerSession(balls, null, new GarminPhoneLink(), new GarminScheduler(),
+            new GarminClock(), new GarminEffects(), makeActivityRecorder(), new GarminSessionStore());
+    }
+
+    public function resumeTracker() as TrackerSession? {
+        var store = new GarminSessionStore();
+        var saved = store.load();
+        if (saved == null) {
+            return null;
+        }
+        return new TrackerSession(AppNavigator.MIN_BALLS, saved, new GarminPhoneLink(), new GarminScheduler(),
+            new GarminClock(), new GarminEffects(), makeActivityRecorder(), store);
     }
 
     public function newRecording(balls as Number) as RecordingSession? {
@@ -224,4 +237,143 @@ class GarminAppHost extends AppHost {
         }
         return new ModeSelectView(navigator);
     }
+}
+
+// A session kept with Continue later, in Application.Storage so it survives
+// the app closing, a restart of the watch and other activities in between
+// (LATER-1).
+class GarminSessionStore extends SessionStore {
+    private const KEY = "kept_session";
+
+    public function initialize() {
+        SessionStore.initialize();
+    }
+
+    public function load() as Dictionary? {
+        var value = Application.Storage.getValue(KEY);
+        return value instanceof Dictionary ? value : null;
+    }
+
+    public function save(session as Dictionary) as Void {
+        Application.Storage.setValue(KEY, session as Application.PropertyValueType);
+    }
+
+    public function clear() as Void {
+        Application.Storage.deleteValue(KEY);
+    }
+}
+
+// ACT-1: each stretch of juggling becomes a Garmin Connect activity named
+// "Juggling session", sport Training, with the ball count and the stretch's
+// average catches per run as its own fields (labelled in
+// resources/fit_contributions.xml). Strava gets it through Garmin Connect.
+//
+// Connect IQ cannot keep or reopen an activity once the app has closed, so a
+// session continued later becomes a second activity (ACT-3). The activity is
+// therefore always saved before the app closes, never left open: a recording
+// left open by a closed app is orphaned and can block the watch's activity
+// list until a restart.
+(:activity_recorder)
+class GarminActivityRecorder extends ActivityRecorder {
+    private const BALLS_FIELD_ID = 0;
+    private const AVERAGE_FIELD_ID = 1;
+
+    private var _session as ActivityRecording.Session?;
+    private var _balls as FitContributor.Field?;
+    private var _average as FitContributor.Field?;
+
+    public function initialize() {
+        ActivityRecorder.initialize();
+        _session = null;
+        _balls = null;
+        _average = null;
+    }
+
+    public function start() as Void {
+        if (_session != null || !(Toybox has :ActivityRecording)) {
+            return;
+        }
+        try {
+            var session = ActivityRecording.createSession({
+                :name => "Juggling session",
+                :sport => ActivityRecording.SPORT_TRAINING,
+                :subSport => ActivityRecording.SUB_SPORT_GENERIC
+            });
+            _balls = session.createField("balls", BALLS_FIELD_ID, FitContributor.DATA_TYPE_UINT8,
+                { :mesgType => FitContributor.MESG_TYPE_SESSION, :units => "balls" });
+            _average = session.createField("avg_catches", AVERAGE_FIELD_ID, FitContributor.DATA_TYPE_FLOAT,
+                { :mesgType => FitContributor.MESG_TYPE_SESSION, :units => "catches" });
+            session.start();
+            _session = session;
+        } catch (ex) {
+            // Juggling still works without an activity.
+            System.println("Activity not started: " + ex.getErrorMessage());
+            _session = null;
+        }
+    }
+
+    public function pause() as Void {
+        var session = _session;
+        if (session != null && session.isRecording()) {
+            session.stop();
+        }
+    }
+
+    public function resume() as Void {
+        var session = _session;
+        if (session != null && !session.isRecording()) {
+            session.start();
+        }
+    }
+
+    public function save(balls as Number, average as Float) as Void {
+        var session = _session;
+        if (session == null) {
+            return;
+        }
+        var ballsField = _balls;
+        var averageField = _average;
+        if (ballsField != null) {
+            ballsField.setData(balls);
+        }
+        if (averageField != null) {
+            averageField.setData(average);
+        }
+        if (session.isRecording()) {
+            session.stop();
+        }
+        session.save();
+        release();
+    }
+
+    public function discard() as Void {
+        var session = _session;
+        if (session == null) {
+            return;
+        }
+        if (session.isRecording()) {
+            session.stop();
+        }
+        session.discard();
+        release();
+    }
+
+    private function release() as Void {
+        _session = null;
+        _balls = null;
+        _average = null;
+    }
+}
+
+(:activity_recorder)
+function makeActivityRecorder() as ActivityRecorder {
+    return new GarminActivityRecorder();
+}
+
+// ACT-4: watches with too little memory for an activity (Instinct 2 and 2S,
+// Descent G1, see monkey.jungle) build this one: juggling and Continue
+// later work as everywhere else, only no activity is saved.
+(:no_activity_recorder)
+function makeActivityRecorder() as ActivityRecorder {
+    return new ActivityRecorder();
 }

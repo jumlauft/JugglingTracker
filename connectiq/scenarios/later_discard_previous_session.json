@@ -1,0 +1,58 @@
+{
+  "name": "Discard on the Previous session menu deletes it and goes to the first screen",
+  "requirements": [
+    "LATER-4"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "catches": 3
+    },
+    {
+      "idle": 60
+    },
+    {
+      "press": "start"
+    },
+    {
+      "select": "continue_later"
+    },
+    {
+      "relaunch": true
+    },
+    {
+      "select": "discard_session"
+    },
+    {
+      "expect": {
+        "screen": "modeSelect",
+        "recordMode": false,
+        "stored": false,
+        "exits": 1,
+        "sentCount": 0
+      }
+    },
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "expect": {
+        "screen": "tracker",
+        "runs": 0,
+        "menu": null,
+        "activityState": "recording"
+      }
+    }
+  ]
+}

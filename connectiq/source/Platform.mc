@@ -119,6 +119,49 @@ class MenuItemSpec {
     }
 }
 
+// The watch's own activity for the stretch being juggled: a Garmin Connect
+// activity on the Garmin (ACT-1). TrackerSession starts it when juggling
+// starts, pauses it while the session-end menu is up and ends it when the app
+// closes: saved with the stretch's stats when the stretch has a run, else
+// discarded (ACT-2). Watches without the memory for it get this no-op one.
+class ActivityRecorder {
+    public function initialize() {
+    }
+
+    public function start() as Void {
+    }
+
+    public function pause() as Void {
+    }
+
+    public function resume() as Void {
+    }
+
+    // `average` is the stretch's catches per run.
+    public function save(balls as Number, average as Float) as Void {
+    }
+
+    public function discard() as Void {
+    }
+}
+
+// Where a session kept with Continue later waits for the app to open again
+// (LATER-1): Application.Storage on the watch, a plain field in the tests.
+class SessionStore {
+    public function initialize() {
+    }
+
+    public function load() as Dictionary? {
+        return null;
+    }
+
+    public function save(session as Dictionary) as Void {
+    }
+
+    public function clear() as Void {
+    }
+}
+
 // Where AppNavigator gets its sessions and shows its screens. The watch's
 // GarminAppHost switches views; the tests' FakeHost only records.
 class AppHost {
@@ -130,6 +173,12 @@ class AppHost {
     }
 
     public function newRecording(balls as Number) as RecordingSession? {
+        return null;
+    }
+
+    // The session kept with Continue later, reopened with its Previous
+    // session menu up, or null when none is kept (LATER-1).
+    public function resumeTracker() as TrackerSession? {
         return null;
     }
 

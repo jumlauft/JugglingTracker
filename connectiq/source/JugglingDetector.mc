@@ -391,6 +391,31 @@ class JugglingDetector {
         return true;
     }
 
+    // The regularity of each completed run, as [window score sums, window
+    // counts], kept with a session saved for later (LATER-1).
+    public function shapeRuns() as Array<Array> {
+        return _shape.runs();
+    }
+
+    // Puts back the completed runs of a session kept with Continue later
+    // (LATER-2). Run count, total, max and previous are rebuilt from them.
+    public function restoreRuns(catches as Array<Number>, durationsMillis as Array<Number>,
+            shapeSums as Array<Float>, shapeCounts as Array<Number>) as Void {
+        _runCatches = catches;
+        _runDurationsMillis = durationsMillis;
+        _shape.restoreRuns(shapeSums, shapeCounts);
+        _sessionRuns = catches.size();
+        _sessionTotal = 0;
+        sessionMax = 0;
+        for (var i = 0; i < catches.size(); i++) {
+            _sessionTotal += catches[i];
+            if (catches[i] > sessionMax) {
+                sessionMax = catches[i];
+            }
+        }
+        previousCount = catches.size() > 0 ? catches[catches.size() - 1] : 0;
+    }
+
     // Apply the IIR highpass filter to one sample of the magnitude signal.
     // Returns the filtered value. Updates internal filter state.
     private function applyHighpass(x as Float) as Float {

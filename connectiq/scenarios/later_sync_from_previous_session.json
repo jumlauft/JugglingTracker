@@ -1,0 +1,84 @@
+{
+  "name": "Sync and quit on the Previous session menu sends the kept session under its first timestamp",
+  "requirements": [
+    "LATER-3",
+    "SYNC-5"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "catches": 3
+    },
+    {
+      "idle": 60
+    },
+    {
+      "press": "start"
+    },
+    {
+      "select": "sync_quit"
+    },
+    {
+      "wait": 10000
+    },
+    {
+      "expect": {
+        "menuTitle": "Sync failed",
+        "error": "Sync failed"
+      }
+    },
+    {
+      "select": "continue_later"
+    },
+    {
+      "expect": {
+        "exits": 1,
+        "stored": true,
+        "activitiesSaved": 1
+      }
+    },
+    {
+      "epochAdvance": 3600
+    },
+    {
+      "relaunch": true
+    },
+    {
+      "select": "sync_quit"
+    },
+    {
+      "expect": {
+        "sending": true,
+        "activityState": "none",
+        "lastSent": {
+          "type": "session",
+          "timestamp": 1700000000,
+          "runs": [
+            3
+          ]
+        }
+      }
+    },
+    {
+      "phone": {
+        "type": "ack",
+        "timestamp": 1700000000
+      }
+    },
+    {
+      "expect": {
+        "exits": 2,
+        "stored": false,
+        "activitiesSaved": 1
+      }
+    }
+  ]
+}
