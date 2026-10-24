@@ -137,7 +137,9 @@ protocol tests in `../shared/src/test`, the Robolectric UI tests in
 | DET-11 | `DetectorCorpusTest`: every recording in `connectiq/data` gives exactly the count pinned in `simulation/test_detection.py` |
 | RUN-1..6 | `JugglingDetectorTest` |
 | SHAPE-1..4 | `ShapeConsistencyTest` (it replays the four labelled runs in `simulation/regularity_data`), `TrackerSessionTest` for the screen and the session payload |
-| JUG-1..8 | `TrackerSessionTest`, `WearAppTest`, `WearAppEmulatorTest` |
+| JUG-1..9 | `TrackerSessionTest`, `WearAppTest`, `WearAppEmulatorTest` |
+| LATER-1..5 | `ScenarioTest` (the `later_*` scenarios). The kept session is JSON in SharedPreferences (`PrefsSessionStore`). LATER-6 is Garmin-only: here the session lives with the process and its foreground service, as before |
+| ACT-1..3 | Not yet on Wear OS: Health Connect runs on the phone, not the watch, so a Wear OS session is to reach it through the phone app in a later change. `TrackerSession` already drives an `ActivityRecorder` (the shared scenarios check it with a fake); the app passes `NoActivityRecorder` |
 | SENS-1, 2 | The sensor runs while a tracking screen is visible and `AccelerometerSource.start()` is idempotent. Menus are drawn in place rather than pushed as views, so they cannot drop the listener; detection still pauses under a menu, as on the Garmin (`TrackerSessionTest`) |
 | SENS-3 | Not applicable: Android does not pad sensor batches with nulls |
 | SENS-4 | `WatchRuntime` passes a failed `AccelerometerSource.start()` to `WearApp`, which shows `SensorErrorScreen` on the tracking screens (`WearAppEmulatorTest`) |

@@ -154,6 +154,20 @@ class ShapeConsistency {
         }
     }
 
+    /** Each completed run's window score sum, in order. */
+    fun runSums(): List<Double> = runSums.toList()
+
+    /** Each completed run's window count, in order. */
+    fun runCounts(): List<Int> = runCounts.toList()
+
+    /** Puts back the completed runs of a session kept for later. */
+    fun restoreRuns(sums: List<Double>, counts: List<Int>) {
+        runSums.clear()
+        runSums.addAll(sums)
+        runCounts.clear()
+        runCounts.addAll(counts)
+    }
+
     /** Whole percentage over the session, or -1 before any window counts. */
     fun sessionPercent(): Int {
         val count = runCounts.sum()

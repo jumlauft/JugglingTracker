@@ -178,6 +178,26 @@ class JugglingDetector(val ballCount: Int) {
      */
     fun shapeConsistencyPercent(): Int = shape.sessionPercent()
 
+    /** Each completed run's regularity window score sum, kept with a session saved for later. */
+    fun shapeRunSums(): List<Double> = shape.runSums()
+
+    /** Each completed run's regularity window count. */
+    fun shapeRunCounts(): List<Int> = shape.runCounts()
+
+    /**
+     * Puts back the completed runs of a session kept with Continue later
+     * (LATER-2). Run count, total, max and previous are rebuilt from them.
+     */
+    fun restoreRuns(catches: List<Int>, durationsMillis: List<Long>, shapeSums: List<Double>, shapeCounts: List<Int>) {
+        runCatches = catches.toMutableList()
+        runDurationsMillis = durationsMillis.toMutableList()
+        shape.restoreRuns(shapeSums, shapeCounts)
+        sessionRuns = catches.size
+        sessionTotal = catches.sum()
+        sessionMax = catches.maxOrNull() ?: 0
+        previousCount = catches.lastOrNull() ?: 0
+    }
+
     /** Feed one raw accelerometer sample in milli-g at time [nowMs]. */
     fun processSample(gxMilliG: Int, gyMilliG: Int, gzMilliG: Int, nowMs: Long) {
         // Before detection, so it sees every sample, warmup included.

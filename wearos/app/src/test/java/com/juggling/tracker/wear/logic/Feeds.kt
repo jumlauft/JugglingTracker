@@ -122,3 +122,46 @@ class FakeEffects : WatchEffects {
         exits += 1
     }
 }
+
+/** The watch's activity: what state it is in and what was saved. */
+class FakeActivityRecorder : ActivityRecorder {
+    var state = "none"
+    /** The average catches per run of every activity saved, in order. */
+    val savedAverages = mutableListOf<Double>()
+    var discarded = 0
+
+    override fun start() {
+        state = "recording"
+    }
+
+    override fun pause() {
+        if (state == "recording") state = "paused"
+    }
+
+    override fun resume() {
+        if (state == "paused") state = "recording"
+    }
+
+    override fun save(balls: Int, average: Double) {
+        state = "none"
+        savedAverages += average
+    }
+
+    override fun discard() {
+        state = "none"
+        discarded += 1
+    }
+}
+
+/** The kept session as one field, kept across relaunches of the app. */
+class FakeSessionStore : SessionStore {
+    var value: KeptSession? = null
+    override fun load() = value
+    override fun save(session: KeptSession) {
+        value = session
+    }
+
+    override fun clear() {
+        value = null
+    }
+}

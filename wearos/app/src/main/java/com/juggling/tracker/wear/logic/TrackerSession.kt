@@ -25,7 +25,10 @@ data class TrackerUiState(
     val syncDots: Int = 0,
     val menu: MenuSpec? = null,
     val exited: Boolean = false,
-)
+) {
+    /** A kept session reopened and waiting on its Previous session menu (LATER-1). */
+    val isWaitingToResume: Boolean get() = menu?.kind == TrackerSession.MENU_RESUME
+}
 
 /**
  * Juggle mode: the Wear OS counterpart of `connectiq/source/TrackerSession.mc`.
@@ -34,6 +37,9 @@ data class TrackerUiState(
  *
  * Inputs map onto the Garmin buttons: [onStartStop] is START/STOP, [onBack]
  * is BACK, and a menu reports through [onMenuSelect] / [onMenuBack].
+ *
+ * With [saved], it is the session kept with Continue later, reopened with its
+ * Previous session menu up (LATER-1); its ball count then comes from [saved].
  */
 class TrackerSession(
     ballCount: Int,
@@ -42,6 +48,9 @@ class TrackerSession(
     private val clock: MonotonicClock,
     private val effects: WatchEffects,
     private val epochSeconds: () -> Long = { System.currentTimeMillis() / 1000L },
+    private val recorder: ActivityRecorder = NoActivityRecorder,
+    private val store: SessionStore = NoSessionStore,
+    saved: KeptSession? = null,
 ) {
     companion object {
         // The full round trip (watch -> phone -> ack -> watch) can take a few
@@ -52,18 +61,21 @@ class TrackerSession(
 
         const val MENU_SESSION_END = "session_end"
         const val MENU_DISCARD = "discard_run"
+        const val MENU_RESUME = "resume_session"
 
         const val ITEM_SYNC_QUIT = "sync_quit"
         const val ITEM_SYNC_RETRY = "sync_retry"
         const val ITEM_NOSYNC_QUIT = "nosync_quit"
         const val ITEM_CONTINUE = "continue_session"
+        const val ITEM_CONTINUE_LATER = "continue_later"
+        const val ITEM_DISCARD_SESSION = "discard_session"
         const val ITEM_DISCARD_YES = "discard_yes"
         const val ITEM_DISCARD_NO = "discard_no"
 
         const val SYNC_FAILED = "Sync failed"
     }
 
-    private val detector = JugglingDetector(ballCount)
+    private val detector = JugglingDetector(saved?.balls ?: ballCount)
     private val sessionStartMs = clock.nowMs()
     private var sessionEndMs: Long? = null
     // Time spent in the session-end menu before picking Continue. The session
@@ -74,6 +86,18 @@ class TrackerSession(
     // after Continue resends the whole session under the same id, so the
     // phone replaces its first copy instead of storing the runs twice (SYNC-5).
     private var sessionTimestamp: Long? = null
+    // Session time from before the app was last closed with Continue later.
+    private var priorSeconds = 0L
+    // The watch's activity for this stretch of juggling (ACT-1, ACT-2): one
+    // per time the app is open, as on the Garmin.
+    private var activityStarted = false
+    private var activityEnded = false
+    // Runs completed before this stretch began; the activity's stats cover
+    // only the runs after them.
+    private var stretchFirstRun = 0
+
+    /** Told when the Previous session is discarded, so the navigator shows the first screen (LATER-4). */
+    var onDiscarded: (() -> Unit)? = null
 
     private var sending = false
     private var errorMessage: String? = null
@@ -94,6 +118,8 @@ class TrackerSession(
     init {
         // Listen for the phone's acknowledgement that a session was stored.
         link.setMessageListener(::onPhoneMessage)
+        if (saved != null) restore(saved) else startActivity()
+        publish()
     }
 
     /**
@@ -132,6 +158,8 @@ class TrackerSession(
         if (menu != null || exited) return
         if (!isRetry && sessionEndMs == null) {
             sessionEndMs = clock.nowMs()
+            // ACT-2: the activity's timer stands still with the session clock.
+            if (activityStarted && !activityEnded) recorder.pause()
         }
         val items = buildList {
             if (isRetry) {
@@ -140,6 +168,7 @@ class TrackerSession(
                 add(MenuItemSpec(ITEM_SYNC_QUIT, "Sync and quit"))
             }
             add(MenuItemSpec(ITEM_NOSYNC_QUIT, "Quit without sync"))
+            add(MenuItemSpec(ITEM_CONTINUE_LATER, "Continue later"))
             add(MenuItemSpec(ITEM_CONTINUE, "Continue"))
         }
         menu = MenuSpec(MENU_SESSION_END, if (isRetry) SYNC_FAILED else "End session?", items)
@@ -181,7 +210,7 @@ class TrackerSession(
         menu = null
         when (open.kind) {
             MENU_DISCARD -> onDiscardResponse(itemId == ITEM_DISCARD_YES)
-            MENU_SESSION_END -> when (itemId) {
+            MENU_SESSION_END, MENU_RESUME -> when (itemId) {
                 ITEM_SYNC_QUIT -> doSync()
                 ITEM_SYNC_RETRY -> {
                     errorMessage = null
@@ -191,6 +220,8 @@ class TrackerSession(
                     cancelSyncTimer()
                     exit()
                 }
+                ITEM_CONTINUE_LATER -> continueLater()
+                ITEM_DISCARD_SESSION -> discardSession()
                 ITEM_CONTINUE -> onContinueSession()
             }
         }
@@ -207,6 +238,11 @@ class TrackerSession(
         when (open.kind) {
             MENU_DISCARD -> onDiscardResponse(false)
             MENU_SESSION_END -> onContinueSession()
+            // LATER-5: the session stays kept, as it was, and the app closes.
+            MENU_RESUME -> {
+                cancelSyncTimer()
+                exitKeeping()
+            }
         }
         publish()
     }
@@ -223,6 +259,8 @@ class TrackerSession(
         // Resume the session clock from where the menu stopped it.
         sessionEndMs?.let { pausedMs += clock.nowMs() - it }
         sessionEndMs = null
+        // ACT-2: the activity runs on, or starts for a Previous session.
+        if (!activityStarted) startActivity() else if (!activityEnded) recorder.resume()
         // JUG-8: nothing is failing any more once the user is juggling again.
         errorMessage = null
         // JUG-8: abandon the sync. Its ack can still arrive late, and with the
@@ -368,18 +406,118 @@ class TrackerSession(
         syncDots = 0
     }
 
+    // ── Continue later (LATER-1..5) and the activity (ACT-1, ACT-2) ───
+
+    /** JUG-9: keeps the session and closes the app; with no completed run it just closes. */
+    private fun continueLater() {
+        cancelSyncTimer()
+        if (keepForLater()) exitKeeping() else exit()
+    }
+
+    /** Writes the session to the store; false when it has no completed run. */
+    private fun keepForLater(): Boolean {
+        detector.finishCurrentRun()
+        if (sessionEndMs == null) sessionEndMs = clock.nowMs()
+        val runs = detector.runCatches()
+        if (runs.isEmpty()) return false
+        store.save(
+            KeptSession(
+                balls = detector.ballCount,
+                elapsedSeconds = sessionDurationSeconds(),
+                runs = runs,
+                runDurationsMillis = detector.runDurationsMillis(),
+                shapeSums = detector.shapeRunSums(),
+                shapeCounts = detector.shapeRunCounts(),
+                timestamp = sessionTimestamp,
+            ),
+        )
+        return true
+    }
+
+    /**
+     * Reopens a kept session (LATER-1): its runs, time and phone timestamp,
+     * with the clock stopped and the Previous session menu up until answered.
+     */
+    private fun restore(saved: KeptSession) {
+        val runs = saved.runs
+        val durations = saved.runDurationsMillis.take(runs.size) +
+            List((runs.size - saved.runDurationsMillis.size).coerceAtLeast(0)) { 0L }
+        val shapeOk = saved.shapeSums.size == runs.size && saved.shapeCounts.size == runs.size
+        detector.restoreRuns(
+            runs,
+            durations,
+            if (shapeOk) saved.shapeSums else List(runs.size) { 0.0 },
+            if (shapeOk) saved.shapeCounts else List(runs.size) { 0 },
+        )
+        stretchFirstRun = runs.size
+        priorSeconds = saved.elapsedSeconds
+        sessionTimestamp = saved.timestamp
+        sessionEndMs = clock.nowMs()
+        val detail = "${detector.ballCount} balls, ${runs.size} ${if (runs.size == 1) "run" else "runs"}"
+        menu = MenuSpec(
+            MENU_RESUME,
+            "Previous session",
+            listOf(
+                MenuItemSpec(ITEM_CONTINUE, "Continue", detail),
+                MenuItemSpec(ITEM_SYNC_QUIT, "Sync and quit"),
+                MenuItemSpec(ITEM_DISCARD_SESSION, "Discard"),
+            ),
+        )
+    }
+
+    /** LATER-4: throws the kept session away and goes to the first screen. */
+    private fun discardSession() {
+        store.clear()
+        exitQuietly()
+        onDiscarded?.invoke()
+    }
+
+    private fun startActivity() {
+        activityStarted = true
+        stretchFirstRun = detector.sessionRuns()
+        recorder.start()
+    }
+
+    /** ACT-2: saved with this stretch's stats when it has a run, else discarded. */
+    private fun endActivity() {
+        if (!activityStarted || activityEnded) return
+        activityEnded = true
+        val runs = detector.runCatches()
+        val stretch = runs.drop(stretchFirstRun.coerceAtMost(runs.size))
+        if (stretch.isEmpty()) {
+            recorder.discard()
+        } else {
+            recorder.save(detector.ballCount, stretch.sum().toDouble() / stretch.size)
+        }
+    }
+
+    /** Closes the app with the session finished: nothing stays kept. */
     private fun exit() {
+        if (exited) return
+        store.clear()
+        exitKeeping()
+    }
+
+    /** Closes the app, leaving the store as it is. */
+    private fun exitKeeping() {
+        if (exited) return
+        exitQuietly()
+        effects.exit()
+    }
+
+    /** Ends the session without closing the app. */
+    private fun exitQuietly() {
         if (exited) return
         exited = true
         cancelSyncTimer()
         cancelStatusTimer()
         link.setMessageListener(null)
-        effects.exit()
+        endActivity()
     }
 
     private fun sessionDurationSeconds(): Long {
         val end = sessionEndMs ?: clock.nowMs()
-        return ((end - sessionStartMs - pausedMs).coerceAtLeast(0L)) / 1000L
+        return priorSeconds + ((end - sessionStartMs - pausedMs).coerceAtLeast(0L)) / 1000L
     }
 
     private fun publish() {

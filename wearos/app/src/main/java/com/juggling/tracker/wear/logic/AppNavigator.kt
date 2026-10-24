@@ -34,6 +34,8 @@ class AppNavigator(
     private val newRecording: (balls: Int) -> RecordingSession,
     private val effects: WatchEffects,
     private val enableRecordingMode: Boolean = ENABLE_RECORDING_MODE,
+    /** The session kept with Continue later, reopened, or null when none is kept (LATER-1). */
+    resumeTracker: () -> TrackerSession? = { null },
 ) {
     companion object {
         /**
@@ -44,10 +46,22 @@ class AppNavigator(
         const val ENABLE_RECORDING_MODE = true
     }
 
-    private val _screen = MutableStateFlow<Screen>(
-        if (enableRecordingMode) Screen.ModeSelect() else Screen.BallSelect(TrackingMode.JUGGLE),
-    )
+    private val _screen = MutableStateFlow(firstScreen())
     val screen: StateFlow<Screen> = _screen.asStateFlow()
+
+    init {
+        // LATER-1: a session kept with Continue later comes first. The app
+        // opens on it, with its Previous session menu up, and no new session
+        // can start until that is answered.
+        resumeTracker()?.let { resumed ->
+            // LATER-4: discarding it starts afresh.
+            resumed.onDiscarded = { _screen.value = firstScreen() }
+            _screen.value = Screen.Tracker(resumed)
+        }
+    }
+
+    private fun firstScreen(): Screen =
+        if (enableRecordingMode) Screen.ModeSelect() else Screen.BallSelect(TrackingMode.JUGGLE)
 
     /** UP. On mode select both UP and DOWN toggle (APP-2). */
     fun onUp() {

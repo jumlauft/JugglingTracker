@@ -54,3 +54,57 @@ data class MenuItemSpec(
     val label: String,
     val subLabel: String? = null,
 )
+
+/**
+ * The watch's own activity for the stretch being juggled (ACT-1, ACT-2), the
+ * counterpart of the Garmin's Garmin Connect activity. [TrackerSession]
+ * starts it when juggling starts, pauses it while the session-end menu is up
+ * and ends it when the app closes: saved with the stretch's stats when the
+ * stretch has a run, else discarded.
+ */
+interface ActivityRecorder {
+    fun start()
+    fun pause()
+    fun resume()
+    /** [average] is the stretch's catches per run. */
+    fun save(balls: Int, average: Double)
+    fun discard()
+}
+
+/**
+ * Wear OS records no activity yet: Health Connect runs on the phone, so the
+ * sessions are to reach it through the phone app (ACT-1, see the README).
+ */
+object NoActivityRecorder : ActivityRecorder {
+    override fun start() = Unit
+    override fun pause() = Unit
+    override fun resume() = Unit
+    override fun save(balls: Int, average: Double) = Unit
+    override fun discard() = Unit
+}
+
+/** Where a session kept with Continue later waits for the app to open again (LATER-1). */
+interface SessionStore {
+    fun load(): KeptSession?
+    fun save(session: KeptSession)
+    fun clear()
+}
+
+/** A session kept with Continue later (LATER-1). */
+data class KeptSession(
+    val balls: Int,
+    val elapsedSeconds: Long,
+    val runs: List<Int>,
+    val runDurationsMillis: List<Long>,
+    val shapeSums: List<Double>,
+    val shapeCounts: List<Int>,
+    /** The phone timestamp once the session has synced (SYNC-5). */
+    val timestamp: Long? = null,
+)
+
+/** Keeps nothing, for sessions that never continue later (tests that do not need it). */
+object NoSessionStore : SessionStore {
+    override fun load(): KeptSession? = null
+    override fun save(session: KeptSession) = Unit
+    override fun clear() = Unit
+}

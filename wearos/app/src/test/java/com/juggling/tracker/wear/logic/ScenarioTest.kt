@@ -53,12 +53,23 @@ private class ScenarioRun(private val scenario: JSONObject) {
     private val scheduler = FakeScheduler()
     private val link = FakePhoneLink()
     private val effects = FakeEffects()
+    private val recorder = FakeActivityRecorder()
+    private val store = FakeSessionStore()
     private var epoch = scenario.optLong("epochSeconds", 1_700_000_000L)
     private var t = 0L
-    private val navigator = AppNavigator(
-        newTracker = { balls -> TrackerSession(balls, link, scheduler, scheduler.clock, effects, epochSeconds = { epoch }) },
+    private var navigator = launch()
+
+    /** The app opening on this watch, with its storage and clock. */
+    private fun launch() = AppNavigator(
+        newTracker = { balls -> tracker(balls, null) },
         newRecording = { balls -> RecordingSession(balls, link, scheduler, effects, epochSeconds = { epoch }) },
         effects = effects,
+        resumeTracker = { store.load()?.let { tracker(it.balls, it) } },
+    )
+
+    private fun tracker(balls: Int, saved: KeptSession?) = TrackerSession(
+        balls, link, scheduler, scheduler.clock, effects, epochSeconds = { epoch },
+        recorder = recorder, store = store, saved = saved,
     )
 
     fun run() {
@@ -113,6 +124,9 @@ private class ScenarioRun(private val scenario: JSONObject) {
                     link.complete(step.getBoolean("deliver"))
                 }
             "deliverAll" -> deliverAll()
+            // The shared scenarios relaunch only after the app has closed
+            // itself, so there is nothing to close here first.
+            "relaunch" -> navigator = launch()
             "phone" -> link.listener?.invoke(toMap(step.getJSONObject("phone")))
             "expect" -> expect(step.getJSONObject("expect"))
             else -> fail("unknown step $key")
@@ -179,6 +193,11 @@ private class ScenarioRun(private val scenario: JSONObject) {
                 "vibrations" -> effects.vibrations
                 "sentTypes" -> collapsed(link.types)
                 "sentCount" -> link.sent.size
+                "stored" -> store.value != null
+                "activityState" -> recorder.state
+                "activitiesSaved" -> recorder.savedAverages.size
+                "activityAverages" -> recorder.savedAverages
+                "elapsed" -> tracker?.elapsedSeconds
                 "firstSent" -> { checkSubset("firstSent", value as JSONObject, link.sent.firstOrNull()); continue }
                 "lastSent" -> { checkSubset("lastSent", value as JSONObject, link.sent.lastOrNull()); continue }
                 else -> fail("unknown expectation $key").let { null }
