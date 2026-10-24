@@ -15,8 +15,22 @@ This document outlines the steps and assets needed to publish **Juggling Tracker
 
 - **App Icon**: 512x512 PNG. Render the `PlayStoreIconPreview` Compose preview in `app/src/main/java/com/juggling/tracker/ui/IconPreview.kt` and export it from Android Studio.
 - **Feature Graphic**: 1024x500 PNG. Render the `FeatureGraphicPreview` preview in `app/src/main/java/com/juggling/tracker/ui/FeatureGraphicPreview.kt` the same way.
-- **Screenshots**: At least 2 phone screenshots (portrait).
-    - *Tip*: Take screenshots of the Tracker screen and the Graph view.
+- **Screenshots**: the phone screenshots are in `store_assets/phone/`, in
+  the order the listing shows them. The `play-screenshots` label on a pull
+  request (or Actions > Play screenshots > Run workflow) uploads them to the
+  listing, replacing the old ones. They show the same made-up history as the
+  iPhone screenshots. To retake them on the Pixel 7a emulator (English,
+  light mode) with a debug build:
+    1. `python3 store_assets/make_demo_history.py > sessions.jsonl`, then
+       install the debug build, push the file with `adb push` and copy it to
+       `files/sessions.jsonl` with `adb shell run-as com.juggling.tracker`.
+    2. The emulator has no Garmin watch, so for the shots only, make the
+       Garmin card show "Ready" (in `MainActivity`, pass
+       `GarminConnectionStatus.READY` to `onGarminLinkStatus`); do not commit
+       that.
+    3. Set the status bar to 9:41 with the System UI demo mode and take
+       `adb exec-out screencap -p`: the 3-ball history, its newest session's
+       details (with Regularity), and the 5-ball history.
 - **Short Description**: (Max 80 chars)
     Counts your juggling catches with a Garmin or Wear OS watch, or your phone.
 - **Full Description**: (Max 4000 chars)
