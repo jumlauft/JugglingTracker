@@ -1,0 +1,58 @@
+{
+  "name": "Quit without sync still saves the activity and keeps nothing for later",
+  "requirements": [
+    "ACT-2",
+    "JUG-2"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "catches": 3
+    },
+    {
+      "idle": 60
+    },
+    {
+      "press": "start"
+    },
+    {
+      "select": "continue_session"
+    },
+    {
+      "expect": {
+        "activityState": "recording"
+      }
+    },
+    {
+      "catches": 4
+    },
+    {
+      "idle": 60
+    },
+    {
+      "press": "start"
+    },
+    {
+      "select": "nosync_quit"
+    },
+    {
+      "expect": {
+        "exits": 1,
+        "stored": false,
+        "activitiesSaved": 1,
+        "activityAverages": [
+          3.5
+        ],
+        "sentCount": 0
+      }
+    }
+  ]
+}

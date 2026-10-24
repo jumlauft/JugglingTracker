@@ -223,7 +223,7 @@ Discard run (START/STOP and BACK), the count, and the stats.
 *Verified by:* `test_watch_shows_and_transfers_shape_consistency`, `jug1_screenTextFormats`, `scenario_jug_runs_and_stats`, `scenario_jug_samples_ignored_under_menu`
 
 **JUG-2.** **START/STOP** opens the session-end menu: *Sync and quit*, *Quit
-without sync*, *Continue*. This is the only way to end a session. The
+without sync*, *Continue later* (JUG-9), *Continue*. This is the only way to end a session. The
 session time pauses while the menu is up; *Continue* resumes it from there, so
 time spent in the menu is never counted.
 *Verified by:* `jug2_menuTimeIsLeftOutOfTheSession`, `scenario_jug_quit_without_sync`, `scenario_jug_session_end_menu`
@@ -265,6 +265,91 @@ payload is dropped, its timers stop and its generation (SYNC-4) is retired,
 so a late `ack` cannot close the app mid-juggle and a late failure cannot
 open the retry menu over the live screen.
 *Verified by:* `scenario_sync_failure_continue`, `scenario_sync_timeout_and_retry`
+
+**JUG-9.** The session-end menu and the "Sync failed" menu both offer
+**Continue later**, between *Quit without sync* and *Continue*. It keeps the
+session on the watch (LATER-1) and closes the app. A session with no
+completed run has nothing worth keeping: it just closes, keeping nothing.
+*Verified by:* `scenario_jug_session_end_menu`, `scenario_sync_timeout_and_retry`, `scenario_later_continue_resumes_the_session`, `scenario_later_nothing_to_keep`
+
+---
+
+## LATER — continue a session later
+
+A session can be put aside and picked up again later, with other activities
+on the watch in between, the way the Garmin's own *Resume later* works.
+
+**LATER-1.** A kept session holds its completed runs, their durations and
+regularity, its ball count, its session time and, once it has synced, its
+phone timestamp (SYNC-5). It survives the app closing and the watch
+restarting. While one is kept, the app opens on the Juggle screen with a
+**Previous session** menu: *Continue* (sub-label `3 balls, 2 runs`), *Sync
+and quit*, *Discard*. The stats show the kept session, the clock stands
+still, samples are ignored, and no new session can start until it is
+answered.
+*Verified by:* `scenario_later_continue_resumes_the_session`, `later1_keptRegularityIsRestored`
+
+**LATER-2.** *Continue* picks the session up where it stopped: Prev, Runs,
+Avg, Max and Regularity carry on, and the session time counts on from the
+kept time. It ends again as any session does; ending it any way other than
+*Continue later* removes the kept copy.
+*Verified by:* `scenario_later_continue_resumes_the_session`, `scenario_later_session_time_carries_on`
+
+**LATER-3.** *Sync and quit* sends the kept session straight away as one
+session (SYNC-1), under its first timestamp if it had synced before, and
+closes on the phone's `ack` (SYNC-2). If it fails, *Continue later* on the
+"Sync failed" menu keeps it again.
+*Verified by:* `scenario_later_sync_from_previous_session`
+
+**LATER-4.** *Discard* deletes the kept session and goes to the first screen,
+ready for a new session. Activities already saved stay in Garmin Connect.
+*Verified by:* `scenario_later_discard_previous_session`
+
+**LATER-5.** Backing out of the Previous session menu keeps the session as it
+was and leaves the app; it is offered again next time. The Apple Watch, which
+cannot close an app, goes back to its first screen, which offers it again.
+*Verified by:* `scenario_later_back_keeps_previous_session`
+
+**LATER-6.** Garmin only: if the system closes the app with a session open
+(`AppBase.onStop`), the session is kept as with *Continue later* and its
+activity saved, so a closed app never loses the session or orphans its
+activity. A Previous session nobody answered stays kept as it was.
+*Verified by:* `later6_systemCloseKeepsTheSession`, `later6_systemCloseLeavesAnUnansweredPreviousSession`
+
+---
+
+## ACT — the activity on the watch
+
+**ACT-1.** Juggle mode records the juggling as the watch's own activity.
+Garmin: a Garmin Connect activity named **Juggling session**, sport
+*Other* (generic; *Training* showed as strength training), with two fields of its own, **Balls** and **Avg catches per
+run**; Strava gets it through Garmin Connect's own link. Apple Watch: a
+workout in the Health app (`Other`), with the ball count and average in its
+metadata. Wear OS: not yet; Health Connect runs on the phone, so the Wear OS
+sessions are to reach it through the phone app (see `../wearos/README.md`).
+Record mode records no activity.
+*Verified by:* `scenario_later_continue_resumes_the_session` (logic); the
+Garmin and HealthKit calls themselves need a watch and are not covered.
+
+**ACT-2.** The activity's timer runs only while juggling: it pauses when the
+session-end menu opens and runs on with *Continue*. It is saved when the app
+closes, whichever way (*Sync and quit*, *Quit without sync*, *Continue
+later*, LATER-6), with the ball count and the average catches per run of the
+runs completed while it ran. Without a completed run it is discarded, so no
+empty activity is ever saved.
+*Verified by:* `scenario_later_continue_resumes_the_session`, `scenario_act_quit_without_sync_saves_activity`, `scenario_later_nothing_to_keep`
+
+**ACT-3.** A session continued later gets a new activity for each time the
+app is open. Connect IQ cannot keep or reopen an activity once the app has
+closed, and a recording left open by a closed app is orphaned and can block
+the watch's activity list, so each stretch is saved before the app closes.
+The session itself stays one session on the watch and the phone.
+*Verified by:* `scenario_later_continue_resumes_the_session`
+
+**ACT-4.** Garmin watches without the memory for an activity (Instinct 2,
+Instinct 2S, Descent G1, about 4 KB of headroom) build without it
+(`monkey.jungle`); everything else, *Continue later* included, works there.
+*Verified by:* not automatically tested; it shows in the build for those devices.
 
 ---
 
@@ -329,9 +414,10 @@ current by then — aborting a retry that might otherwise have been succeeding.
 *Verified by:* `sync4_lateFailureFromAnAbandonedAttemptIsIgnored`
 
 **SYNC-5.** A session keeps one `timestamp`, taken at its first sync. Ending
-again after **Continue** resends the whole session under that timestamp, and
+again after **Continue**, or after picking a kept session up again
+(LATER-3), resends the whole session under that timestamp, and
 the phone replaces the copy it already has, so no run is stored twice.
-*Verified by:* `scenario_sync_resend_after_continue`
+*Verified by:* `scenario_sync_resend_after_continue`, `scenario_later_sync_from_previous_session`
 
 ---
 

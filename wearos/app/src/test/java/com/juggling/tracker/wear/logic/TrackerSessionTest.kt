@@ -74,7 +74,7 @@ class TrackerSessionTest {
         session.onStartStop()
         val menu = state.menu!!
         assertEquals("End session?", menu.title)
-        assertEquals(listOf("Sync and quit", "Quit without sync", "Continue"), menu.items.map { it.label })
+        assertEquals(listOf("Sync and quit", "Quit without sync", "Continue later", "Continue"), menu.items.map { it.label })
     }
 
     @Test
@@ -326,7 +326,7 @@ class TrackerSessionTest {
         assertFalse(state.sending)
         assertEquals("Sync failed", state.menu!!.title)
         assertEquals(
-            listOf("Retry sync", "Quit without sync", "Continue"),
+            listOf("Retry sync", "Quit without sync", "Continue later", "Continue"),
             state.menu!!.items.map { it.label },
         )
         select(TrackerSession.ITEM_SYNC_RETRY)

@@ -32,7 +32,7 @@ public protocol PhoneConnectivity: AnyObject {
 /// delivered, and an ack in it then goes to the message listener, as the
 /// Data Layer message back does on Wear OS. A message that cannot go (no
 /// phone in reach, or no answer from it) reports not delivered, so the
-/// session offers Retry sync, Quit without sync and Continue.
+/// session offers Retry sync, Quit without sync, Continue later and Continue.
 ///
 /// Sends made before the session has finished activating wait for it. If
 /// activation fails they report not delivered, and the next send tries to

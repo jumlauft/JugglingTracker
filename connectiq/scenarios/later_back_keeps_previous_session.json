@@ -1,0 +1,52 @@
+{
+  "name": "Backing out of the Previous session menu keeps the session and leaves the app",
+  "requirements": [
+    "LATER-5"
+  ],
+  "steps": [
+    {
+      "press": "start"
+    },
+    {
+      "press": "start"
+    },
+    {
+      "warmup": true
+    },
+    {
+      "catches": 3
+    },
+    {
+      "idle": 60
+    },
+    {
+      "press": "start"
+    },
+    {
+      "select": "continue_later"
+    },
+    {
+      "relaunch": true
+    },
+    {
+      "press": "back"
+    },
+    {
+      "expect": {
+        "exits": 2,
+        "stored": true,
+        "activitiesSaved": 1,
+        "activityState": "none"
+      }
+    },
+    {
+      "relaunch": true
+    },
+    {
+      "expect": {
+        "menu": "resume_session",
+        "runs": 1
+      }
+    }
+  ]
+}

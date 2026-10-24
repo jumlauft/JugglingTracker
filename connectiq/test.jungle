@@ -2,3 +2,8 @@
 # Kept separate from monkey.jungle so test code never ships in a release build.
 project.manifest = manifest.xml
 base.sourcePath = source;test
+# As in monkey.jungle: one makeActivityRecorder() per build.
+base.excludeAnnotations = no_activity_recorder
+instinct2.excludeAnnotations = activity_recorder
+instinct2s.excludeAnnotations = activity_recorder
+descentg1.excludeAnnotations = activity_recorder

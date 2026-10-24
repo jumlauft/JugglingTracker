@@ -319,3 +319,50 @@ function rec11_backFromIdleReleasesTheSession(logger as Logger) as Boolean {
     Test.assertEqualMessage(host.scheduler.pending(), 0, "no timer is left");
     return true;
 }
+
+// ── LATER ──────────────────────────────────────────────────────────────
+
+// LATER-6: the system closing the app mid-session keeps the session, with
+// the run still in progress folded in, and saves its activity.
+(:test)
+function later6_systemCloseKeepsTheSession(logger as Logger) as Boolean {
+    var host = new FakeHost(1700000000);
+    var tracker = trackerWithRun(host, 3);
+    feedSession(tracker, new Feed().catches(4), 10000);
+    tracker.onAppStop();
+    var kept = host.store.value;
+    Test.assert(kept != null);
+    Test.assertMessage(sameValue((kept as Dictionary)["runs"], [3, 4]), "both runs kept");
+    Test.assertEqualMessage(host.recorder.savedAverages.size(), 1, "the activity is saved");
+    Test.assertEqualMessage(host.effects.exits, 0, "the system is closing the app already");
+    return true;
+}
+
+// LATER-6: a Previous session closed before anyone answered stays as it was.
+(:test)
+function later6_systemCloseLeavesAnUnansweredPreviousSession(logger as Logger) as Boolean {
+    var host = new FakeHost(1700000000);
+    host.store.value = { "balls" => 4, "elapsedSeconds" => 90, "runs" => [5],
+        "runDurationsMillis" => [3000], "shapeSums" => [2.5f], "shapeCounts" => [3] };
+    var tracker = host.resumeTracker() as TrackerSession;
+    Test.assertEqualMessage(tracker.detector().ballCount, 4, "the kept ball count");
+    Test.assertEqualMessage(tracker.elapsedSeconds(), 90, "the kept time");
+    tracker.onAppStop();
+    Test.assert(host.store.value != null);
+    Test.assertEqualMessage(host.recorder.state, FakeActivityRecorder.IDLE, "no activity was started");
+    Test.assertEqualMessage(host.recorder.discarded, 0, "nothing to discard either");
+    return true;
+}
+
+// LATER-1: a kept session restores its runs' regularity as well.
+(:test)
+function later1_keptRegularityIsRestored(logger as Logger) as Boolean {
+    var host = new FakeHost(1700000000);
+    host.store.value = { "balls" => 3, "elapsedSeconds" => 10, "runs" => [5, 7],
+        "runDurationsMillis" => [3000, 4000], "shapeSums" => [4.0f, 4.5f], "shapeCounts" => [5, 5] };
+    var tracker = host.resumeTracker() as TrackerSession;
+    Test.assertEqualMessage(tracker.detector().shapeConsistencyPercent(), 85, "(4.0 + 4.5) / 10");
+    Test.assertEqualMessage(tracker.detector().sessionMax, 7, "max rebuilt");
+    Test.assertEqualMessage(tracker.detector().previousCount, 7, "previous rebuilt");
+    return true;
+}

@@ -3,7 +3,8 @@
   "requirements": [
     "JUG-2",
     "JUG-5",
-    "JUG-6"
+    "JUG-6",
+    "JUG-9"
   ],
   "steps": [
     {
@@ -25,11 +26,13 @@
         "menuItems": [
           "sync_quit",
           "nosync_quit",
+          "continue_later",
           "continue_session"
         ],
         "menuLabels": [
           "Sync and quit",
           "Quit without sync",
+          "Continue later",
           "Continue"
         ]
       }

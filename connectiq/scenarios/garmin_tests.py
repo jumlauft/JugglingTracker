@@ -83,6 +83,8 @@ def call(step):
         return f"r.deliver({literal(value)});"
     if key == "deliverAll":
         return "r.deliverAll();"
+    if key == "relaunch":
+        return "r.relaunch();"
     if key == "phone":
         return f"r.phone({literal(value)});"
     if key == "expect":

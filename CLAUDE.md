@@ -43,7 +43,13 @@ built several times over, and the copies must not drift apart.
     menu; the Garmin, driven by buttons, shows it on one screen. Apple Watch
     alone offers Lock screen (Water Lock), which Wear OS has no API for.
   - A watchOS app cannot close itself, so where the Garmin and Wear OS apps
-    quit, the Apple Watch app returns to its first screen.
+    quit, the Apple Watch app returns to its first screen. After *Continue
+    later* that first screen is the Previous session menu straight away.
+  - The activity each Juggle stretch is saved as (ACT-1): a Garmin Connect
+    activity on the Garmin (none on Instinct 2/2S and Descent G1, which lack
+    the memory), a Health workout on the Apple Watch, none yet on Wear OS,
+    where Health Connect is on the phone. Only the Garmin keeps a session
+    when the system closes the app (LATER-6).
 
 ### What every change must do
 

@@ -123,3 +123,33 @@ final class FakeEffects: WatchEffects {
     func vibrate() { vibrations += 1 }
     func exit() { exits += 1 }
 }
+
+/// The watch's activity: what state it is in and what was saved.
+final class FakeActivityRecorder: ActivityRecorder {
+    var state = "none"
+    /// The average catches per run of every activity saved, in order.
+    var savedAverages: [Double] = []
+    var discarded = 0
+
+    func start() { state = "recording" }
+    func pause() { if state == "recording" { state = "paused" } }
+    func resume() { if state == "paused" { state = "recording" } }
+
+    func save(balls: Int, average: Double) {
+        state = "none"
+        savedAverages.append(average)
+    }
+
+    func discard() {
+        state = "none"
+        discarded += 1
+    }
+}
+
+/// The kept session as one field, kept across relaunches of the app.
+final class FakeSessionStore: SessionStore {
+    var value: KeptSession?
+    func load() -> KeptSession? { value }
+    func save(_ session: KeptSession) { value = session }
+    func clear() { value = nil }
+}

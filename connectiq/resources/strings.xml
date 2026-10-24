@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
     <string id="app_name">Juggling</string>
+    <string id="fit_balls_label">Balls</string>
+    <string id="fit_balls_unit">balls</string>
+    <string id="fit_average_label">Avg catches per run</string>
+    <string id="fit_average_unit">catches</string>
 </resources>

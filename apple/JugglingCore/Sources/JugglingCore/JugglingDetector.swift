@@ -276,6 +276,24 @@ public final class JugglingDetector {
         return 0
     }
 
+    /// Each completed run's regularity window score sum, kept with a session saved for later.
+    public var shapeRunSums: [Double] { shape.completedRunSums }
+
+    /// Each completed run's regularity window count.
+    public var shapeRunCounts: [Int] { shape.completedRunCounts }
+
+    /// Puts back the completed runs of a session kept with Continue later
+    /// (LATER-2). Run count, total, max and previous are rebuilt from them.
+    public func restoreRuns(catches: [Int], durationsMillis: [Int64], shapeSums: [Double], shapeCounts: [Int]) {
+        runCatchList = catches
+        runDurationList = durationsMillis
+        shape.restoreRuns(sums: shapeSums, counts: shapeCounts)
+        sessionRunCount = catches.count
+        sessionTotal = catches.reduce(0, +)
+        sessionMax = catches.max() ?? 0
+        previousCount = catches.last ?? 0
+    }
+
     /// Drops the run in progress, or else retroactively removes the last
     /// completed run and recomputes the session from the runs that remain
     /// (RUN-4). Returns false when there was nothing to discard (RUN-5).

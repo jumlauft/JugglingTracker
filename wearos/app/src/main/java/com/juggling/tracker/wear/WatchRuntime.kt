@@ -8,6 +8,7 @@ import androidx.annotation.MainThread
 import com.juggling.tracker.wear.logic.AccelSample
 import com.juggling.tracker.wear.logic.AppNavigator
 import com.juggling.tracker.wear.logic.MonotonicClock
+import com.juggling.tracker.wear.logic.NoActivityRecorder
 import com.juggling.tracker.wear.logic.RecordingSession
 import com.juggling.tracker.wear.logic.Screen
 import com.juggling.tracker.wear.logic.TrackerSession
@@ -15,12 +16,18 @@ import com.juggling.tracker.wear.platform.AccelerometerSource
 import com.juggling.tracker.wear.platform.AndroidWatchEffects
 import com.juggling.tracker.wear.platform.DataLayerPhoneLink
 import com.juggling.tracker.wear.platform.HandlerScheduler
+import com.juggling.tracker.wear.platform.PrefsSessionStore
 import com.juggling.tracker.wear.platform.TrackingService
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -30,6 +37,7 @@ import kotlinx.coroutines.launch
  * off and is still there when the app is reopened. All of it runs on the main
  * thread.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class WatchRuntime private constructor(private val context: Context) {
     companion object {
         private const val TAG = "WatchRuntime"
@@ -68,38 +76,63 @@ class WatchRuntime private constructor(private val context: Context) {
 
     val navigator: AppNavigator
 
-    /** Whether a juggling or record session is open. */
+    /**
+     * Whether a juggling or record session is open. A kept session waiting
+     * on its Previous session menu (LATER-1) is not yet: nothing runs for it
+     * until it is continued.
+     */
     val isTracking: Boolean
-        get() = navigator.screen.value.let { it is Screen.Tracker || it is Screen.Recording }
+        get() = navigator.screen.value.let {
+            (it is Screen.Tracker && !it.session.state.value.isWaitingToResume) || it is Screen.Recording
+        }
 
     init {
         val scheduler = HandlerScheduler()
         val effects = AndroidWatchEffects(context, onExit = ::close)
         val clock = MonotonicClock { SystemClock.elapsedRealtime() }
+        val store = PrefsSessionStore(context)
+        // ACT-1: no activity on Wear OS yet; Health Connect is on the phone.
+        val recorder = NoActivityRecorder
         navigator = AppNavigator(
-            newTracker = { balls -> TrackerSession(balls, link, scheduler, clock, effects) },
+            newTracker = { balls ->
+                TrackerSession(balls, link, scheduler, clock, effects, recorder = recorder, store = store)
+            },
             newRecording = { balls ->
                 RecordingSession(balls, link, scheduler, effects, log = { Log.i(RECORDING_LOG_TAG, it) })
             },
             effects = effects,
+            resumeTracker = {
+                store.load()?.let { saved ->
+                    TrackerSession(saved.balls, link, scheduler, clock, effects, recorder = recorder, store = store, saved = saved)
+                }
+            },
         )
 
         // The sensor and the foreground service run exactly while a session
         // is open, whether or not the app is on screen.
         scope.launch {
-            navigator.screen.collect {
-                if (isTracking) {
-                    TrackingService.start(context)
-                    val started = accelerometer.start()
-                    if (!started) {
-                        Log.e(TAG, "No accelerometer available")
+            navigator.screen
+                .flatMapLatest { screen ->
+                    when (screen) {
+                        is Screen.Tracker -> screen.session.state.map { !it.isWaitingToResume }
+                        is Screen.Recording -> flowOf(true)
+                        else -> flowOf(false)
                     }
-                    _sensorFailed.value = !started
-                } else {
-                    accelerometer.stop()
-                    TrackingService.stop(context)
                 }
-            }
+                .distinctUntilChanged()
+                .collect { tracking ->
+                    if (tracking) {
+                        TrackingService.start(context)
+                        val started = accelerometer.start()
+                        if (!started) {
+                            Log.e(TAG, "No accelerometer available")
+                        }
+                        _sensorFailed.value = !started
+                    } else {
+                        accelerometer.stop()
+                        TrackingService.stop(context)
+                    }
+                }
         }
     }
 

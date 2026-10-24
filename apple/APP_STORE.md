@@ -71,9 +71,10 @@ Notes for the reviewer:
 > catching a ball); each catch adds to the count. The Apple Watch app is
 > embedded and works the same way on the wrist. The Garmin link needs the
 > Garmin Connect app and a Garmin watch with the Juggling Tracker Connect IQ
-> app. The Apple Watch app starts a workout session only to keep the motion
-> sensor running with the wrist down; it reads nothing from and saves nothing
-> to Health.
+> app. The Apple Watch app runs a workout session to keep the motion sensor
+> running with the wrist down, and saves each juggling session to Health as
+> an "Other" workout with the ball count and average catches per run in its
+> metadata. It reads nothing from Health.
 
 No sign-in is needed, so leave the demo account empty.
 
@@ -112,7 +113,8 @@ Firebase collection is on by default and can be turned off under Settings >
 Privacy > "Share app activity and crash reports". Everything else (session
 history, settings, backups) stays on the device. The Apple Watch app collects
 nothing on its own; it sends sessions and recordings only to the user's
-iPhone.
+iPhone, and the workouts it saves to Health stay in Health on the user's
+devices, so they are not "collected" data either.
 
 ## Export compliance
 

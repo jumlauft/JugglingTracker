@@ -65,7 +65,7 @@ final class TrackerSessionTests: XCTestCase {
     func testJUG2StartStopOpensTheSessionEndMenu() {
         session.onStartStop()
         XCTAssertEqual(state.menu?.title, "End session?")
-        XCTAssertEqual(state.menu?.items.map(\.label), ["Sync and quit", "Quit without sync", "Continue"])
+        XCTAssertEqual(state.menu?.items.map(\.label), ["Sync and quit", "Quit without sync", "Continue later", "Continue"])
     }
 
     func testJUG2TheSessionEndMenuPausesTheSessionClockAndContinueResumesIt() {
@@ -305,7 +305,7 @@ final class TrackerSessionTests: XCTestCase {
         scheduler.advance(TrackerSession.syncTimeoutMs)
         XCTAssertFalse(state.sending)
         XCTAssertEqual(state.menu?.title, "Sync failed")
-        XCTAssertEqual(state.menu?.items.map(\.label), ["Retry sync", "Quit without sync", "Continue"])
+        XCTAssertEqual(state.menu?.items.map(\.label), ["Retry sync", "Quit without sync", "Continue later", "Continue"])
         select(TrackerSession.itemSyncRetry)
         XCTAssertEqual(link.sent.count, 2)
         XCTAssertEqual(link.sent[0] as NSDictionary, link.sent[1] as NSDictionary)

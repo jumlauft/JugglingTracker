@@ -4,6 +4,26 @@
 import Toybox.Lang;
 import Toybox.Test;
 
+// Quit without sync still saves the activity and keeps nothing for later (ACT-2, JUG-2)
+(:test)
+function scenario_act_quit_without_sync_saves_activity(logger as Logger) as Boolean {
+    var r = new ScenarioRunner(1700000000);
+    r.press("start");
+    r.press("start");
+    r.warmup();
+    r.catches(3);
+    r.idle(60);
+    r.press("start");
+    r.select("continue_session");
+    r.expect({ "activityState" => "recording" });
+    r.catches(4);
+    r.idle(60);
+    r.press("start");
+    r.select("nosync_quit");
+    r.expect({ "exits" => 1, "stored" => false, "activitiesSaved" => 1, "activityAverages" => [3.5f], "sentCount" => 0 });
+    return r.passed(logger);
+}
+
 // BACK steps back through the start-up screens and closes the app from the first (APP-5, REC-11)
 (:test)
 function scenario_app_back_steps_back(logger as Logger) as Boolean {
@@ -160,7 +180,7 @@ function scenario_jug_samples_ignored_under_menu(logger as Logger) as Boolean {
     return r.passed(logger);
 }
 
-// START opens the session-end menu; BACK out of it and START still work (JUG-2, JUG-5, JUG-6)
+// START opens the session-end menu; BACK out of it and START still work (JUG-2, JUG-5, JUG-6, JUG-9)
 (:test)
 function scenario_jug_session_end_menu(logger as Logger) as Boolean {
     var r = new ScenarioRunner(1700000000);
@@ -168,7 +188,7 @@ function scenario_jug_session_end_menu(logger as Logger) as Boolean {
     r.press("start");
     r.warmup();
     r.press("start");
-    r.expect({ "menu" => "session_end", "menuTitle" => "End session?", "menuItems" => ["sync_quit", "nosync_quit", "continue_session"], "menuLabels" => ["Sync and quit", "Quit without sync", "Continue"] });
+    r.expect({ "menu" => "session_end", "menuTitle" => "End session?", "menuItems" => ["sync_quit", "nosync_quit", "continue_later", "continue_session"], "menuLabels" => ["Sync and quit", "Quit without sync", "Continue later", "Continue"] });
     r.press("back");
     r.expect({ "menu" => null });
     r.press("start");
@@ -193,6 +213,142 @@ function scenario_jug_vibrate_every_ten(logger as Logger) as Boolean {
     r.expect({ "vibrations" => 1 });
     r.catches(10);
     r.expect({ "vibrations" => 2 });
+    return r.passed(logger);
+}
+
+// Backing out of the Previous session menu keeps the session and leaves the app (LATER-5)
+(:test)
+function scenario_later_back_keeps_previous_session(logger as Logger) as Boolean {
+    var r = new ScenarioRunner(1700000000);
+    r.press("start");
+    r.press("start");
+    r.warmup();
+    r.catches(3);
+    r.idle(60);
+    r.press("start");
+    r.select("continue_later");
+    r.relaunch();
+    r.press("back");
+    r.expect({ "exits" => 2, "stored" => true, "activitiesSaved" => 1, "activityState" => "none" });
+    r.relaunch();
+    r.expect({ "menu" => "resume_session", "runs" => 1 });
+    return r.passed(logger);
+}
+
+// Continue later keeps the session; reopening offers it first and Continue carries on where it stopped (JUG-9, LATER-1, LATER-2, ACT-2, ACT-3)
+(:test)
+function scenario_later_continue_resumes_the_session(logger as Logger) as Boolean {
+    var r = new ScenarioRunner(1700000000);
+    r.press("start");
+    r.press("start");
+    r.warmup();
+    r.expect({ "activityState" => "recording", "stored" => false });
+    r.catches(3);
+    r.idle(60);
+    r.catches(4);
+    r.idle(60);
+    r.press("start");
+    r.expect({ "menu" => "session_end", "activityState" => "paused" });
+    r.select("continue_later");
+    r.expect({ "exits" => 1, "stored" => true, "activitiesSaved" => 1, "activityAverages" => [3.5f], "activityState" => "none" });
+    r.relaunch();
+    r.expect({ "screen" => "tracker", "menu" => "resume_session", "menuTitle" => "Previous session", "menuItems" => ["continue_session", "sync_quit", "discard_session"], "menuLabels" => ["Continue", "Sync and quit", "Discard"], "menuSubLabels" => ["3 balls, 2 runs", null, null], "balls" => 3, "runs" => 2, "previous" => 4, "max" => 4, "activityState" => "none" });
+    r.press("start");
+    r.expect({ "menu" => "resume_session" });
+    r.select("continue_session");
+    r.warmup();
+    r.expect({ "menu" => null, "activityState" => "recording", "runs" => 2 });
+    r.catches(5);
+    r.idle(60);
+    r.expect({ "runs" => 3, "previous" => 5, "max" => 5 });
+    r.press("start");
+    r.select("sync_quit");
+    r.expect({ "lastSent" => { "type" => "session", "balls" => 3, "runs" => [3, 4, 5] } });
+    r.phone({ "type" => "ack", "timestamp" => 1700000000 });
+    r.expect({ "exits" => 2, "stored" => false, "activitiesSaved" => 2, "activityAverages" => [3.5f, 5.0f] });
+    return r.passed(logger);
+}
+
+// Discard on the Previous session menu deletes it and goes to the first screen (LATER-4)
+(:test)
+function scenario_later_discard_previous_session(logger as Logger) as Boolean {
+    var r = new ScenarioRunner(1700000000);
+    r.press("start");
+    r.press("start");
+    r.warmup();
+    r.catches(3);
+    r.idle(60);
+    r.press("start");
+    r.select("continue_later");
+    r.relaunch();
+    r.select("discard_session");
+    r.expect({ "screen" => "modeSelect", "recordMode" => false, "stored" => false, "exits" => 1, "sentCount" => 0 });
+    r.press("start");
+    r.press("start");
+    r.expect({ "screen" => "tracker", "runs" => 0, "menu" => null, "activityState" => "recording" });
+    return r.passed(logger);
+}
+
+// Continue later with no completed run keeps nothing and saves no activity (JUG-9, ACT-2)
+(:test)
+function scenario_later_nothing_to_keep(logger as Logger) as Boolean {
+    var r = new ScenarioRunner(1700000000);
+    r.press("start");
+    r.press("start");
+    r.warmup();
+    r.catches(2);
+    r.idle(60);
+    r.press("start");
+    r.select("continue_later");
+    r.expect({ "exits" => 1, "stored" => false, "activitiesSaved" => 0, "activityState" => "none" });
+    r.relaunch();
+    r.expect({ "screen" => "modeSelect" });
+    return r.passed(logger);
+}
+
+// A continued session's time carries on from where Continue later stopped it (LATER-2, SYNC-1)
+(:test)
+function scenario_later_session_time_carries_on(logger as Logger) as Boolean {
+    var r = new ScenarioRunner(1700000000);
+    r.press("start");
+    r.press("start");
+    r.warmup();
+    r.catches(3);
+    r.idle(60);
+    r.wait(30000);
+    r.press("start");
+    r.select("continue_later");
+    r.relaunch();
+    r.wait(600000);
+    r.select("continue_session");
+    r.wait(20000);
+    r.press("start");
+    r.select("sync_quit");
+    r.expect({ "lastSent" => { "durationSeconds" => 50, "runs" => [3] } });
+    return r.passed(logger);
+}
+
+// Sync and quit on the Previous session menu sends the kept session under its first timestamp (LATER-3, SYNC-5)
+(:test)
+function scenario_later_sync_from_previous_session(logger as Logger) as Boolean {
+    var r = new ScenarioRunner(1700000000);
+    r.press("start");
+    r.press("start");
+    r.warmup();
+    r.catches(3);
+    r.idle(60);
+    r.press("start");
+    r.select("sync_quit");
+    r.wait(10000);
+    r.expect({ "menuTitle" => "Sync failed", "error" => "Sync failed" });
+    r.select("continue_later");
+    r.expect({ "exits" => 1, "stored" => true, "activitiesSaved" => 1 });
+    r.epochAdvance(3600);
+    r.relaunch();
+    r.select("sync_quit");
+    r.expect({ "sending" => true, "activityState" => "none", "lastSent" => { "type" => "session", "timestamp" => 1700000000, "runs" => [3] } });
+    r.phone({ "type" => "ack", "timestamp" => 1700000000 });
+    r.expect({ "exits" => 2, "stored" => false, "activitiesSaved" => 1 });
     return r.passed(logger);
 }
 
@@ -407,7 +563,7 @@ function scenario_sync_session_and_ack(logger as Logger) as Boolean {
     return r.passed(logger);
 }
 
-// No ack in time opens the retry menu; Retry sends the same session again (SYNC-2, JUG-8)
+// No ack in time opens the retry menu; Retry sends the same session again (JUG-8, JUG-9, SYNC-2)
 (:test)
 function scenario_sync_timeout_and_retry(logger as Logger) as Boolean {
     var r = new ScenarioRunner(1700000000);
@@ -420,7 +576,7 @@ function scenario_sync_timeout_and_retry(logger as Logger) as Boolean {
     r.select("sync_quit");
     r.deliver(true);
     r.wait(10000);
-    r.expect({ "sending" => false, "menu" => "session_end", "menuTitle" => "Sync failed", "menuItems" => ["sync_retry", "nosync_quit", "continue_session"], "menuLabels" => ["Retry sync", "Quit without sync", "Continue"] });
+    r.expect({ "sending" => false, "menu" => "session_end", "menuTitle" => "Sync failed", "menuItems" => ["sync_retry", "nosync_quit", "continue_later", "continue_session"], "menuLabels" => ["Retry sync", "Quit without sync", "Continue later", "Continue"] });
     r.select("sync_retry");
     r.expect({ "sentCount" => 2, "sending" => true, "menu" => null });
     r.phone({ "type" => "ack", "timestamp" => 1700000000 });

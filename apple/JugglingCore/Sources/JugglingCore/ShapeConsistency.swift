@@ -152,6 +152,18 @@ public final class ShapeConsistency {
         }
     }
 
+    /// Each completed run's window score sum, in order.
+    public var completedRunSums: [Double] { runSums }
+
+    /// Each completed run's window count, in order.
+    public var completedRunCounts: [Int] { runCounts }
+
+    /// Puts back the completed runs of a session kept for later.
+    public func restoreRuns(sums: [Double], counts: [Int]) {
+        runSums = sums
+        runCounts = counts
+    }
+
     /// Whole percentage over the session, or -1 before any window counts.
     public func sessionPercent() -> Int {
         let count = runCounts.reduce(0, +)

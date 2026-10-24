@@ -28,6 +28,8 @@ Key Features:
 * Automatic catch detection: Catches in the hand wearing the watch will be detected automatically.
 * Live Feedback: See your current run count, best in session and session average at a glance. Also provides a regularity score for the cleanliness of your pattern
 * Optimized for performance: Low-power sensor monitoring ensures your battery lasts through even the longest practice sessions.
+* Garmin Connect activity: each session is saved as a "Juggling session" activity with its time, ball count and average catches per run, and reaches Strava through Garmin Connect (not on Instinct 2/2S and Descent G1).
+* Continue later: pause a session, leave the app and pick it up again when you come back.
 * Seamless Sync: Transmits finished sessions to the Juggling Tracker Android app for long-term visualization and history. (It can also be used standalone).  
 * Record labeled data and send to developers (via Android App) to improve detection precision in future releases.
 
@@ -53,6 +55,11 @@ Source Code URL (Optional): https://github.com/jumlauft/JugglingTracker
 
 Paste the entry for the version being uploaded into the store's "What's New"
 field. Newest first.
+
+### 1.4.0
+- Each session is now saved as a "Juggling session" activity in Garmin Connect, with its time, ball count and average catches per run. Garmin Connect passes it on to Strava if you have linked them. (Not on Instinct 2/2S and Descent G1, which lack the memory.)
+- New "Continue later" in the end-session menu: leave the app, do something else, and when you open it again choose Continue, Sync and quit or Discard. Each stretch you juggle becomes its own Garmin Connect activity.
+- The session is also kept if the watch closes the app in the middle of it.
 
 ### 1.3.1
 - Now available on 13 more watches, including the Forerunner 645, 645 Music and 935, fēnix 5, 5S, 5X and Chronos, D2 Delta and D2 Air, Descent Mk1 and Venu Mercedes-Benz.

@@ -5,10 +5,13 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeRight
 import com.juggling.tracker.wear.logic.AppNavigator
@@ -49,6 +52,12 @@ class WearAppTest {
     private fun show() = compose.setContent { WearApp(navigator) }
 
     private fun click(tag: String) = compose.onNodeWithTag(tag).performClick()
+
+    /** Scrolls the open menu to the item first: the last items sit below the round screen's edge. */
+    private fun clickMenuItem(id: String) {
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasTestTag(Tags.menuItem(id)))
+        click(Tags.menuItem(id))
+    }
 
     private fun pressBack() {
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
@@ -178,7 +187,7 @@ class WearAppTest {
         compose.onNodeWithText("End session?").assertIsDisplayed()
         compose.onNodeWithText("Sync and quit").assertIsDisplayed()
         compose.onNodeWithText("Quit without sync").assertIsDisplayed()
-        click(Tags.menuItem(TrackerSession.ITEM_CONTINUE))
+        clickMenuItem(TrackerSession.ITEM_CONTINUE)
         compose.onNodeWithTag(Tags.COUNT).assertIsDisplayed()
     }
 
@@ -205,7 +214,7 @@ class WearAppTest {
         click(Tags.menuItem(TrackerSession.ITEM_SYNC_QUIT))
         compose.runOnUiThread { link.complete(false) }
         compose.onNodeWithText("Retry sync").assertIsDisplayed()
-        click(Tags.menuItem(TrackerSession.ITEM_CONTINUE))
+        clickMenuItem(TrackerSession.ITEM_CONTINUE)
         compose.onNodeWithTag(Tags.COUNT).assertIsDisplayed()
         assertTrue(compose.onAllNodesWithTagCount(Tags.ERROR) == 0)
     }

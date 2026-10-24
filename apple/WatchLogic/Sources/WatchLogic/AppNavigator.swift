@@ -49,6 +49,7 @@ public final class AppNavigator {
     private let newRecording: (Int) -> RecordingSession
     private let effects: WatchEffects
     private let recordingModeEnabled: Bool
+    private let resumeTracker: () -> TrackerSession?
 
     public private(set) var screen: Screen {
         didSet { onChange?() }
@@ -61,15 +62,35 @@ public final class AppNavigator {
         newTracker: @escaping (Int) -> TrackerSession,
         newRecording: @escaping (Int) -> RecordingSession,
         effects: WatchEffects,
-        enableRecordingMode: Bool = AppNavigator.enableRecordingMode
+        enableRecordingMode: Bool = AppNavigator.enableRecordingMode,
+        resumeTracker: @escaping () -> TrackerSession? = { nil }
     ) {
         self.newTracker = newTracker
         self.newRecording = newRecording
         self.effects = effects
         recordingModeEnabled = enableRecordingMode
-        screen = enableRecordingMode
+        self.resumeTracker = resumeTracker
+        screen = Self.firstScreen(enableRecordingMode)
+        openKeptSession()
+    }
+
+    private static func firstScreen(_ recordingModeEnabled: Bool) -> Screen {
+        recordingModeEnabled
             ? .modeSelect(isRecordMode: false)
             : .ballSelect(mode: .juggle, ballCount: Screen.minBalls)
+    }
+
+    /// LATER-1: a session kept with Continue later comes first. The app opens
+    /// on it, with its Previous session menu up, and no new session can start
+    /// until that is answered.
+    private func openKeptSession() {
+        guard let resumed = resumeTracker() else { return }
+        // LATER-4: discarding it starts afresh.
+        resumed.onDiscarded = { [weak self] in
+            guard let self else { return }
+            screen = Self.firstScreen(recordingModeEnabled)
+        }
+        screen = .tracker(resumed)
     }
 
     /// UP. On mode select both UP and DOWN toggle (APP-2).
@@ -137,10 +158,11 @@ public final class AppNavigator {
     /// Ends the open session and returns to the first screen. The watch has
     /// no way to close an app, so where the Garmin quits after a sync or on
     /// "Quit", the Apple Watch app starts over here instead.
+    /// A session kept with Continue later is offered again straight away
+    /// (LATER-5), as the Garmin offers it when the app is next opened.
     public func restart() {
-        screen = recordingModeEnabled
-            ? .modeSelect(isRecordMode: false)
-            : .ballSelect(mode: .juggle, ballCount: Screen.minBalls)
+        screen = Self.firstScreen(recordingModeEnabled)
+        openKeptSession()
     }
 
     /// APP-3: UP walks 3..9 and stops at 9. Unlike the Garmin app (and like
