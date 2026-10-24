@@ -264,7 +264,7 @@ class GarminSessionStore extends SessionStore {
 }
 
 // ACT-1: each stretch of juggling becomes a Garmin Connect activity named
-// "Juggling session", sport Training, with the ball count and the stretch's
+// "Juggling session", sport Other (generic), with the ball count and the stretch's
 // average catches per run as its own fields (labelled in
 // resources/fit_contributions.xml). Strava gets it through Garmin Connect.
 //
@@ -296,7 +296,9 @@ class GarminActivityRecorder extends ActivityRecorder {
         try {
             var session = ActivityRecording.createSession({
                 :name => "Juggling session",
-                :sport => ActivityRecording.SPORT_TRAINING,
+                // Generic shows as "Other"; Training showed as strength
+                // training ("Krafttraining") in Garmin Connect.
+                :sport => ActivityRecording.SPORT_GENERIC,
                 :subSport => ActivityRecording.SUB_SPORT_GENERIC
             });
             _balls = session.createField("balls", BALLS_FIELD_ID, FitContributor.DATA_TYPE_UINT8,
