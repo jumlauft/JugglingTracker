@@ -322,7 +322,7 @@ activity. A Previous session nobody answered stays kept as it was.
 
 **ACT-1.** Juggle mode records the juggling as the watch's own activity.
 Garmin: a Garmin Connect activity named **Juggling session**, sport
-*Training*, with two fields of its own, **Balls** and **Avg catches per
+*Other* (generic; *Training* showed as strength training), with two fields of its own, **Balls** and **Avg catches per
 run**; Strava gets it through Garmin Connect's own link. Apple Watch: a
 workout in the Health app (`Other`), with the ball count and average in its
 metadata. Wear OS: not yet; Health Connect runs on the phone, so the Wear OS
