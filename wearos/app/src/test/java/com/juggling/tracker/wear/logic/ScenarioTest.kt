@@ -226,6 +226,8 @@ private class ScenarioRun(private val scenario: JSONObject) {
         null, JSONObject.NULL -> null
         is JSONArray -> (0 until value.length()).map { normalize(value.get(it)) }
         is List<*> -> value.map { normalize(it) }
+        // org.json reads a decimal such as 3.5 as a BigDecimal.
+        is java.math.BigDecimal -> normalize(value.toDouble())
         is Double -> if (value == Math.floor(value)) value.toLong() else value
         is Float -> normalize(value.toDouble())
         is Number -> value.toLong()
