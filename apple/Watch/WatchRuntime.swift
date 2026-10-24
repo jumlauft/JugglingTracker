@@ -20,10 +20,12 @@ final class WatchRuntime: ObservableObject {
 
     private let scheduler: MainQueueScheduler
     private let link: PhoneLink
-    private let workout = WorkoutKeeper()
+    private let workout: WorkoutKeeper
     private var motion: MotionSource!
     private var replay: ReplaySource?
     private var clockTick: WatchLogic.Cancellable?
+    // Whether the sensor, the workout session and the clock are running.
+    private var running = false
 
     init() {
         let scheduler = MainQueueScheduler()
@@ -33,9 +35,15 @@ final class WatchRuntime: ObservableObject {
         let clock = UptimeClock()
         var restart: () -> Void = {}
         let effects = AppleWatchEffects(onExit: { restart() })
+        let workout = WorkoutKeeper()
+        self.workout = workout
+        let store = DefaultsSessionStore()
         navigator = AppNavigator(
             newTracker: { balls in
-                TrackerSession(ballCount: balls, link: link, scheduler: scheduler, clock: clock, effects: effects)
+                TrackerSession(
+                    ballCount: balls, link: link, scheduler: scheduler, clock: clock, effects: effects,
+                    recorder: workout, store: store
+                )
             },
             newRecording: { balls in
                 RecordingSession(
@@ -43,7 +51,15 @@ final class WatchRuntime: ObservableObject {
                     log: { WatchRuntime.recordingLog.info("\($0, privacy: .public)") }
                 )
             },
-            effects: effects
+            effects: effects,
+            resumeTracker: {
+                store.load().map { saved in
+                    TrackerSession(
+                        ballCount: saved.balls, link: link, scheduler: scheduler, clock: clock, effects: effects,
+                        recorder: workout, store: store, saved: saved
+                    )
+                }
+            }
         )
         restart = { [weak self] in self?.navigator.restart() }
         motion = MotionSource { [weak self] batch in self?.onSamples(batch) }
@@ -51,6 +67,9 @@ final class WatchRuntime: ObservableObject {
             replay = ReplaySource(path: path) { [weak self] batch in self?.onSamples(batch) }
         }
         navigator.onChange = { [weak self] in self?.screenChanged() }
+        // The app can open on a kept session (LATER-1), which needs its
+        // change callback like any later screen.
+        screenChanged()
         workout.requestAccess()
         if replay != nil, let balls = ReplaySource.ballCount { driveReplay(to: balls) }
     }
@@ -70,16 +89,27 @@ final class WatchRuntime: ObservableObject {
         objectWillChange.send()
         switch navigator.screen {
         case let .tracker(session):
-            session.onChange = { [weak self] in self?.objectWillChange.send() }
+            session.onChange = { [weak self] in
+                self?.objectWillChange.send()
+                self?.updateRunning()
+            }
         case let .recording(session):
             session.onChange = { [weak self] in self?.objectWillChange.send() }
         case .modeSelect, .ballSelect:
             break
         }
+        updateRunning()
+    }
 
-        // The sensor, the workout session and the clock run exactly while a
-        // session is open.
-        if navigator.screen.isTracking {
+    /// The sensor, the workout session and the clock run exactly while a
+    /// session is open. A kept session waiting on its Previous session menu
+    /// (LATER-1) is not open yet: nothing runs for it until it is continued.
+    private func updateRunning() {
+        var shouldRun = navigator.screen.isTracking
+        if case let .tracker(session) = navigator.screen, session.state.isWaitingToResume { shouldRun = false }
+        if shouldRun == running { return }
+        running = shouldRun
+        if shouldRun {
             if let replay {
                 replay.start()
             } else {

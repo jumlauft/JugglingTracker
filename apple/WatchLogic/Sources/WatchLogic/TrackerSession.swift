@@ -18,6 +18,9 @@ public struct TrackerUiState: Equatable {
     public var syncDots = 0
     public var menu: MenuSpec?
     public var exited = false
+
+    /// A kept session reopened and waiting on its Previous session menu (LATER-1).
+    public var isWaitingToResume: Bool { menu?.kind == TrackerSession.menuResume }
 }
 
 /// Juggle mode: the Apple Watch counterpart of
@@ -27,6 +30,9 @@ public struct TrackerUiState: Equatable {
 ///
 /// Inputs map onto the Garmin buttons: `onStartStop` is START/STOP, `onBack`
 /// is BACK, and a menu reports through `onMenuSelect` / `onMenuBack`.
+///
+/// With `saved`, it is the session kept with Continue later, reopened with its
+/// Previous session menu up (LATER-1); its ball count then comes from `saved`.
 public final class TrackerSession {
     // The full round trip (watch -> phone -> ack -> watch) can take a few
     // seconds, so keep this generous to avoid false "sync failed".
@@ -36,11 +42,14 @@ public final class TrackerSession {
 
     public static let menuSessionEnd = "session_end"
     public static let menuDiscard = "discard_run"
+    public static let menuResume = "resume_session"
 
     public static let itemSyncQuit = "sync_quit"
     public static let itemSyncRetry = "sync_retry"
     public static let itemNoSyncQuit = "nosync_quit"
     public static let itemContinue = "continue_session"
+    public static let itemContinueLater = "continue_later"
+    public static let itemDiscardSession = "discard_session"
     public static let itemDiscardYes = "discard_yes"
     public static let itemDiscardNo = "discard_no"
 
@@ -51,6 +60,8 @@ public final class TrackerSession {
     private let clock: MonotonicClock
     private let effects: WatchEffects
     private let epochSeconds: () -> Int64
+    private let recorder: ActivityRecorder
+    private let store: SessionStore
 
     private let detector: JugglingDetector
     private let sessionStartMs: Int64
@@ -63,6 +74,18 @@ public final class TrackerSession {
     // after Continue resends the whole session under the same id, so the
     // phone replaces its first copy instead of storing the runs twice (SYNC-5).
     private var sessionTimestamp: Int64?
+    // Session time from before the app was last closed with Continue later.
+    private var priorSeconds: Int64 = 0
+    // The watch's activity for this stretch of juggling (ACT-1, ACT-2): one
+    // per time the session is open, as on the Garmin.
+    private var activityStarted = false
+    private var activityEnded = false
+    // Runs completed before this stretch began; the activity's stats cover
+    // only the runs after them.
+    private var stretchFirstRun = 0
+
+    /// Told when the Previous session is discarded, so the navigator shows the first screen (LATER-4).
+    public var onDiscarded: (() -> Void)?
 
     private var sending = false
     private var errorMessage: String?
@@ -87,19 +110,26 @@ public final class TrackerSession {
         scheduler: Scheduler,
         clock: MonotonicClock,
         effects: WatchEffects,
-        epochSeconds: @escaping () -> Int64 = { Int64(Date().timeIntervalSince1970) }
+        epochSeconds: @escaping () -> Int64 = { Int64(Date().timeIntervalSince1970) },
+        recorder: ActivityRecorder = NoActivityRecorder(),
+        store: SessionStore = NoSessionStore(),
+        saved: KeptSession? = nil
     ) {
         self.link = link
         self.scheduler = scheduler
         self.clock = clock
         self.effects = effects
         self.epochSeconds = epochSeconds
-        detector = JugglingDetector(ballCount: ballCount)
+        self.recorder = recorder
+        self.store = store
+        let balls = saved?.balls ?? ballCount
+        detector = JugglingDetector(ballCount: balls)
         sessionStartMs = clock.nowMs()
-        state = TrackerUiState(ballCount: ballCount)
-        state = snapshot()
+        state = TrackerUiState(ballCount: balls)
         // Listen for the phone's acknowledgement that a session was stored.
         link.setMessageListener { [weak self] in self?.onPhoneMessage($0) }
+        if let saved { restore(saved) } else { startActivity() }
+        state = snapshot()
     }
 
     /// Feeds a batch of samples. On the Garmin, pushing a menu hides the view
@@ -135,6 +165,8 @@ public final class TrackerSession {
         if menu != nil || exited { return }
         if !isRetry && sessionEndMs == nil {
             sessionEndMs = clock.nowMs()
+            // ACT-2: the workout's timer stands still with the session clock.
+            if activityStarted && !activityEnded { recorder.pause() }
         }
         var items: [MenuItemSpec] = []
         if isRetry {
@@ -143,6 +175,7 @@ public final class TrackerSession {
             items.append(MenuItemSpec(id: Self.itemSyncQuit, label: "Sync and quit"))
         }
         items.append(MenuItemSpec(id: Self.itemNoSyncQuit, label: "Quit without sync"))
+        items.append(MenuItemSpec(id: Self.itemContinueLater, label: "Continue later"))
         items.append(MenuItemSpec(id: Self.itemContinue, label: "Continue"))
         menu = MenuSpec(kind: Self.menuSessionEnd, title: isRetry ? Self.syncFailed : "End session?", items: items)
         publish()
@@ -184,7 +217,7 @@ public final class TrackerSession {
         switch open.kind {
         case Self.menuDiscard:
             onDiscardResponse(confirmed: itemId == Self.itemDiscardYes)
-        case Self.menuSessionEnd:
+        case Self.menuSessionEnd, Self.menuResume:
             switch itemId {
             case Self.itemSyncQuit:
                 doSync()
@@ -194,6 +227,10 @@ public final class TrackerSession {
             case Self.itemNoSyncQuit:
                 cancelSyncTimer()
                 exit()
+            case Self.itemContinueLater:
+                continueLater()
+            case Self.itemDiscardSession:
+                discardSession()
             case Self.itemContinue:
                 onContinueSession()
             default:
@@ -213,6 +250,10 @@ public final class TrackerSession {
         switch open.kind {
         case Self.menuDiscard: onDiscardResponse(confirmed: false)
         case Self.menuSessionEnd: onContinueSession()
+        // LATER-5: the session stays kept, as it was, and the session closes.
+        case Self.menuResume:
+            cancelSyncTimer()
+            exitKeeping()
         default: break
         }
         publish()
@@ -230,6 +271,8 @@ public final class TrackerSession {
         // Resume the session clock from where the menu stopped it.
         if let end = sessionEndMs { pausedMs += clock.nowMs() - end }
         sessionEndMs = nil
+        // ACT-2: the workout runs on, or starts for a Previous session.
+        if !activityStarted { startActivity() } else if !activityEnded { recorder.resume() }
         // JUG-8: nothing is failing any more once the user is juggling again.
         errorMessage = nil
         // JUG-8: abandon the sync. Its ack can still arrive late, and with the
@@ -369,18 +412,114 @@ public final class TrackerSession {
         syncDots = 0
     }
 
+    // MARK: Continue later (LATER-1..5) and the workout (ACT-1, ACT-2)
+
+    /// JUG-9: keeps the session and closes it; with no completed run it just closes.
+    private func continueLater() {
+        cancelSyncTimer()
+        if keepForLater() { exitKeeping() } else { exit() }
+    }
+
+    /// Writes the session to the store; false when it has no completed run.
+    private func keepForLater() -> Bool {
+        detector.finishCurrentRun()
+        if sessionEndMs == nil { sessionEndMs = clock.nowMs() }
+        let runs = detector.runCatches
+        if runs.isEmpty { return false }
+        store.save(KeptSession(
+            balls: detector.ballCount,
+            elapsedSeconds: sessionDurationSeconds(),
+            runs: runs,
+            runDurationsMillis: detector.runDurationsMillis,
+            shapeSums: detector.shapeRunSums,
+            shapeCounts: detector.shapeRunCounts,
+            timestamp: sessionTimestamp
+        ))
+        return true
+    }
+
+    /// Reopens a kept session (LATER-1): its runs, time and phone timestamp,
+    /// with the clock stopped and the Previous session menu up until answered.
+    private func restore(_ saved: KeptSession) {
+        let runs = saved.runs
+        var durations = Array(saved.runDurationsMillis.prefix(runs.count))
+        while durations.count < runs.count { durations.append(0) }
+        let shapeOk = saved.shapeSums.count == runs.count && saved.shapeCounts.count == runs.count
+        detector.restoreRuns(
+            catches: runs,
+            durationsMillis: durations,
+            shapeSums: shapeOk ? saved.shapeSums : Array(repeating: 0, count: runs.count),
+            shapeCounts: shapeOk ? saved.shapeCounts : Array(repeating: 0, count: runs.count)
+        )
+        stretchFirstRun = runs.count
+        priorSeconds = saved.elapsedSeconds
+        sessionTimestamp = saved.timestamp
+        sessionEndMs = clock.nowMs()
+        let detail = "\(detector.ballCount) balls, \(runs.count) \(runs.count == 1 ? "run" : "runs")"
+        menu = MenuSpec(
+            kind: Self.menuResume,
+            title: "Previous session",
+            items: [
+                MenuItemSpec(id: Self.itemContinue, label: "Continue", subLabel: detail),
+                MenuItemSpec(id: Self.itemSyncQuit, label: "Sync and quit"),
+                MenuItemSpec(id: Self.itemDiscardSession, label: "Discard"),
+            ]
+        )
+    }
+
+    /// LATER-4: throws the kept session away and goes to the first screen.
+    private func discardSession() {
+        store.clear()
+        exitQuietly()
+        onDiscarded?()
+    }
+
+    private func startActivity() {
+        activityStarted = true
+        stretchFirstRun = detector.sessionRuns
+        recorder.start()
+    }
+
+    /// ACT-2: saved with this stretch's stats when it has a run, else discarded.
+    private func endActivity() {
+        if !activityStarted || activityEnded { return }
+        activityEnded = true
+        let runs = detector.runCatches
+        let stretch = runs.dropFirst(Swift.min(stretchFirstRun, runs.count))
+        if stretch.isEmpty {
+            recorder.discard()
+        } else {
+            recorder.save(balls: detector.ballCount, average: Double(stretch.reduce(0, +)) / Double(stretch.count))
+        }
+    }
+
+    /// Closes the session finished: nothing stays kept.
     private func exit() {
+        if exited { return }
+        store.clear()
+        exitKeeping()
+    }
+
+    /// Closes the session, leaving the store as it is.
+    private func exitKeeping() {
+        if exited { return }
+        exitQuietly()
+        effects.exit()
+    }
+
+    /// Ends the session without leaving it.
+    private func exitQuietly() {
         if exited { return }
         exited = true
         cancelSyncTimer()
         cancelStatusTimer()
         link.setMessageListener(nil)
-        effects.exit()
+        endActivity()
     }
 
     private func sessionDurationSeconds() -> Int64 {
         let end = sessionEndMs ?? clock.nowMs()
-        return Swift.max(end - sessionStartMs - pausedMs, 0) / 1000
+        return priorSeconds + Swift.max(end - sessionStartMs - pausedMs, 0) / 1000
     }
 
     private func publish() {

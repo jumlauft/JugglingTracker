@@ -94,6 +94,8 @@ private final class ScenarioRun {
     private let scheduler = FakeScheduler()
     private let link = FakePhoneLink()
     private let effects = FakeEffects()
+    private let recorder = FakeActivityRecorder()
+    private let store = FakeSessionStore()
     private var epoch: Int64
     private var t: Int64 = 0
     private var navigator: AppNavigator!
@@ -101,20 +103,29 @@ private final class ScenarioRun {
     init(_ scenario: [String: Any]) {
         self.scenario = scenario
         epoch = WatchProtocol.int64(scenario["epochSeconds"]) ?? 1_700_000_000
-        navigator = AppNavigator(
-            newTracker: { [unowned self] balls in
-                TrackerSession(
-                    ballCount: balls, link: self.link, scheduler: self.scheduler, clock: self.scheduler,
-                    effects: self.effects, epochSeconds: { [unowned self] in self.epoch }
-                )
-            },
+        navigator = launch()
+    }
+
+    /// The app opening on this watch, with its storage and clock.
+    private func launch() -> AppNavigator {
+        AppNavigator(
+            newTracker: { [unowned self] balls in self.tracker(balls, saved: nil) },
             newRecording: { [unowned self] balls in
                 RecordingSession(
                     ballCount: balls, link: self.link, scheduler: self.scheduler, effects: self.effects,
                     epochSeconds: { [unowned self] in self.epoch }
                 )
             },
-            effects: effects
+            effects: effects,
+            resumeTracker: { [unowned self] in self.store.load().map { self.tracker($0.balls, saved: $0) } }
+        )
+    }
+
+    private func tracker(_ balls: Int, saved: KeptSession?) -> TrackerSession {
+        TrackerSession(
+            ballCount: balls, link: link, scheduler: scheduler, clock: scheduler,
+            effects: effects, epochSeconds: { [unowned self] in self.epoch },
+            recorder: recorder, store: store, saved: saved
         )
     }
 
@@ -177,6 +188,9 @@ private final class ScenarioRun {
             let delivered = (value as? Bool) ?? false
             if let index = step["index"] { link.complete(delivered, index: int(index)) } else { link.complete(delivered) }
         case "deliverAll": deliverAll()
+        // The shared scenarios relaunch only after the app has closed itself,
+        // so there is nothing to close here first.
+        case "relaunch": navigator = launch()
         case "phone": link.listener?(value as? [String: Any] ?? [:])
         case "expect": try expect(value as? [String: Any] ?? [:])
         default: throw Failure(message: "unknown step \(key)")
@@ -251,6 +265,11 @@ private final class ScenarioRun {
             case "vibrations": actual = effects.vibrations
             case "sentTypes": actual = collapsed(link.types)
             case "sentCount": actual = link.sent.count
+            case "stored": actual = store.value != nil
+            case "activityState": actual = recorder.state
+            case "activitiesSaved": actual = recorder.savedAverages.count
+            case "activityAverages": actual = recorder.savedAverages
+            case "elapsed": actual = tracker?.elapsedSeconds
             case "firstSent":
                 try checkSubset(key, expected as? [String: Any] ?? [:], link.sent.first)
                 continue

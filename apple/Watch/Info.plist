@@ -25,7 +25,7 @@
 	<key>NSHealthShareUsageDescription</key>
 	<string>Juggling Tracker runs a workout while you juggle so it keeps counting with your wrist down. It reads nothing from Health.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>Juggling Tracker runs a workout while you juggle so it keeps counting with your wrist down. It saves nothing to Health.</string>
+	<string>Juggling Tracker saves each juggling session as a workout in Health, with the number of balls and your average catches per run, and runs it while you juggle so it keeps counting with your wrist down.</string>
 	<key>WKApplication</key>
 	<true/>
 	<key>WKBackgroundModes</key>

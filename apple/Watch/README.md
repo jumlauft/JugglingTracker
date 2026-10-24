@@ -27,7 +27,7 @@ later.
   - `MotionSource.swift` - CoreMotion accelerometer, 50 Hz thinned to 25 Hz,
     in milli-g including gravity, handed over in one-second batches.
   - `WorkoutKeeper.swift` - the workout session that keeps counting with the
-    wrist down.
+    wrist down, and saves each Juggle stretch to Health as a workout (ACT-1).
   - `Platform.swift` - main-queue timers and haptics.
   - `PhoneConnectivity.swift` - `WCSession`, forwarded to the phone link.
   - `Screens.swift` - SwiftUI screens.
@@ -78,8 +78,8 @@ samples, as on Wear OS) and `rec_end`. Each one is a `sendMessage`, which wakes
 the iPhone app in the background if it is not open. The phone answers every
 message, with its `ack` once it has stored a session or a whole run and an
 empty reply otherwise; only the ack closes the session. With no iPhone in
-reach a send fails, so ending a session offers Retry sync, Quit without sync
-and Continue, as a Garmin out of reach of its phone does.
+reach a send fails, so ending a session offers Retry sync, Quit without sync,
+Continue later and Continue, as a Garmin out of reach of its phone does.
 
 ## Tests
 
@@ -91,7 +91,8 @@ name carries its requirement id.
 | APP-1 to APP-5, REC-11 | `AppNavigatorTests` |
 | DET-1 to DET-11, RUN, SHAPE-1 to SHAPE-3 | `../JugglingCore/Tests` (DET-1 in `SampleThrottleTests`) |
 | SHAPE-4, JUG-1 formats | `FormatTests` |
-| JUG-1 to JUG-8, SYNC-1 to SYNC-5 | `TrackerSessionTests` |
+| JUG-1 to JUG-9, SYNC-1 to SYNC-5 | `TrackerSessionTests` |
+| LATER-1 to LATER-5, ACT-2, ACT-3 | `ScenarioTests` (the `later_*` and `act_*` scenarios) |
 | REC-1 to REC-10 | `RecordingSessionTests` |
 
 `ScenarioTests` also replays every workflow in `../../connectiq/scenarios`,
@@ -100,5 +101,20 @@ apart without a test failing. Add a scenario there when a workflow changes.
 
 Not covered by an automated test: drawing, the Digital Crown, haptics
 (JUG-7 is covered as a call), the accelerometer itself (SENS-1 to SENS-4)
-and the workout session. There is no Apple Watch to try them on yet, so they
+and the workout session, including the workout it saves to Health (ACT-1). There is no Apple Watch to try them on yet, so they
 have only run in the simulator.
+
+## Continue later and the workout
+
+*Continue later* keeps the session in `UserDefaults` (`DefaultsSessionStore`)
+and the app goes back to its first screen, which then shows the Previous
+session menu (Continue, Sync and quit, Discard), as the Garmin does when it
+is next opened (LATER-1 to LATER-5). A watchOS app cannot close itself, so
+here the menu shows straight away rather than at the next launch.
+
+Each stretch of juggling is saved as an "Other" workout in Health, with the
+ball count and the stretch's average catches per run in its metadata
+(`JugglingTrackerBalls`, `JugglingTrackerAverageCatchesPerRun`). The workout
+pauses while the session-end menu is up. Leaving the app without ending the
+session keeps the same workout running; a session continued later starts a
+new workout, as on the Garmin (ACT-3). Record mode saves no workout.
